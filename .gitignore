@@ -1,0 +1,16 @@
+.idea/
+.vscode/
+config_files/
+dh@google/
+local/
+logs/
+report2bq-3.7/
+report_files/
+**/*.csv
+**/*.pyc
+.history/
+*.log
+output.txt
+output2.txt
+report2bq.zip
+**/__pycache__/
