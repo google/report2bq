@@ -97,8 +97,11 @@ class DBM(object):
     # Execute request
     results = reports.execute()
     if results:
-      ordered = sorted(results['reports'], key=lambda k: int(k['metadata']['status']['finishTimeMs']))
-      return ordered[-1]
+      if 'reports' in results:
+        ordered = sorted(results['reports'], key=lambda k: int(k['metadata']['status']['finishTimeMs']))
+        return ordered[-1]
+      else:
+        logging.info('No reports - has this report run successfully yet?')
 
     # None found, return empty object
     return {}

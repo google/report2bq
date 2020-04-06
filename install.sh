@@ -213,7 +213,7 @@ if [ ${DEPLOY_CODE} -eq 1 ]; then
   fi
 
   # Create the zip
-  ${DRY_RUN} zip report2bq.zip main.py requirements.txt README LICENSE classes/*.py cloud_functions/*.py
+  ${DRY_RUN} zip report2bq.zip main.py requirements.txt README.md LICENSE classes/*.py cloud_functions/*.py screenshots/*.*
 
   # Copy it up
   ${DRY_RUN} gsutil cp report2bq.zip gs://${PROJECT}-report2bq > /dev/null 2>&1

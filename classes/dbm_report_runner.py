@@ -86,7 +86,7 @@ class DBMReportRunner(object):
         break 
 
       runner = {
-        'type': Type.DV360,
+        'type': Type.DV360.value,
         'project': self.project,
         'report_id': dbm_id,
         'email': self.email,

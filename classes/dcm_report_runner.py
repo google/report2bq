@@ -84,7 +84,7 @@ class DCMReportRunner(object):
         break
 
       runner = {
-        'type': Type.CM,
+        'type': Type.CM.value,
         'project': self.project,
         'report_id': cm_id,
         'email': self.email,

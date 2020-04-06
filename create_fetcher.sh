@@ -80,6 +80,9 @@ Options:
                   For ADH this defaults to 2
                   For SA360 this defaults to 3
                   For report runners this defaults to 1
+    --time-zone   Timezone for the job. Default is the value in /etc/timezone, or UTC if that file is
+                  not present. If you type it manually, the value of this field must be a time zone
+                  name from the TZ database (http://en.wikipedia.org/wiki/Tz_database)
     --description Plain text description for the scheduler list
 
     --usage       Show this text
@@ -99,6 +102,7 @@ DAYS=60                             # Default day lookback for ADH
 IS_RUNNER=0                         # Is this a 'run' or a 'fetch'
 DEST_PROJECT=                       # Destination project for ADH querys
 DEST_DATASET=                       # Destination dataset for ADH querys
+TIMEZONE=                           # Timezone
 
 # Command line parameter parser
 while [[ $1 == -* ]] ; do
@@ -173,6 +177,9 @@ while [[ $1 == -* ]] ; do
       ;;
     --description*)
       IFS="=" read _cmd DESCRIPTION <<< "$1" && [ -z "${DESCRIPTION}" ] && shift && DESCRIPTION="$1"
+      ;;
+    --time-zone*)
+      IFS="=" read _cmd TIMEZONE <<< "$1" && [ -z "${TIMEZONE}" ] && shift && TIMEZONE="$1"
       ;;
     --help)
       usage
@@ -255,7 +262,14 @@ elif [ "x${PROFILE}" == "x" ]; then
   if [[ ${IS_RUNNER} -eq 1 ]]; then
     TRIGGER="report-runner"
     NAME="run"
-    [ "${HOUR}" -eq "*" ] && HOUR=1
+    case ${HOUR} in
+      "")
+        HOUR=1
+        ;;
+      *)
+        HOUR="*"
+        ;;
+    esac
   else
     TRIGGER="report2bq-trigger"
     NAME="fetch"
@@ -266,14 +280,21 @@ elif [ "x${PROFILE}" == "x" ]; then
   parameters=(
     ${parameters[@]}
     "dv360_id=${REPORT_ID}"
-    "type=dv360"
+    "type=dbm"
   )
 else
   # CM
   if [[ ${IS_RUNNER} -eq 1 ]]; then
     TRIGGER="report-runner"
     NAME="run"
-    [ "${HOUR}" == "*" ] && HOUR=1
+    case ${HOUR} in
+      "")
+        HOUR=1
+        ;;
+      *)
+        HOUR="*"
+        ;;
+    esac
   else
     TRIGGER="report2bq-trigger"
     NAME="fetch"
@@ -290,6 +311,14 @@ else
 fi
 
 if [ "x${FETCHER}" != "x" ]; then
+  if [ ! -z "${TIMEZONE}" ]; then
+    _TZ="--time-zone=${TIMEZONE}"
+  else
+    if [ -f /etc/timezone ]; then
+      _TZ="--time-zone=`cat /etc/timezone`"
+    fi
+  fi
+
   ATTRIBUTES=
   for i in ${parameters[@]}; do
     if [ "x${ATTRIBUTES}" == "x" ]; then
@@ -318,7 +347,7 @@ if [ "x${FETCHER}" != "x" ]; then
     --schedule="${TIMER} ${HOUR} * * *" \
     --topic="projects/${PROJECT}/topics/${TRIGGER}" \
     --attributes="${ATTRIBUTES}" \
-    --time-zone="America/Toronto" \
+    ${_TZ} \
     --message-body="RUN" \
     --description="${_DESC}" \
     --project=${PROJECT}
