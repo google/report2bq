@@ -1,5 +1,5 @@
 """
-Copyright 2018 Google LLC
+Copyright 2020 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -53,12 +53,14 @@ class OAuthStorage(Storage):
 
 class OAuth(object):
   SCOPES = [
-      'https://www.googleapis.com/auth/doubleclickbidmanager', # DBM
-      'https://www.googleapis.com/auth/dfareporting',          # DCM
-      'https://www.googleapis.com/auth/bigquery',              # BigQuery
-      'https://www.googleapis.com/auth/devstorage.read_write', # GCS
-      'https://www.googleapis.com/auth/datastore',             # Firestore
-      'https://www.googleapis.com/auth/doubleclicksearch'      # SA360
+    'https://www.googleapis.com/auth/adsdatahub', # ADH
+    'https://www.googleapis.com/auth/bigquery', # BigQuery
+    'https://www.googleapis.com/auth/cloud-platform', # Cloud Platform
+    'https://www.googleapis.com/auth/datastore', # Firestore
+    'https://www.googleapis.com/auth/dfareporting', # DCM Reporting
+    'https://www.googleapis.com/auth/devstorage.read_write', # GCS
+    'https://www.googleapis.com/auth/doubleclickbidmanager', # DBM
+    'https://www.googleapis.com/auth/doubleclicksearch', # Firestore
   ]
 
   def oauth_init(self, request: Request, project: str, email: str):

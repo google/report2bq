@@ -1,5 +1,5 @@
 """
-Copyright 2018 Google LLC
+Copyright 2020 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,13 +28,14 @@ from google_auth_oauthlib import flow
 appflow = flow.InstalledAppFlow.from_client_secrets_file(
     'config_files/client_secrets.json',
     scopes = [
-        'https://www.googleapis.com/auth/adsdatahub', # ADH
-        'https://www.googleapis.com/auth/doubleclickbidmanager', # DBM
-        'https://www.googleapis.com/auth/dfareporting', # DCM Reporting
-        'https://www.googleapis.com/auth/bigquery', # BigQuery
-        'https://www.googleapis.com/auth/devstorage.read_write', # GCS
-        'https://www.googleapis.com/auth/datastore', # Firestore
-        'https://www.googleapis.com/auth/doubleclicksearch' # Firestore
+      'https://www.googleapis.com/auth/adsdatahub', # ADH
+      'https://www.googleapis.com/auth/bigquery', # BigQuery
+      'https://www.googleapis.com/auth/cloud-platform', # Cloud Platform
+      'https://www.googleapis.com/auth/datastore', # Firestore
+      'https://www.googleapis.com/auth/dfareporting', # DCM Reporting
+      'https://www.googleapis.com/auth/devstorage.read_write', # GCS
+      'https://www.googleapis.com/auth/doubleclickbidmanager', # DBM
+      'https://www.googleapis.com/auth/doubleclicksearch', # Firestore
     ]
 )
 

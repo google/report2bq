@@ -1,5 +1,5 @@
 """
-Copyright 2018 Google LLC
+Copyright 2020 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -189,8 +189,8 @@ class DBM(object):
     return 'UNKNOWN'
 
 
-  def read_header(self, report_details: dict, storage: Cloud_Storage) -> list:
-    data = storage.read_chunk(report_details, 16384)
+  def read_header(self, report_details: dict) -> list:
+    data = Cloud_Storage.read_chunk(report_details, 16384, self.credentials)
     bytes_io = io.BytesIO(bytes(data, 'utf-8'))
 
     return CSVHelpers.get_column_types(bytes_io)

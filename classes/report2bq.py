@@ -1,5 +1,5 @@
 """
-Copyright 2018 Google LLC
+Copyright 2020 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ class Report2BQ(object):
     self.in_cloud = in_cloud
     self.project = project
 
-    self.storage = Cloud_Storage(in_cloud=in_cloud, email=email, project=project)
+    # self.storage = Cloud_Storage(in_cloud=in_cloud, email=email, project=project)
     self.firestore = Firestore(in_cloud=in_cloud, email=email, project=project)    
 
 
@@ -81,8 +81,7 @@ class Report2BQ(object):
 
         if not last_report or self.rebuild_schema:
           # Store Report Details
-          # csv_header = self.storage.read_first_line(report_data)
-          csv_header, _ = dbm.read_header(report_data, self.storage)
+          csv_header, _ = dbm.read_header(report_data)
           schema = CSVHelpers.create_table_schema(csv_header)
           report_data['schema'] = schema
 
@@ -92,7 +91,7 @@ class Report2BQ(object):
         report_data['email'] = self.email
         report_data['append'] = self.append
         self.firestore.store_report_config(Type.DBM, id, report_data)
-        Cloud_Storage.copy_to_gcs('{project}-report2bq-upload'.format(project=self.project), report_data)
+        Cloud_Storage.copy_to_gcs('{project}-report2bq-upload'.format(project=self.project), report_data, credentials=dbm.credentials)
 
 
   def handle_cm_reports(self):
@@ -125,11 +124,11 @@ class Report2BQ(object):
         report_data['email'] = self.email
         report_data['append'] = self.append
         self.firestore.store_report_config(Type.DCM, id, report_data)
-        dcm._stream_to_gcs(bucket='{project}-report2bq-upload'.format(project=self.project), report_data=report_data, storage=self.storage)
+        dcm._stream_to_gcs(bucket='{project}-report2bq-upload'.format(project=self.project), report_data=report_data)
 
 
   def handle_sa360(self):
-    sa360 = SA360(project=self.project, email=self.email, _storage=self.storage)
+    sa360 = SA360(project=self.project, email=self.email)
 
     logging.info(self.sa360_url)
     id = re.match(r'^.*rid=([0-9]+).*$', self.sa360_url).group(1)

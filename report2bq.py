@@ -1,5 +1,5 @@
 """
-Copyright 2018 Google LLC
+Copyright 2020 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -119,7 +119,7 @@ def main(unused_argv):
     in_cloud=True, 
     append=FLAGS.append,
     project=FLAGS.project,
-    sa360_url=unquote(FLAGS.sa360_url),
+    sa360_url=unquote(FLAGS.sa360_url) if FLAGS.sa360_url else None,
     sa360=(True if FLAGS.sa360_url else False)
   )
   reporter.run()

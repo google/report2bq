@@ -1,5 +1,5 @@
 """
-Copyright 2018 Google LLC
+Copyright 2020 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ class Cloud_Storage(object):
 
 
   @staticmethod
-  def copy_to_gcs(bucket_name: str, report: Dict[str, Any]):
+  def copy_to_gcs(bucket_name: str, report: Dict[str, Any], credentials=None):
     """copy from one bucket to another
 
     This is a copy from the bucket defined in the report definition (as DV360 stores it's
@@ -65,7 +65,7 @@ class Cloud_Storage(object):
         bucket_name {str} -- destination bucket name
         report {Dict[str, Any]} -- report definition
     """
-    client = storage.Client()
+    client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
 
     path_segments = report['current_path'].split('/')
     report_bucket = path_segments[-2]
@@ -84,7 +84,7 @@ class Cloud_Storage(object):
 
 
   @staticmethod
-  def fetch_file(bucket: str, file: str) -> str:
+  def fetch_file(bucket: str, file: str, credentials=None) -> str:
     """fetch a file from GCS
     
     Arguments:
@@ -94,7 +94,7 @@ class Cloud_Storage(object):
     Returns:
       {str} -- file content
     """
-    client = storage.Client()
+    client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
 
     # logging.info('Fetching {f} from GCS'.format(f=file))
 
@@ -108,8 +108,8 @@ class Cloud_Storage(object):
 
 
   @staticmethod
-  def write_file(bucket: str, file: str, data: bytes) -> None:
-    client = storage.Client()
+  def write_file(bucket: str, file: str, data: bytes, credentials=None) -> None:
+    client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
 
     # logging.info(f'Writing {file} to GCS: {len(data)}')
 
@@ -118,3 +118,26 @@ class Cloud_Storage(object):
     except Exception as ex:
       content = None
       logging.error(f'Error writing file {file}\n{ex}')
+
+
+  @staticmethod
+  def read_first_line(report: dict, chunk: int=4096, credentials=None) -> str:
+    client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
+
+    header = client.read_chunk(report, chunk, credentials=credentials).split('\n')[0]
+    return header
+
+
+  @staticmethod
+  def read_chunk(report: dict, chunk: int=4096, credentials=None) -> str:
+    client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
+
+    path_segments = report['current_path'].split('/')
+    report_bucket = path_segments[-2]
+    report_blob_name = path_segments[-1].split('?')[0]
+
+    source_bucket = Bucket(client, report_bucket)
+    blob = source_bucket.blob(report_blob_name)
+
+    data = blob.download_as_string(start=0, end=chunk, raw_download=True).decode('utf-8')
+    return data

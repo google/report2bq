@@ -1,5 +1,5 @@
 """
-Copyright 2018 Google LLC
+Copyright 2020 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -51,13 +51,12 @@ from queue import Queue, Empty
 
 
 class SA360(object):
-  def __init__(self, email: str, project: str, _storage: Cloud_Storage):
+  def __init__(self, email: str, project: str):
     self.email = email
     self.project = project
-    self.storage = storage.Client()
-    self.credentials = self.storage._credentials
-    self.transport = AuthorizedSession(credentials=self.credentials)
     self.creds = Credentials(email=email, project=project)
+    self.credentials = storage.Client()._credentials
+    self.transport = AuthorizedSession(credentials=self.credentials)
      
 
   def _soupify(self, data: BytesIO) -> BeautifulSoup:

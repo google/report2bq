@@ -1,5 +1,5 @@
 """
-Copyright 2018 Google LLC
+Copyright 2020 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -389,16 +389,15 @@ class DCM(object):
     return CSVHelpers.get_column_types(io.BytesIO(bytes_io.read()))
     
     
-  def _stream_to_gcs(self, bucket: str, report_data: dict, storage: Cloud_Storage):
+  def _stream_to_gcs(self, bucket: str, report_data: dict):
     """Multi-threaded stream to GCS
     
     Arguments:
         bucket {str} -- GCS Bucket
         report_data {dict} -- Report definition
-        storage {Cloud_Storage} -- GCS Client
     """
     queue = Queue()
-    
+
     report_id = report_data['id']
     file_id = report_data['report_file']['id']
 
@@ -409,7 +408,7 @@ class DCM(object):
     downloader = http.MediaIoBaseDownload(out_file, download_request, chunksize=chunk_size)
 
     # Execute the get request and download the file.
-    streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage(in_cloud=storage.in_cloud, email=storage.email, project=storage.project).client, 
+    streamer = ThreadedGCSObjectStreamUpload(client=client, 
                                              bucket_name=bucket,
                                              blob_name='{id}.csv'.format(id=report_id), 
                                              chunk_size=chunk_size, 
