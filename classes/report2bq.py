@@ -91,7 +91,8 @@ class Report2BQ(object):
         report_data['email'] = self.email
         report_data['append'] = self.append
         self.firestore.store_report_config(Type.DBM, id, report_data)
-        Cloud_Storage.copy_to_gcs('{project}-report2bq-upload'.format(project=self.project), report_data, credentials=dbm.credentials)
+        # Cloud_Storage.copy_to_gcs('{project}-report2bq-upload'.format(project=self.project), report_data, credentials=dbm.credentials)
+        dbm.stream_to_gcs(f'{self.project}-report2bq-upload', report_data)
 
 
   def handle_cm_reports(self):

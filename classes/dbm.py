@@ -36,6 +36,11 @@ from apiclient import discovery
 from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials
 from classes.csv_helpers import CSVHelpers
+from classes.threaded_streamer import ThreadedGCSObjectStreamUpload
+
+# Other imports
+from queue import Queue, Empty
+from typing import Dict, Any
 
 
 class DBM(object):
@@ -194,3 +199,58 @@ class DBM(object):
     bytes_io = io.BytesIO(bytes(data, 'utf-8'))
 
     return CSVHelpers.get_column_types(bytes_io)
+
+
+  def stream_to_gcs(self, bucket: str, report_data: Dict[str, Any]) -> None:
+    """Multi-threaded stream to GCS
+    
+    Arguments:
+        bucket {str} -- GCS Bucket
+        report_data {dict} -- Report definition
+    """
+    queue = Queue()
+
+    report_id = report_data['id']
+    chunk_size = 4 * 1024 * 1024
+    out_file = io.BytesIO()
+
+    streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(credentials=self.credentials), 
+                                             bucket_name=bucket,
+                                             blob_name='{id}.csv'.format(id=report_id), 
+                                             chunk_size=chunk_size, 
+                                             queue=queue)
+    streamer.start()
+
+    _report = Cloud_Storage.get_report_file(report=report_data, credentials=self.credentials)
+    _report.reload()
+    _downloaded = 0
+    chunk_id = 0
+    while _downloaded < _report.size:
+      chunk = _report.download_as_string(start=_downloaded, end=_downloaded + chunk_size, raw_download=True)
+      _report_size = _report.size
+      _downloaded += len(chunk)
+      if _downloaded >= _report.size:
+        # last chunk...
+        last = io.BytesIO(chunk)
+
+        # lose the footer
+        total_pos = last.getvalue().rfind(b'Report Time')
+        if total_pos != -1:
+          last.truncate(total_pos)
+
+        # now the grand total, which for DV360 is not titled
+        comma_pos = last.getvalue().rfind(b',')
+        newline_pos = last.getvalue().rfind(b'\n', comma_pos)
+        if newline_pos != -1:
+          last.truncate(newline_pos)
+
+        queue.put((chunk_id, last.getvalue()))
+        break
+
+      else:
+        queue.put((chunk_id, chunk))
+
+      chunk_id += 1
+
+    queue.join()
+    streamer.stop()

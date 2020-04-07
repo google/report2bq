@@ -50,6 +50,9 @@ class Cloud_Storage(object):
     # credentials = Credentials(email=email, project=project, in_cloud=in_cloud)
     # self.client = storage.Client(credentials=credentials.get_credentials())
 
+  @staticmethod
+  def client(credentials=None) -> storage.Client:
+    return storage.Client(credentials=(credentials.get_credentials() if credentials else None))
 
   @staticmethod
   def copy_to_gcs(bucket_name: str, report: Dict[str, Any], credentials=None):
@@ -129,7 +132,7 @@ class Cloud_Storage(object):
 
 
   @staticmethod
-  def read_chunk(report: dict, chunk: int=4096, credentials=None) -> str:
+  def read_chunk(report: dict, chunk: int=4096, credentials=None, start: int=0) -> str:
     client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
 
     path_segments = report['current_path'].split('/')
@@ -139,5 +142,32 @@ class Cloud_Storage(object):
     source_bucket = Bucket(client, report_bucket)
     blob = source_bucket.blob(report_blob_name)
 
-    data = blob.download_as_string(start=0, end=chunk, raw_download=True).decode('utf-8')
+    data = blob.download_as_string(start=start, end=chunk, raw_download=True).decode('utf-8')
     return data
+
+
+  @staticmethod
+  def get_report_file(report: dict, credentials=None) -> str:
+    """get_report_file
+
+    Find and return just the blob. We'll use this in DV360 to be able to stream the file in pieces
+    so we can drop out the footer.
+    
+    Arguments:
+        report {dict} -- [description]
+    
+    Keyword Arguments:
+        credentials {credentiala} -- [description] (default: {None})
+    
+    Returns:
+        str -- [description]
+    """
+    client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
+
+    path_segments = report['current_path'].split('/')
+    report_bucket = path_segments[-2]
+    report_blob_name = path_segments[-1].split('?')[0]
+
+    source_bucket = Bucket(client, report_bucket)
+    blob = source_bucket.blob(report_blob_name)
+    return blob
