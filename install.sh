@@ -197,9 +197,9 @@ if [ ${DEPLOY_STORAGE} -eq 1 ]; then
 fi
 
 if [ ${CREATE_SERVICE_ACCOUNT} -eq 1 ]; then
-  gcloud iam service-accounts create report2bq --description "Report2BQ Service Account" --project ${PROJECT} 
-  gcloud iam service-accounts keys create "report2bq@${PROJECT}.iam.gserviceaccount.com.json" --iam-account report2bq@${PROJECT}.iam.gserviceaccount.com --project ${PROJECT} 
-  gsutil cp "report2bq@${PROJECT}.iam.gserviceaccount.com.json" gs://${PROJECT}-report2bq-tokens/
+  ${DRY_RUN} gcloud iam service-accounts create report2bq --description "Report2BQ Service Account" --project ${PROJECT} 
+  ${DRY_RUN} gcloud iam service-accounts keys create "report2bq@${PROJECT}.iam.gserviceaccount.com.json" --iam-account report2bq@${PROJECT}.iam.gserviceaccount.com --project ${PROJECT} 
+  ${DRY_RUN} gsutil cp "report2bq@${PROJECT}.iam.gserviceaccount.com.json" gs://${PROJECT}-report2bq-tokens/
 fi
 
 if [ ${DEPLOY_CODE} -eq 1 ]; then
@@ -213,7 +213,7 @@ if [ ${DEPLOY_CODE} -eq 1 ]; then
   fi
 
   # Create the zip
-  ${DRY_RUN} zip report2bq.zip main.py requirements.txt README.md LICENSE classes/*.py cloud_functions/*.py screenshots/*.*
+  ${DRY_RUN} zip report2bq.zip main.py requirements.txt README.md LICENSE CONTRIBUTING.md classes/*.py cloud_functions/*.py screenshots/*.*
 
   # Copy it up
   ${DRY_RUN} gsutil cp report2bq.zip gs://${PROJECT}-report2bq > /dev/null 2>&1

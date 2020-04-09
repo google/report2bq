@@ -57,15 +57,16 @@ class JobMonitor(object):
     documents = self.firestore.get_all_jobs()
     for document in documents:
       api_repr = document.get().to_dict()
-      job = LoadJob.from_api_repr(api_repr, self.bq)
-      job.reload()
+      if api_repr:
+        job = LoadJob.from_api_repr(api_repr, self.bq)
+        job.reload()
 
-      if job.state == 'DONE':
-        if job.error_result:
-          logging.error(job.errors)
+        if job.state == 'DONE':
+          if job.error_result:
+            logging.error(job.errors)
 
-        self.firestore.mark_import_job_complete(document.id, job)
-        self._handle_finished(job=job)
+          self.firestore.mark_import_job_complete(document.id, job)
+          self._handle_finished(job=job)
 
 
   def _handle_finished(self, job: LoadJob):

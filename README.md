@@ -41,10 +41,11 @@ Ensure you have the latest versions of the Google Cloud SDK, so run \
 And allow it to update
 
 1. Run the installer \
-`./install.sh --project=<PROJECT_NAME> --dataset=<DATASET_NAME> --create-service-account --activate-apis --deploy-code --deploy-all --dry-run` \
+`./install.sh --project=<PROJECT ID> --dataset=<DATASET NAME> --create-service-account --activate-apis --deploy-code --deploy-all --dry-run` \
 Project id comes from the GCP dashboard: \
 ![](screenshots/1-project_id.png) \
-`--dry-run` simply shows what the code is _going_ to do, without actually doing anything. 
+`--dry-run` simply shows what the code is _going_ to do, without actually doing anything.  
+`<DATASET NAME>` default to `report2bq` if you don't choose your own.  
 For detailed directions on what the installer can do, please see later or check out the script's own help with
 `./installer.sh --help` \
 **NOTE**: You can safely ignore any messages that say `ERROR: Failed to delete topic` at this point.
@@ -55,7 +56,7 @@ sense to you.
 1. When the installer is finished (this will take a while, possibly as long as half an hour) go to the cloud console
 in your browser, and go to Firestore.
 
-1. Set Firestore to "Native" mode. This **must** be done, and **cannot** be dome programatically
+1. Set Firestore to "Native" mode. This **must** be done, and **cannot** be done programatically
 
 1. Go to API > Credentials
 
@@ -71,25 +72,11 @@ Click SAVE \
 1. Update the OAuth consent screen \
 ![](screenshots/2-OAuth_consent.png)
 
-1. Create the server's OAuth Id \
-Go to the API Credentials page and create new credentials. These should be of type
-'Web Application'. \
-![](screenshots/4-OAuthClientId.png) \
-Now name it something sensible and memorable like 'Report2BQ oAuth Client Id'.
-
-1. Download the file and save it to the tokens bucket \
-![](screenshots/5-OAuth_client.png) \
-Click on the download button to save the file. Now upload it to the token storage bucket in the
-cloud, renaming it "client_secrets.json" as you go. You can do this through the web, or using the
-CLI `gsutil` command like this: \
-`gsutil cp <DOWNLOADED FILE> gs://<PROJECT ID>-report2bq-tokens/client_secrets.json`
-
-1. The Final step: enable the OAuth flow \
-At the command line, issue the following command:
+1. Enable the OAuth flow[](#https-trigger) \
+At the command line, issue the following command:  
 `gcloud functions describe OAuthComplete --project=<PROJECT ID>`  \
-This will go to the newly deployed cloud function and fetch the description. You need the 
-line after `httpsTrigger:`, that starts `url:` \
-
+This will go to the newly deployed cloud function and fetch the description. You need the  
+line after `httpsTrigger:`, that starts `url:` 
 ```availableMemoryMb: 256
 entryPoint: oauth_complete
 httpsTrigger:
@@ -106,11 +93,24 @@ timeout: 60s
 updateTime: '2020-04-01T13:58:49.557Z'
 versionId: '3'
 ```
-Now go back to the OAuth client if you defined in steps 10 and 11, and click the edity button (looks like a pencil) \
+
+1. Create the server's OAuth Id \
+Go to the API Credentials page and create new credentials. These should be of type
+'Web Application'. \
+![](screenshots/4-OAuthClientId.png) \
+Now name it something sensible and memorable like 'Report2BQ oAuth Client Id'. \
+Define the authorized redirect urls to be able to complete the OAuth flow.\
 ![](screenshots/6-RedirectURI.png) \
 Click "+ ADD URI"  and this screen will show up: \
 ![](screenshots/7-OAuthRedirectURI.png) \
-Paste in the `httpsTrigger` URL, and click SAVE.
+Paste in the `httpsTrigger` URL from [here](#https-trigger) , and click SAVE.
+
+1. Download the file and save it to the tokens bucket \
+![](screenshots/5-OAuth_client.png) \
+Click on the download button to save the file. Now upload it to the token storage bucket in the
+cloud, renaming it "client_secrets.json" as you go. You can do this through the web, or using the
+CLI `gsutil` command like this: \
+`gsutil cp <DOWNLOADED FILE> gs://<PROJECT ID>-report2bq-tokens/client_secrets.json`
 
 
 ## DOCUMENTATION

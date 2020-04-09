@@ -30,7 +30,7 @@ import google.oauth2.credentials
 from classes.files import Files
 from classes.cloud_storage import Cloud_Storage
 from google.cloud import storage
-
+from typing import Any, Dict
 
 class Credentials(object):
   """Credentials handler
@@ -43,18 +43,17 @@ class Credentials(object):
     """
     if not self.creds:
       if in_cloud:
-        self.project_credentials = json.loads(
-          Cloud_Storage.fetch_file(
-            '{project}-report2bq-tokens'.format(project=project),
-            'client_secrets.json'
-          )
-        )
-        self.token_details = json.loads(
-          Cloud_Storage.fetch_file(
-            '{project}-report2bq-tokens'.format(project=project), 
-            '{email}_user_token.json'.format(email=email)
-          )
-        )
+        bucket = f'{project}-report2bq-tokens'
+        client_token = f'{email}_user_token.json'
+        self.project_credentials = json.loads(Cloud_Storage.fetch_file(bucket=bucket, file='client_secrets.json'))
+        self.token_details = json.loads(Cloud_Storage.fetch_file(bucket=bucket, file=client_token))
+        creds = Credentials._refresh_credentials(project_credentials=self.project_credentials, user_token=self.token_details)
+        refresh_token_details = {
+          'access_token': creds.token,
+          'refresh_token': creds.refresh_token
+        }
+        self.creds = creds
+        Cloud_Storage.write_file(bucket=bucket, file=client_token, data=json.dumps(refresh_token_details).encode('utf-8'))
 
       else:
         # File paths
@@ -69,22 +68,27 @@ class Credentials(object):
         with open(token_details_path) as file:
           self.token_details = json.load(file)
 
-      # Remove top-level element
-      secrets = self.project_credentials['web'] if 'web' in self.project_credentials else self.project_credentials['installed']
+        self.creds = Credentials._refresh_credentials(project_credentials=self.project_credentials, user_token=self.token_details)
 
-      # Init credentials
-      self.creds = google.oauth2.credentials.Credentials(
-          None,
-          refresh_token = self.token_details['refresh_token'],
-          token_uri = "https://accounts.google.com/o/oauth2/token",
-          client_id = secrets['client_id'],
-          client_secret = secrets['client_secret']
-      )
 
-      # Force Refresh token
-      self.creds.refresh(
-          google.auth.transport.requests.Request()
-      )
+  @staticmethod
+  def _refresh_credentials(project_credentials: Dict[str, str], user_token: Dict[str, str]) -> Dict[str, str]:
+    # Remove top-level element
+    secrets = project_credentials['web'] if 'web' in project_credentials else project_credentials['installed']
+
+    # Init credentials
+    creds = google.oauth2.credentials.Credentials(
+        None,
+        refresh_token = user_token['refresh_token'],
+        token_uri = "https://accounts.google.com/o/oauth2/token",
+        client_id = secrets['client_id'],
+        client_secret = secrets['client_secret']
+    )
+
+    # Force Refresh token
+    creds.refresh(google.auth.transport.requests.Request())
+
+    return creds
 
 
   def get_credentials(self):

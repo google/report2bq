@@ -32,10 +32,10 @@ from classes.report2bq import Report2BQ
 
 
 logging.basicConfig(
-  filename=f'sa360uploader-{datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.log', 
+  filename=f'report2bq-test-harness-{datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.log', 
   format='%(asctime)s %(message)s', 
   datefmt='%Y-%m-%d %I:%M:%S %p',
-  level=logging.INFO
+  level=logging.DEBUG
 )
 
 FLAGS = flags.FLAGS

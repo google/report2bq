@@ -211,7 +211,7 @@ class DBM(object):
     queue = Queue()
 
     report_id = report_data['id']
-    chunk_size = 4 * 1024 * 1024
+    chunk_size = 16 * 1024 * 1024
     out_file = io.BytesIO()
 
     streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(credentials=self.credentials), 
@@ -239,8 +239,8 @@ class DBM(object):
           last.truncate(total_pos)
 
         # now the grand total, which for DV360 is not titled
-        comma_pos = last.getvalue().rfind(b',')
-        newline_pos = last.getvalue().rfind(b'\n', comma_pos)
+        # this will always have no dimensions, so begins a line with a ','
+        newline_pos = last.getvalue().rfind(b'\n,') #, comma_pos)
         if newline_pos != -1:
           last.truncate(newline_pos)
 
