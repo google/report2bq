@@ -79,7 +79,7 @@ class Report2BQ(object):
             print('No change: ignoring.')
             continue
 
-        if not last_report or self.rebuild_schema:
+        if not last_report or self.rebuild_schema or 'schema' not in report_data:
           # Store Report Details
           csv_header, _ = dbm.read_header(report_data)
           schema = CSVHelpers.create_table_schema(csv_header)
@@ -113,7 +113,7 @@ class Report2BQ(object):
             print('No change: ignoring.')
             continue
 
-        if not last_report or self.rebuild_schema:
+        if not last_report or self.rebuild_schema or 'schema' not in report_data:
           # Store Report Details
           csv_header, _ = dcm.read_header(report_data)
           schema = CSVHelpers.create_table_schema(csv_header)
