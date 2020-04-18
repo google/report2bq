@@ -68,6 +68,7 @@ def report_fetch(event: Dict[str, Any], context=None):
       rebuild_schema = attributes.get('rebuild_schema', False)
       force = attributes.get('force', False)
       append = attributes.get('append', False)
+      infer_schema = attributes.get('infer_schema', False)
       email = attributes['email']
       project = attributes['project']
 
@@ -89,7 +90,8 @@ def report_fetch(event: Dict[str, Any], context=None):
       account_id=account,
       email=email,
       append=append,
-      project=project
+      project=project,
+      infer_schema=infer_schema
     )
     fetcher.run()
 

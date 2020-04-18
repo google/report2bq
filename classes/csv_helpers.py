@@ -23,6 +23,8 @@ import logging
 import re
 
 from messytables import CSVTableSet
+from messytables.types import StringType, IntegerType, FloatType, \
+        DecimalType, DateType, DateUtilType, BoolType
 from messytables import type_guess
 from messytables import types_processor
 from messytables import headers_guess
@@ -79,7 +81,7 @@ class CSVHelpers(object):
 
 
   @staticmethod
-  def create_table_schema(header: List[str]=None) -> Dict[str, str]:
+  def create_table_schema(header: List[str]=None, types: List[str]=None) -> Dict[str, str]:
     """create big query table schema
 
     Takes the list of column names and produces a json format Big Query schema suitable
@@ -93,6 +95,18 @@ class CSVHelpers(object):
     Returns:
         Dict[str, str] -- json format schema
     """
+    def _sql_field(T):
+      if isinstance(T, StringType): R = 'STRING'
+      elif isinstance(T, DecimalType): R = 'FLOAT64'
+      elif isinstance(T, IntegerType): R = 'INT64'
+      elif isinstance(T, DateType): 
+        if T.format == '%Y-%m-%d %HH:%MM:%SS': R = 'DATETIME'
+        elif T.format == '%Y-%m-%d': R = 'DATE'
+        else: R = 'STRING'
+      else: R = 'STRING'
+
+      return R
+
     field_template = {
         "name": "",
         "type": "STRING",
@@ -100,10 +114,13 @@ class CSVHelpers(object):
     }
     field_list = []
 
+    master = dict(zip(header, types or (['STRING'] * len(header))))
+
     # cols = re.sub('[^a-zA-Z0-9,]', '_', header).split(',')
     for col in header:
       new_field = field_template.copy()
       new_field['name'] = CSVHelpers.sanitize_string(col)
+      new_field['type'] = _sql_field(master.get(col))
       field_list.append(new_field)
 
     return field_list

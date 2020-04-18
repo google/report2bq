@@ -35,14 +35,18 @@ from urllib.parse import unquote
 
 
 class Report2BQ(object):
-  def __init__(self, list_reports=False, dv360=False, cm=False, force=False, rebuild_schema=False,
-               dv360_ids=None, cm_ids=None, profile=None, account_id=None, superuser=False, 
-               email=None, in_cloud=True, append=False, project=None, sa360_url=None, sa360=False):
+  def __init__(self, 
+    list_reports: bool=False, dv360: bool=False, cm: bool=False, 
+    force: bool=False, rebuild_schema: bool=False,
+    dv360_ids=None, cm_ids=None, profile=None, account_id=None, superuser: bool=False, 
+    email=None, in_cloud: bool=True, append: bool=False, project=None, sa360_url=None, sa360: bool=False, 
+    infer_schema: bool=False):
     self.list_reports = list_reports
     self.rebuild_schema = rebuild_schema
     self.force = force
     self.email = email
     self.append = append
+    self.infer_schema = False
     
     self.dv360 = dv360
     self.dv360_ids = dv360_ids
@@ -81,8 +85,11 @@ class Report2BQ(object):
 
         if not last_report or self.rebuild_schema or 'schema' not in report_data:
           # Store Report Details
-          csv_header, _ = dbm.read_header(report_data)
-          schema = CSVHelpers.create_table_schema(csv_header)
+          csv_header, csv_types = dbm.read_header(report_data)
+          schema = CSVHelpers.create_table_schema(
+            csv_header, 
+            csv_types if self.infer_schema else None
+          )
           report_data['schema'] = schema
 
         else:
@@ -115,8 +122,11 @@ class Report2BQ(object):
 
         if not last_report or self.rebuild_schema or 'schema' not in report_data:
           # Store Report Details
-          csv_header, _ = dcm.read_header(report_data)
-          schema = CSVHelpers.create_table_schema(csv_header)
+          csv_header, csv_types = dcm.read_header(report_data)
+          schema = CSVHelpers.create_table_schema(
+            csv_header, 
+            csv_types if self.infer_schema else None
+          )
           report_data['schema'] = schema
 
         else:

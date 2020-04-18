@@ -36,6 +36,7 @@ from apiclient import discovery
 from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials
 from classes.csv_helpers import CSVHelpers
+from classes.decorators import measure_memory
 from classes.threaded_streamer import ThreadedGCSObjectStreamUpload
 
 # Other imports
@@ -67,6 +68,8 @@ class DBM(object):
 
     # Oauth Headers
     self.oauth_headers = self.credentials.get_auth_headers()
+
+    self.chunk_multiplier = int(os.environ.get('CHUNK_MULTIPLIER', 64))
 
 
   def get_reports(self):
@@ -198,12 +201,13 @@ class DBM(object):
 
   def read_header(self, report_details: dict) -> list:
     with closing(urlopen(report_details['current_path'])) as report:
-      data = report.read(16384)
+      data = report.read(self.chunk_multiplier * 1024 * 1024)
       bytes_io = io.BytesIO(data)
 
     return CSVHelpers.get_column_types(bytes_io)
 
 
+  @measure_memory
   def stream_to_gcs(self, bucket: str, report_details: Dict[str, Any]) -> None:
     """Multi-threaded stream to GCS
     
@@ -214,7 +218,7 @@ class DBM(object):
     queue = Queue()
 
     report_id = report_details['id']
-    chunk_size = 16 * 1024 * 1024
+    chunk_size = self.chunk_multiplier * 1024 * 1024
     out_file = io.BytesIO()
 
     streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(credentials=self.credentials), 
