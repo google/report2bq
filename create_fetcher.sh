@@ -84,6 +84,8 @@ Options:
                   not present. If you type it manually, the value of this field must be a time zone
                   name from the TZ database (http://en.wikipedia.org/wiki/Tz_database)
     --description Plain text description for the scheduler list
+    --infer-schema
+                  [BETA] Guess the column types based on a sample of the report's first slice.
 
     --usage       Show this text
 EOF
@@ -103,6 +105,7 @@ IS_RUNNER=0                         # Is this a 'run' or a 'fetch'
 DEST_PROJECT=                       # Destination project for ADH querys
 DEST_DATASET=                       # Destination dataset for ADH querys
 TIMEZONE=                           # Timezone
+INFER_SCHEMA=                       # Guess the report's schema
 
 # Command line parameter parser
 while [[ $1 == -* ]] ; do
@@ -157,6 +160,9 @@ while [[ $1 == -* ]] ; do
     # Optional  
     --force)
       FORCE="force=True"
+      ;;
+    --infer-schema)
+      INFER_SCHEMA="--infer_schema=True"
       ;;
     --rebuild-schema)
       REBUILD_SCHEMA="rebuild_schema=True"
@@ -274,6 +280,10 @@ elif [ "x${PROFILE}" == "x" ]; then
     TRIGGER="report2bq-trigger"
     NAME="fetch"
     HOUR="*"
+    parameters=(
+      ${parameters[@]}
+      ${INFER_SCHEMA}
+    )
   fi
 
   FETCHER="${NAME}-dv360-${REPORT_ID}"
@@ -299,6 +309,10 @@ else
     TRIGGER="report2bq-trigger"
     NAME="fetch"
     HOUR="*"
+    parameters=(
+      ${parameters[@]}
+      ${INFER_SCHEMA}
+    )
   fi
 
   FETCHER="${NAME}-cm-${REPORT_ID}"

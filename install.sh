@@ -39,8 +39,7 @@ Options:
   --create-service-account
                     Create the service account and client secrets
 
-  --deploy-code     (Re)Deploy the zip file of code. If this is not specified,
-                    the cloud functions will be deployed from a Cloud Repository names 'report2bq'
+  --deploy-repo     (Re)Deploy the code from a GCP source repository named 'report2bq'
                     in the current project.
 
   --deploy-all      (Re)Deploy all portions
@@ -70,7 +69,7 @@ DEPLOY_TRIGGER=0
 DEPLOY_MONITOR=0
 DEPLOY_STORAGE=0
 DEPLOY_BQ=0
-DEPLOY_CODE=0
+DEPLOY_CODE=1
 ACTIVATE_APIS=0
 DEPLOY_RUNNERS=0
 DEPLOY_OAUTH=0
@@ -119,8 +118,8 @@ while [[ $1 == -* ]] ; do
     --deploy-storage)
       DEPLOY_STORAGE=1
       ;;
-    --deploy-code)
-      DEPLOY_CODE=1
+    --deploy-repo)
+      DEPLOY_CODE=0
       ;;
     --activate-apis)
       ACTIVATE_APIS=1
