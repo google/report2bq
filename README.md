@@ -1,9 +1,6 @@
 # Report2BQ
 
-* Owning team: go/cse-dclk
-* Mailing list: platforms-ase-emea@google.com
-* Author: David Harcombe (who/davidharcombe)
-* Docs: go/
+* Author: David Harcombe (davidharcombe@google.com)
 * Type: Open source
 * Status: Production
 
