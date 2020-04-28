@@ -34,7 +34,6 @@ Usage:
 Options:
   --project         GCP Project Id
   --dataset         The Big Query datase to verify or create
-
   --activate-apis   Activate all missing but required Cloud APIs
   --create-service-account
                     Create the service account and client secrets
@@ -62,6 +61,7 @@ EOF
 
 # Switch definitions
 PROJECT=
+USER=
 DATASET="report2bq"
 DEPLOY_FETCHER=0
 DEPLOY_LOADER=0
@@ -74,6 +74,7 @@ ACTIVATE_APIS=0
 DEPLOY_RUNNERS=0
 DEPLOY_OAUTH=0
 CREATE_SERVICE_ACCOUNT=0
+USERNAME=0
 
 # Command line parser
 while [[ $1 == -* ]] ; do
@@ -147,6 +148,7 @@ if [ "x${PROJECT}" == "x" ]; then
   exit
 fi
 
+USER=report2bq@${PROJECT}.iam.gserviceaccount.com
 
 if [ ${ACTIVATE_APIS} -eq 1 ]; then
   # Check for active APIs
@@ -196,9 +198,10 @@ if [ ${DEPLOY_STORAGE} -eq 1 ]; then
 fi
 
 if [ ${CREATE_SERVICE_ACCOUNT} -eq 1 ]; then
-  ${DRY_RUN} gcloud iam service-accounts create report2bq --description "Report2BQ Service Account" --project ${PROJECT} 
-  ${DRY_RUN} gcloud iam service-accounts keys create "report2bq@${PROJECT}.iam.gserviceaccount.com.json" --iam-account report2bq@${PROJECT}.iam.gserviceaccount.com --project ${PROJECT} 
-  ${DRY_RUN} gsutil cp "report2bq@${PROJECT}.iam.gserviceaccount.com.json" gs://${PROJECT}-report2bq-tokens/
+  ${DRY_RUN} gcloud iam service-accounts create report2bq --description "Report2BQ Service Account" --project ${PROJECT} \
+  && gcloud iam service-accounts keys create "report2bq@${PROJECT}.iam.gserviceaccount.com.json" --iam-account ${USER} --project ${PROJECT} \
+  && gsutil cp "report2bq@${PROJECT}.iam.gserviceaccount.com.json" gs://${PROJECT}-report2bq-tokens/
+  ${DRY_RUN} gcloud projects add-iam-policy-binding ${PROJECT} --member=serviceAccount:${USER} --role=roles/cloudfunctions.invoker
 fi
 
 if [ ${DEPLOY_CODE} -eq 1 ]; then
@@ -223,7 +226,7 @@ if [ ${DEPLOY_CODE} -eq 1 ]; then
   fi
   SOURCE="gs://${PROJECT}-report2bq/report2bq.zip"
 else
-  SOURCE="https://source.developers.google.com/projects/${PROJECT}/repos/report2bq"
+  SOURCE="."
 fi
 
 # Deploy uploader trigger
@@ -254,12 +257,14 @@ if [ ${DEPLOY_MONITOR} -eq 1 ]; then
     "job-monitor"
 
   # Deploy cloud function 
+  echo "job-monitor"
   ${DRY_RUN} gcloud functions deploy "job-monitor" \
     --entry-point=job_monitor \
     --source=${SOURCE} \
     --runtime python37 \
     --memory=1024MB \
     --trigger-topic="job-monitor" \
+    --service-account=$USER \
     --quiet \
     --timeout=60s \
     --project=${PROJECT}
@@ -282,12 +287,14 @@ fi
 # Fetcher
 if [ ${DEPLOY_FETCHER} -eq 1 ]; then
   # Deploy cloud function
+  echo "report2bq-fetcher"
   ${DRY_RUN} gcloud functions deploy "report2bq-fetcher" \
     --entry-point=report_fetch \
     --source=${SOURCE} \
     --runtime python37 \
     --memory=2048MB \
     --trigger-topic="report2bq-trigger" \
+    --service-account=$USER \
     --quiet \
     --timeout=540s \
     --project=${PROJECT}
@@ -296,6 +303,7 @@ fi
 # Loader
 if [ ${DEPLOY_LOADER} -eq 1 ]; then
   # Deploy cloud function
+  echo "report2bq-loader"
   ${DRY_RUN} gcloud functions deploy "report2bq-loader" \
     --entry-point=report_upload \
     --source=${SOURCE} \
@@ -303,6 +311,7 @@ if [ ${DEPLOY_LOADER} -eq 1 ]; then
     --memory=2048MB \
     --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-upload" \
     --trigger-event="google.storage.object.finalize" \
+    --service-account=$USER \
     --set-env-vars=BQ_DATASET=${DATASET} \
     --quiet \
     --timeout=540s \
@@ -323,12 +332,14 @@ if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
     "report-runner"
 
   # Deploy cloud function
+  echo "report-runner"
   ${DRY_RUN} gcloud functions deploy "report-runner" \
     --entry-point=report_runner \
     --source=${SOURCE} \
     --runtime python37 \
     --memory=2048MB \
     --trigger-topic="report-runner" \
+    --service-account=$USER \
     --quiet \
     --timeout=540s \
     --project=${PROJECT}
@@ -345,7 +356,9 @@ if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
     "run-monitor"
 
   # Deploy cloud function
+  echo "run-monitor"
   ${DRY_RUN} gcloud functions deploy "run-monitor" \
+    --service-account=$USER \
     --entry-point=run_monitor \
     --source=${SOURCE} \
     --runtime python37 \
@@ -373,7 +386,9 @@ fi
 
 # Deploy runners
 if [ ${DEPLOY_OAUTH} -eq 1 ]; then
+  echo "OAuth"
   ${DRY_RUN} gcloud functions deploy "OAuth" \
+    --service-account=$USER \
     --entry-point=oauth \
     --allow-unauthenticated \
     --source=${SOURCE} \
@@ -384,7 +399,9 @@ if [ ${DEPLOY_OAUTH} -eq 1 ]; then
     --timeout=60s \
     --project=${PROJECT}
 
+  echo "OAuthComplete"
   ${DRY_RUN} gcloud functions deploy "OAuthComplete" \
+    --service-account=$USER \
     --entry-point=oauth_complete \
     --allow-unauthenticated \
     --source=${SOURCE} \
@@ -396,6 +413,7 @@ if [ ${DEPLOY_OAUTH} -eq 1 ]; then
     --project=${PROJECT}
 
   ${DRY_RUN} gcloud functions deploy "OAuthRequest" \
+    --service-account=$USER \
     --entry-point=oauth_request \
     --allow-unauthenticated \
     --source=${SOURCE} \
@@ -406,3 +424,5 @@ if [ ${DEPLOY_OAUTH} -eq 1 ]; then
     --timeout=60s \
     --project=${PROJECT}
 fi
+
+
