@@ -236,22 +236,34 @@ class DBM(object):
         chunk = _report.read(chunk_size)
         _downloaded += len(chunk)
         if _downloaded >= _report_size:
-          # last chunk...
+          # last chunk... trim to footer if there is one, or last blank line if not
+          # NOTE: if no blank line (partial file?) NO TRIMMING WILL HAPPEN
+          # THIS SHOULD NEVER BE THE CASE
           last = io.BytesIO(chunk)
 
-          # lose the footer
-          total_pos = last.getvalue().rfind(b'Report Time')
-          if total_pos != -1:
-            last.truncate(total_pos)
+          # find the footer
+          blank_line_pos = chunk.rfind(b'\n\n')
 
-          # now the grand total, which for DV360 is not titled
-          # this will always have no dimensions, so begins a line with a ','
-          newline_pos = last.getvalue().rfind(b'\n,') #, comma_pos)
-          if newline_pos != -1:
-            last.truncate(newline_pos)
+          # if we don't find it, there's no footer.
+          if blank_line_pos == -1:
+            logging.error('No footer delimiter found. Writing entire final chunk as is.')
+            queue.put((chunk_id, chunk))
 
-          queue.put((chunk_id, last.getvalue()))
-          break
+          else:
+            # read the footer
+            last.seek(blank_line_pos)
+            footer = last.readlines()
+            group_count = sum(g.startswith(b'Group By:') for g in footer)
+            total_block_start = chunk.rfind(b',' * group_count)
+
+            if total_block_start == -1:
+              last.truncate(blank_line_pos)
+
+            else:
+              last.truncate(total_block_start)
+
+            queue.put((chunk_id, last.getvalue()))
+            # break
 
         else:
           queue.put((chunk_id, chunk))
