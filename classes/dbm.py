@@ -230,7 +230,7 @@ class DBM(object):
 
     with closing(urlopen(report_details['current_path'])) as _report:
       _downloaded = 0
-      chunk_id = 0
+      chunk_id = 1
       _report_size = int(_report.headers['content-length'])
       while _downloaded < _report_size:
         chunk = _report.read(chunk_size)

@@ -39,12 +39,12 @@ logging.basicConfig(
 )
 
 FLAGS = flags.FLAGS
-flags.DEFINE_multi_integer('dv360_id',
-                           None,
-                           'Report to load')
-flags.DEFINE_multi_integer('cm_id',
-                           None,
-                           'Report to load')
+flags.DEFINE_integer('dv360_id',
+                     None,
+                     'Report to load')
+flags.DEFINE_integer('cm_id',
+                     None,
+                     'Report to load')
 flags.DEFINE_string('sa360_url',
                     None,
                     'SA360 report URL')
@@ -66,6 +66,13 @@ flags.DEFINE_string('email',
 flags.DEFINE_string('project',
                      None,
                      'GCP Project')
+
+flags.DEFINE_string('dest_project',
+                     None,
+                     'Destination BQ Project')
+flags.DEFINE_string('dest_dataset',
+                     None,
+                     'Destination BQ Dataset')
 
 flags.DEFINE_boolean('list',
                      False,
@@ -93,35 +100,30 @@ flags.DEFINE_integer('account',
                      None,
                      'CM account id. RFequired for CM Superusers.')
 
-flags.register_multi_flags_validator(['account', 'cm_superuser'],
-                       lambda value: (value.get('account') and value['cm_superuser']) or 
-                                     (not value['cm_superuser'] and not value['account']),
-                       message='--account_id must be set for a superuser, and not set for normal users.')
-# flags.register_multi_flags_validator(['cm_id', 'profile'],
-#                        lambda value: (value['cm_id'] and not value['profile']),
-#                        message='profile must be set for a CM report to be specified')                        
-
 
 # Stub main()
 def main(unused_argv):
-  reporter = Report2BQ(
-    list_reports=FLAGS.list,
-    dv360=FLAGS.dv360, 
-    cm=FLAGS.cm,
-    force=FLAGS.force, 
-    rebuild_schema=FLAGS.rebuild_schema,
-    dv360_ids=FLAGS.dv360_id,
-    cm_ids=FLAGS.cm_id, 
-    profile=FLAGS.profile, 
-    account_id=FLAGS.account, 
-    superuser=FLAGS.cm_superuser, 
-    email=FLAGS.email,
-    in_cloud=True, 
-    append=FLAGS.append,
-    project=FLAGS.project,
-    sa360_url=unquote(FLAGS.sa360_url) if FLAGS.sa360_url else None,
-    sa360=(True if FLAGS.sa360_url else False)
-  )
+  attributes = {
+    'list_reports': FLAGS.list,
+    'dv360': FLAGS.dv360, 
+    'cm': FLAGS.cm,
+    'force': FLAGS.force, 
+    'rebuild_schema': FLAGS.rebuild_schema,
+    'dv360_id': FLAGS.dv360_id,
+    'cm_id': FLAGS.cm_id, 
+    'profile': FLAGS.profile, 
+    'account_id': FLAGS.account, 
+    'superuser': FLAGS.cm_superuser, 
+    'email': FLAGS.email,
+    'in_cloud': True, 
+    'append': FLAGS.append,
+    'project': FLAGS.project,
+    'sa360_url': unquote(FLAGS.sa360_url) if FLAGS.sa360_url else None,
+    'sa360': (True if FLAGS.sa360_url else False),
+    'dest_project': FLAGS.dest_project,
+    'dest_dataset': FLAGS.dest_dataset,
+  }
+  reporter = Report2BQ(**attributes)
   reporter.run()
 
 

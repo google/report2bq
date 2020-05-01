@@ -29,9 +29,12 @@ from google.api_core import retry
 from google.cloud import bigquery
 from google.cloud import storage
 from google.cloud.bigquery import LoadJob
+from google.oauth2.credentials import Credentials
+
 from io import BytesIO
 from typing import Dict, Any
 
+from classes.cloud_storage import Cloud_Storage
 from classes.firestore import Firestore
 from classes.report_type import Type
 
@@ -49,9 +52,7 @@ class ReportLoader(object):
   """
   CS = storage.Client()     # uses default service account credentials
   FIRESTORE = Firestore()   # uses default service account credentials
-  BQ = bigquery.Client()    # uses default service account credentials
-  # TODO (davidharcombe@) Make this a parameter or environment variable?
-  BQ_DATASET = os.environ.get('BQ_DATASET', 'report2bq')  # default to report2bq dataset for all imports
+
 
   def process(self, data: Dict[str, Any], context):
     """Process an added file
@@ -201,6 +202,28 @@ class ReportLoader(object):
     Returns:
         bigquery.LoadJob
     """
+    if config.get('dest_project'):
+      # authenticate against supplied project with supplied key
+      project = config.get('dest_project') or os.environ.get('GCP_PROJECT')
+      client_key = json.loads(Cloud_Storage.fetch_file(
+        bucket=f"{os.environ.get('GCP_PROJECT')}-report2bq-tokens",
+        file=f"{config['email']}_user_token.json"
+      ))
+      server_key = json.loads(Cloud_Storage.fetch_file(
+        bucket=f"{os.environ.get('GCP_PROJECT')}-report2bq-tokens",
+        file='client_secrets.json'
+      ))
+      client_key['client_id'] = (server_key.get('web') or server_key.get('installed')).get('client_id')
+      client_key['client_secret'] = (server_key.get('web') or server_key.get('installed')).get('client_secret')
+      logging.info(client_key)
+      creds = Credentials.from_authorized_user_info(client_key)
+      bq = bigquery.Client(project=project, credentials=creds)
+
+    else:
+      bq = bigquery.Client()
+
+    dataset = config.get('dest_dataset') or os.environ.get('BQ_DATASET') or 'report2bq'
+
     table_name = config['table_name']
     logging.info("bucket %s, table %s, file_name %s" % (bucket_name, table_name, file_name))
 
@@ -213,7 +236,7 @@ class ReportLoader(object):
                                       mode=field['mode'])
       schema.append(f)
 
-    table_ref = self.BQ.dataset(self.BQ_DATASET).table(table_name)
+    table_ref = bq.dataset(dataset).table(table_name)
 
     # Default action is to completely replace the table each time. If requested, however then
     # we can do an append for (say) huge jobs where you would see the table with 60 days once
@@ -232,7 +255,7 @@ class ReportLoader(object):
     job_config.allow_jagged_rows = True
     
     uri = "gs://%s/%s" % (bucket_name, file_name)
-    load_job = self.BQ.load_table_from_uri(
+    load_job = bq.load_table_from_uri(
         uri, table_ref, job_config=job_config
     )  # API request
     logging.info("Starting CSV import job {}".format(load_job.job_id))

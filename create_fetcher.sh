@@ -120,6 +120,12 @@ while [[ $1 == -* ]] ; do
     --runner)
       IS_RUNNER=1
       ;;
+    --dest-project*)
+      IFS="=" read _cmd DEST_PROJECT <<< "$1" && [ -z ${DEST_PROJECT} ] && shift && DEST_PROJECT=$1
+      ;;
+    --dest-dataset*)
+      IFS="=" read _cmd DEST_DATASET <<< "$1" && [ -z ${DEST_DATASET} ] && shift && DEST_DATASET=$1
+      ;;
 
     # DV360 and CM
     --report-id*)
@@ -143,12 +149,6 @@ while [[ $1 == -* ]] ; do
       ;;
     --days*)
       IFS="=" read _cmd DAYS <<< "$1" && [ -z ${DAYS} ] && shift && DAYS=$1
-      ;;
-    --dest-project*)
-      IFS="=" read _cmd DEST_PROJECT <<< "$1" && [ -z ${DEST_PROJECT} ] && shift && DEST_PROJECT=$1
-      ;;
-    --dest-dataset*)
-      IFS="=" read _cmd DEST_DATASET <<< "$1" && [ -z ${DEST_DATASET} ] && shift && DEST_DATASET=$1
       ;;
 
     # SA360 only
@@ -213,19 +213,22 @@ if [ -z ${EMAIL} ]; then
   exit
 fi
 
+[ -z "${DEST_PROJECT}" ] || _DEST_PROJECT="dest_project=${DEST_PROJECT}"
+[ -z "${DEST_DATASET}" ] || _DEST_DATASET="dest_dataset=${DEST_DATASET}"
+
 parameters=(
   "${FORCE}"
   "${REBUILD_SCHEMA}"
   "${APPEND}"
   "email=${EMAIL}"
   "project=${PROJECT}"
+  "${_DEST_PROJECT}"
+  "${_DEST_DATASET}"
 )
 
 if [ "x${ADH_CUSTOMER}" != "x" ]; then 
   FETCHER="run-adh-${ADH_CUSTOMER}-${ADH_QUERY}"
   TRIGGER="report-runner"
-  [ -z "${DEST_PROJECT}" ] || _DEST_PROJECT="dest_project=${DEST_PROJECT}"
-  [ -z "${DEST_DATASET}" ] || _DEST_DATASET="dest_dataset=${DEST_DATASET}"
   parameters=(
     ${parameters[@]}
     "adh_customer=${ADH_CUSTOMER}"
@@ -233,8 +236,6 @@ if [ "x${ADH_CUSTOMER}" != "x" ]; then
     "api_key=${API_KEY}"
     "days=${DAYS}"
     "type=adh"
-    "${_DEST_PROJECT}"
-    "${_DEST_DATASET}"
   )
   case ${HOUR} in
     "")

@@ -214,6 +214,8 @@ if [ ${DEPLOY_CODE} -eq 1 ]; then
     ${DRY_RUN} gsutil mb -p ${PROJECT} gs://${PROJECT}-report2bq
   fi
 
+  [ -e report2bq.zip ] && rm -f report2bq.zip >/dev/null 2>&1
+
   # Create the zip
   ${DRY_RUN} zip report2bq.zip main.py requirements.txt README.md LICENSE CONTRIBUTING.md classes/*.py cloud_functions/*.py screenshots/*.*
 

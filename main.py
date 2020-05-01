@@ -57,8 +57,10 @@ def report_fetch(event: Dict[str, Any], context=None):
     attributes = event['attributes']
     try:
       logging.info(attributes)
-      dv360_ids = [attributes.get('dv360_id')] if 'dv360_id' in attributes else None
-      cm_ids = [attributes.get('cm_id')] if 'cm_id' in attributes else None
+      email = attributes['email']
+      project = attributes['project']
+      dv360_id = attributes.get('dv360_id', None)
+      cm_id = attributes.get('cm_id', None)
       sa360_url = attributes.get('sa360_url') if 'sa360_url' in attributes else None
       profile = attributes.get('profile', None)
       cm_superuser = attributes.get('cm_superuser', False)
@@ -69,18 +71,18 @@ def report_fetch(event: Dict[str, Any], context=None):
       force = attributes.get('force', False)
       append = attributes.get('append', False)
       infer_schema = attributes.get('infer_schema', False)
-      email = attributes['email']
-      project = attributes['project']
+      dest_project = attributes.get('dest_project', None)
+      dest_dataset = attributes.get('dest_dataset', 'report2bq')
 
     except Exception as e:
-      logging.fatal('Error: {e}\nAttributes supplied: {attributes}'.format(e=e, attributes=attributes))
+      logging.fatal('Error: {e}\nMissing mandatory attributes: {attributes}'.format(e=e, attributes=attributes))
       return
 
     fetcher = Report2BQ(
-      dv360=True if dv360_ids else False,
-      dv360_ids=dv360_ids,
-      cm=True if cm_ids else False,
-      cm_ids=cm_ids,
+      dv360=True if dv360_id else False,
+      dv360_id=dv360_id,
+      cm=True if cm_id else False,
+      cm_id=cm_id,
       sa360=True if sa360_url else False,
       sa360_url=sa360_url,
       rebuild_schema=rebuild_schema,
@@ -91,7 +93,9 @@ def report_fetch(event: Dict[str, Any], context=None):
       email=email,
       append=append,
       project=project,
-      infer_schema=infer_schema
+      infer_schema=infer_schema,
+      dest_project=dest_project,
+      dest_dataset=dest_dataset
     )
     fetcher.run()
 

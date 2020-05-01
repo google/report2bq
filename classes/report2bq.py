@@ -20,6 +20,7 @@ __author__ = [
 
 # Python logging
 import logging
+import os
 import pprint
 import re
 
@@ -31,6 +32,8 @@ from classes.sa360_v2 import SA360
 from classes.cloud_storage import Cloud_Storage
 from classes.firestore import Firestore
 from classes.report_type import Type
+
+from typing import Any, Mapping
 from urllib.parse import unquote
 
 
@@ -38,9 +41,9 @@ class Report2BQ(object):
   def __init__(self, 
     list_reports: bool=False, dv360: bool=False, cm: bool=False, 
     force: bool=False, rebuild_schema: bool=False,
-    dv360_ids=None, cm_ids=None, profile=None, account_id=None, superuser: bool=False, 
+    dv360_id=None, cm_id=None, profile=None, account_id=None, superuser: bool=False, 
     email=None, in_cloud: bool=True, append: bool=False, project=None, sa360_url=None, sa360: bool=False, 
-    infer_schema: bool=False):
+    infer_schema: bool=False, dest_project: str=None, dest_dataset: str='report2bq'):
     self.list_reports = list_reports
     self.rebuild_schema = rebuild_schema
     self.force = force
@@ -49,93 +52,96 @@ class Report2BQ(object):
     self.infer_schema = False
     
     self.dv360 = dv360
-    self.dv360_ids = dv360_ids
+    self.dv360_id = dv360_id
 
     self.sa360_url = unquote(sa360_url) if sa360_url else None
     self.sa360 = sa360
 
     self.cm = cm
-    self.cm_ids = cm_ids
+    self.cm_id = cm_id
     self.cm_profile = profile
     self.account_id = account_id
     self.superuser = superuser
     self.in_cloud = in_cloud
     self.project = project
 
-    # self.storage = Cloud_Storage(in_cloud=in_cloud, email=email, project=project)
+    self.dest_project = dest_project
+    self.dest_dataset = dest_dataset
+
     self.firestore = Firestore(in_cloud=in_cloud, email=email, project=project)    
 
 
   def handle_dv360_reports(self):
     dbm = DBM(self.email, project=self.project)
 
-    for id in self.dv360_ids:
-      # Get Latest Report
-      report_object = dbm.get_latest_report_file(id)
+    # Get Latest Report
+    report_object = dbm.get_latest_report_file(self.dv360_id)
 
-      if report_object:
-        # Normalize Report Details
-        report_data = dbm.normalize_report_details(report_object)
-        last_report = self.firestore.get_report_config(Type.DBM, id)
+    if report_object:
+      # Normalize Report Details
+      report_data = dbm.normalize_report_details(report_object)
+      last_report = self.firestore.get_report_config(Type.DBM, self.dv360_id)
 
-        if last_report:
-          if report_data['last_updated'] == last_report['last_updated'] and not self.force:
-            print('No change: ignoring.')
-            continue
+      if last_report:
+        if report_data['last_updated'] == last_report['last_updated'] and not self.force:
+          print('No change: ignoring.')
+          return
 
-        if not last_report or self.rebuild_schema or 'schema' not in report_data:
-          # Store Report Details
-          csv_header, csv_types = dbm.read_header(report_data)
-          schema = CSVHelpers.create_table_schema(
-            csv_header, 
-            csv_types if self.infer_schema else None
-          )
-          report_data['schema'] = schema
+      if not last_report or self.rebuild_schema or 'schema' not in report_data:
+        # Store Report Details
+        csv_header, csv_types = dbm.read_header(report_data)
+        schema = CSVHelpers.create_table_schema(
+          csv_header, 
+          csv_types if self.infer_schema else None
+        )
+        report_data['schema'] = schema
 
-        else:
-          report_data['schema'] = last_report['schema']
+      else:
+        report_data['schema'] = last_report['schema']
 
-        report_data['email'] = self.email
-        report_data['append'] = self.append
-        self.firestore.store_report_config(Type.DBM, id, report_data)
-        # Cloud_Storage.copy_to_gcs('{project}-report2bq-upload'.format(project=self.project), report_data, credentials=dbm.credentials)
-        dbm.stream_to_gcs(f'{self.project}-report2bq-upload', report_data)
+      report_data['email'] = self.email
+      report_data['append'] = self.append
+
+      if self.dest_project: report_data['dest_project'] = self.dest_project
+      if self.dest_dataset: report_data['dest_dataset'] = self.dest_dataset
+      self.firestore.store_report_config(Type.DBM, self.dv360_id, report_data)
+      dbm.stream_to_gcs(f'{self.project}-report2bq-upload', report_data)
 
 
   def handle_cm_reports(self):
-    # pprint.pprint(dcm.get_user_profiles())
     dcm = DCM(superuser=self.superuser, email=self.email, project=self.project)
 
-    for id in self.cm_ids:
-      # Get Latest Report
-      report_object = dcm.get_latest_report_file(self.cm_profile, id, self.account_id)
+    # Get Latest Report
+    report_object = dcm.get_latest_report_file(self.cm_profile, self.cm_id, self.account_id)
 
-      if report_object:
-        # Normalize Report Details
-        report_data = dcm.normalize_report_details(report_object)
-        last_report = self.firestore.get_report_config(Type.DCM, id)
+    if report_object:
+      # Normalize Report Details
+      report_data = dcm.normalize_report_details(report_object)
+      last_report = self.firestore.get_report_config(Type.DCM, self.cm_id)
 
-        if last_report:
-          if report_data['last_updated'] == last_report['last_updated'] and not self.force:
-            print('No change: ignoring.')
-            continue
+      if last_report:
+        if report_data['last_updated'] == last_report['last_updated'] and not self.force:
+          print('No change: ignoring.')
+          return
 
-        if not last_report or self.rebuild_schema or 'schema' not in report_data:
-          # Store Report Details
-          csv_header, csv_types = dcm.read_header(report_data)
-          schema = CSVHelpers.create_table_schema(
-            csv_header, 
-            csv_types if self.infer_schema else None
-          )
-          report_data['schema'] = schema
+      if not last_report or self.rebuild_schema or 'schema' not in report_data:
+        # Store Report Details
+        csv_header, csv_types = dcm.read_header(report_data)
+        schema = CSVHelpers.create_table_schema(
+          csv_header, 
+          csv_types if self.infer_schema else None
+        )
+        report_data['schema'] = schema
 
-        else:
-          report_data['schema'] = last_report['schema']
+      else:
+        report_data['schema'] = last_report['schema']
 
-        report_data['email'] = self.email
-        report_data['append'] = self.append
-        self.firestore.store_report_config(Type.DCM, id, report_data)
-        dcm._stream_to_gcs(bucket='{project}-report2bq-upload'.format(project=self.project), report_data=report_data)
+      report_data['email'] = self.email
+      report_data['append'] = self.append
+      report_data['dest_project'] = self.dest_project
+      report_data['dest_dataset'] = self.dest_dataset
+      self.firestore.store_report_config(Type.DCM, self.cm_id, report_data)
+      dcm._stream_to_gcs(bucket='{project}-report2bq-upload'.format(project=self.project), report_data=report_data)
 
 
   def handle_sa360(self):
@@ -156,6 +162,8 @@ class Report2BQ(object):
       }
       report_details['table_name'] = 'SA360_{id}'.format(id=id)
 
+    if self.dest_project: report_data['dest_project'] = self.dest_project
+    if self.dest_dataset: report_data['dest_dataset'] = self.dest_dataset
     sa360.process(
       bucket='{project}-report2bq-upload'.format(project=self.project),
       report_details=report_details)
