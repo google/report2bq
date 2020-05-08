@@ -22,83 +22,80 @@ __author__ = [
 import json
 import logging
 
-# Oauth Import
-from google_auth_oauthlib import flow
-
 # Class Imports
-from absl import app
-from absl import flags
 from pprint import pprint
-from typing import Dict, Any
 
 from classes.cloud_storage import Cloud_Storage
 
+from oauth2client.client import OAuth2WebServerFlow
 
-FLAGS = flags.FLAGS
-flags.DEFINE_string('email',
-                     None,
-                     'Report owner/user email')
-flags.DEFINE_string('project',
-                     None,
-                     'GCP Project')
+# Simple HTTP Handler - http://webpy.org/
+import web
 
-flags.DEFINE_string('client_id',
-                    None,
-                    'GCP Project client id')
-flags.DEFINE_string('client_secret',
-                    None,
-                    'GCP Project client secret')
+# URL Handler
+urls = (
+    '/', 'Index',
+    '/oauth-response/', 'Consented',
+)
 
-flags.DEFINE_Boolean('console', False,
-                     'Show the URL in the console, instead of spawning a browser')
-
-flags.DEFINE_boolean('use_cloud', False, 
-                     'Use the secrets from the cloud project and save the result to cloud')
-
-flags.mark_flag_as_required('email')
-flags.mark_flag_as_required('project')
-
-
-def main(unused_argv):
-# Init App Flow
-  appflow = flow.InstalledAppFlow.from_client_secrets_file(
-      'config_files/client_secrets.json',
-      scopes = [
-          'https://www.googleapis.com/auth/adsdatahub', # ADH
-          'https://www.googleapis.com/auth/doubleclickbidmanager', # DBM
-          'https://www.googleapis.com/auth/dfareporting', # DCM Reporting
-          'https://www.googleapis.com/auth/bigquery', # BigQuery
-          'https://www.googleapis.com/auth/devstorage.read_write', # GCS
-          'https://www.googleapis.com/auth/datastore', # Firestore
-          'https://www.googleapis.com/auth/doubleclicksearch' # Firestore
-      ]
+with open('config_files/client_secrets.json', 'r') as secret_file:
+  secrets = json.loads(secret_file.read())
+  flow = OAuth2WebServerFlow(
+      client_id=secrets['web']['client_id'],
+      client_secret=secrets['web']['client_secret'],
+      scope=[
+        'https://www.googleapis.com/auth/adsdatahub', # ADH
+        'https://www.googleapis.com/auth/bigquery', # BigQuery
+        'https://www.googleapis.com/auth/cloud-platform', # Cloud Platform
+        'https://www.googleapis.com/auth/datastore', # Firestore
+        'https://www.googleapis.com/auth/dfareporting', # DCM Reporting
+        'https://www.googleapis.com/auth/devstorage.read_write', # GCS
+        'https://www.googleapis.com/auth/doubleclickbidmanager', # DBM
+        'https://www.googleapis.com/auth/doubleclicksearch', # Firestore
+      ],
+      redirect_uri='http://localhost:8080/oauth-response/'
   )
 
-  credentials = appflow.run_local_server(
-    host='localhost',
-    port=8081,
-    authorization_prompt_message='Please visit his URL to complete the authorization flow: {url}',
-    success_message='Authorization complete: you may now close this window.',
-    open_browser=True)
+class Index(object):
+  """
+  Handles response to user request for root page.
+  """
 
-  # # Init App Flow local server
-  # appflow.run_console()
+  def GET(self):
 
-  # # Credentials
-  # credentials = appflow.credentials
+    # Create redirect url
+    auth_url = flow.step1_get_authorize_url()
 
-  # Token Details
-  token_details = {
-    'access_token': credentials.token,
-    'refresh_token': credentials.refresh_token
-  }
-
-  # Save Token Details to File
-  token_file = open('config_files/user_token_details.json', 'w')
-  token_file.write(json.dumps(token_details))
-  token_file.close()
+    # Redirect to URL
+    web.seeother(auth_url)
 
 
+class Consented(object):
+  """
+  Handles response for /consent, redirects to oauth2.
+  """
+
+  def GET(self):
+    # Response code
+    response_code = web.input().code
+
+    # Get credentials
+    credentials = flow.step2_exchange(response_code)
+
+    # JSON Token
+    json_token = credentials.to_json()
+
+    # Save File
+    with open(f'config_files/user_token.json', 'w') as token_file:
+      token_file.write(json_token)
+
+    # Message
+    message = 'Your JSON Token has been stored in config_files/token.json'
+
+    return message
+
+
+# web.py boiler plate
 if __name__ == '__main__':
-  app.run(main)
-
+  app = web.application(urls, globals())
+  app.run()
