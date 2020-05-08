@@ -55,6 +55,9 @@ flags.DEFINE_boolean('force',
 flags.DEFINE_boolean('rebuild_schema',
                      False,
                      'Rescan the file for schema')
+flags.DEFINE_boolean('infer_schema',
+                     False,
+                     'Infer the DB schema [ALPHA]')
 flags.DEFINE_boolean('append',
                      False,
                      'Append the data to the existing table instead of replacing.')
@@ -122,6 +125,7 @@ def main(unused_argv):
     'sa360': (True if FLAGS.sa360_url else False),
     'dest_project': FLAGS.dest_project,
     'dest_dataset': FLAGS.dest_dataset,
+    'infer_schema': FLAGS.infer_schema,
   }
   reporter = Report2BQ(**attributes)
   reporter.run()

@@ -23,6 +23,7 @@ google-cloud-bigquery
 google-cloud-core
 google-cloud-firestore
 google-cloud-pubsub
+google-cloud-scheduler
 google-cloud-storage
 google-reauth
 google-resumable-media
@@ -50,3 +51,4 @@ six
 SocksiPy-branch
 uritemplate
 urllib3
+web.py

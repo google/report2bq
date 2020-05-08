@@ -20,12 +20,17 @@ __author__ = [
 
 import json
 import logging
+import os
 import pprint
 import re
 
 from absl import app
 from typing import Dict, Any
+from classes.cloud_storage import Cloud_Storage
 from classes.firestore import Firestore
+from classes.report_type import Type
+
+from google.oauth2.credentials import Credentials
 from google.cloud import bigquery
 from google.cloud import storage
 from google.cloud.bigquery import LoadJob
@@ -43,9 +48,6 @@ class JobMonitor(object):
       event {Dict[str, Any]} -- data sent from the PubSub message
       context {Dict[str, Any]} -- context data. unused
   """
-  firestore = Firestore(in_cloud=True, email=None, project=None)
-  bq = bigquery.Client()
-  CS = storage.Client()
 
 
   def process(self, data: Dict[str, Any], context):
@@ -55,24 +57,51 @@ class JobMonitor(object):
       event {Dict[str, Any]} -- data sent from the PubSub message
       context {Dict[str, Any]} -- context data. unused
     """
-    documents = self.firestore.get_all_jobs()
+    firestore = Firestore(in_cloud=True, email=None, project=None)
+    documents = firestore.get_all_jobs()
+
     for document in documents:
-      api_repr = document.get().to_dict()
-      if api_repr:
-        try:
-          job = LoadJob.from_api_repr(api_repr, self.bq)
-          job.reload()
+      for T in [Type.DCM, Type.DBM, Type.SA360, Type.ADH]:
+        config = firestore.get_report_config(T, document.id)
+        if config: break
 
-          if job.state == 'DONE':
-            if job.error_result:
-              logging.error(job.errors)
+      if config:
+        if config.get('dest_project'):
+          # authenticate against supplied project with supplied key
+          project = config.get('dest_project') or os.environ.get('GCP_PROJECT')
+          client_key = json.loads(Cloud_Storage.fetch_file(
+            bucket=f"{os.environ.get('GCP_PROJECT') or 'galvanic-card-234919'}-report2bq-tokens",
+            file=f"{config['email']}_user_token.json"
+          ))
+          server_key = json.loads(Cloud_Storage.fetch_file(
+            bucket=f"{os.environ.get('GCP_PROJECT') or 'galvanic-card-234919'}-report2bq-tokens",
+            file='client_secrets.json'
+          ))
+          client_key['client_id'] = (server_key.get('web') or server_key.get('installed')).get('client_id')
+          client_key['client_secret'] = (server_key.get('web') or server_key.get('installed')).get('client_secret')
+          logging.info(client_key)
+          creds = Credentials.from_authorized_user_info(client_key)
+          bq = bigquery.Client(project=project, credentials=creds)
 
-            self.firestore.mark_import_job_complete(document.id, job)
-            self._handle_finished(job=job)
+        else:
+          bq = bigquery.Client()
+          
+        api_repr = document.get().to_dict()
+        if api_repr:
+          try:
+            job = LoadJob.from_api_repr(api_repr, bq)
+            job.reload()
 
-        except Exception as e:
-          logging.error(f"""Error loading job for monitoring:
-{pprint.pprint(api_repr)}""")
+            if job.state == 'DONE':
+              if job.error_result:
+                logging.error(job.errors)
+
+              firestore.mark_import_job_complete(document.id, job)
+              self._handle_finished(job=job)
+
+          except Exception as e:
+            logging.error(f"""Error loading job {document.id} for monitoring.""")
+
 
   def _handle_finished(self, job: LoadJob):
     """Deal with completed jobs
@@ -88,7 +117,7 @@ class JobMonitor(object):
       bucket_name = match[1]
       blob_name = match[2]
 
-      source_bucket = self.CS.get_bucket(bucket_name)
+      source_bucket = storage.Client().get_bucket(bucket_name)
       source_blob = source_bucket.blob(blob_name)
 
       source_blob.delete()

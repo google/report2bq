@@ -49,7 +49,7 @@ class Report2BQ(object):
     self.force = force
     self.email = email
     self.append = append
-    self.infer_schema = False
+    self.infer_schema = infer_schema
     
     self.dv360 = dv360
     self.dv360_id = dv360_id
@@ -149,26 +149,26 @@ class Report2BQ(object):
 
     logging.info(self.sa360_url)
     id = re.match(r'^.*rid=([0-9]+).*$', self.sa360_url).group(1)
-    report_details = self.firestore.get_report_config(Type.SA360, id)
+    report_data = self.firestore.get_report_config(Type.SA360, id)
 
-    if report_details and not self.rebuild_schema:
-      report_details['url']
+    if report_data and not self.rebuild_schema:
+      report_data['url']
 
     else:
       # Create new report details structure
-      report_details = {
+      report_data = {
         'id': id,
         'url': self.sa360_url
       }
-      report_details['table_name'] = 'SA360_{id}'.format(id=id)
+      report_data['table_name'] = 'SA360_{id}'.format(id=id)
 
     if self.dest_project: report_data['dest_project'] = self.dest_project
     if self.dest_dataset: report_data['dest_dataset'] = self.dest_dataset
     sa360.process(
       bucket='{project}-report2bq-upload'.format(project=self.project),
-      report_details=report_details)
+      report_details=report_data)
       
-    self.firestore.store_report_config(Type.SA360, id, report_details)
+    self.firestore.store_report_config(Type.SA360, id, report_data)
   
 
   def list_all_reports(self):

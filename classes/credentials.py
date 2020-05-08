@@ -41,38 +41,17 @@ class Credentials(object):
     """
     Initialize Credential Class
     """
-    if not self.creds:
-      if in_cloud:
-        bucket = f'{project}-report2bq-tokens'
-        client_token = f'{email}_user_token.json'
-        self.project_credentials = json.loads(Cloud_Storage.fetch_file(bucket=bucket, file='client_secrets.json'))
-        self.token_details = json.loads(Cloud_Storage.fetch_file(bucket=bucket, file=client_token))
-        creds = Credentials._refresh_credentials(project_credentials=self.project_credentials, user_token=self.token_details)
-        refresh_token_details = {
-          'access_token': creds.token,
-          'refresh_token': creds.refresh_token
-        }
-        self.creds = creds
-        Cloud_Storage.write_file(bucket=bucket, file=client_token, data=json.dumps(refresh_token_details).encode('utf-8'))
+    self.project = project
+    self.email = email
 
-      else:
-        # File paths
-        project_credentials_path = Files.get_file_path('/config_files/client_secrets.json')
-        token_details_path = Files.get_file_path('/config_files/user_token_details.json')
-
-        # Load credential details
-        with open(project_credentials_path) as file:
-          self.project_credentials = json.load(file)
-
-        # Load Token details
-        with open(token_details_path) as file:
-          self.token_details = json.load(file)
-
-        self.creds = Credentials._refresh_credentials(project_credentials=self.project_credentials, user_token=self.token_details)
+    # if not self.creds:
+    self.bucket = f'{project}-report2bq-tokens'
+    self.client_token = f'{email}_user_token.json'
+    self.project_credentials = json.loads(Cloud_Storage.fetch_file(bucket=self.bucket, file='client_secrets.json'))
+    self.token_details = json.loads(Cloud_Storage.fetch_file(bucket=self.bucket, file=self.client_token))
 
 
-  @staticmethod
-  def _refresh_credentials(project_credentials: Dict[str, str], user_token: Dict[str, str]) -> Dict[str, str]:
+  def _refresh_credentials(self, project_credentials: Dict[str, str], user_token: Dict[str, str]) -> Dict[str, str]:
     # Remove top-level element
     secrets = project_credentials['web'] if 'web' in project_credentials else project_credentials['installed']
 
@@ -87,6 +66,12 @@ class Credentials(object):
 
     # Force Refresh token
     creds.refresh(google.auth.transport.requests.Request())
+    refresh_token_details = {
+      'access_token': creds.token,
+      'refresh_token': creds.refresh_token
+    }
+
+    Cloud_Storage.write_file(bucket=self.bucket, file=self.client_token, data=json.dumps(refresh_token_details).encode('utf-8'))
 
     return creds
 
@@ -99,7 +84,7 @@ class Credentials(object):
     """
 
     # Return
-    return self.creds
+    return self._refresh_credentials(self.project_credentials, self.token_details)
 
 
   def get_auth_headers(self):
@@ -113,7 +98,7 @@ class Credentials(object):
     oauth2_header = {}
 
     # Apply credential to headers
-    self.creds.apply(oauth2_header)
+    self._refresh_credentials(self.project_credentials, self.token_details).apply(oauth2_header)
 
     # Return authorized http transport
     return oauth2_header
