@@ -254,7 +254,7 @@ class DBM(object):
             last.seek(blank_line_pos)
             footer = last.readlines()
             group_count = sum(g.startswith(b'Group By:') for g in footer)
-            total_block_start = chunk.rfind(b',' * group_count)
+            total_block_start = chunk.rfind(b'\n' + b',' * group_count)
 
             if total_block_start == -1:
               last.truncate(blank_line_pos)
