@@ -38,7 +38,7 @@ Ensure you have the latest versions of the Google Cloud SDK, so run \
 And allow it to update
 
 1. Run the installer \
-`./install.sh --project=<PROJECT ID> --dataset=<DATASET NAME> --create-service-account --activate-apis --deploy-code --deploy-all --dry-run` \
+`./install.sh --project=<PROJECT ID> --dataset=<DATASET NAME> --create-service-account --activate-apis --deploy-all --dry-run` \
 Project id comes from the GCP dashboard: \
 ![](screenshots/1-project_id.png) \
 `--dry-run` simply shows what the code is _going_ to do, without actually doing anything.  
@@ -108,8 +108,3 @@ Click on the download button to save the file. Now upload it to the token storag
 cloud, renaming it "client_secrets.json" as you go. You can do this through the web, or using the
 CLI `gsutil` command like this: \
 `gsutil cp <DOWNLOADED FILE> gs://<PROJECT ID>-report2bq-tokens/client_secrets.json`
-
-
-## DOCUMENTATION
-
-* Tool link: go/
