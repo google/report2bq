@@ -52,7 +52,12 @@ Options:
   --deploy-storage  (Re)Deploy GCS buckets
   --deploy-trigger  (Re)Deploy triggers
   --deploy-oauth    (Re)Deploy OAuth generator
+  --deploy-job-manager
+                    (Re)Deploy the job manager for listing creating and deleting scheduled jobs
 
+  --background      Run the Cloud Functions deployments in the background.
+                    WARNING: IF YOU DO THIS, BE SURE TO CHECK THE FUNCTION OUTPUT FILES FOR A
+                             SUCCESSFUL COMPLETION.
   --dry-run         Don't do anything, just print the commands you would otherwise run. Useful 
                     for testing.
   --usage           Show this text
@@ -63,17 +68,20 @@ EOF
 PROJECT=
 USER=
 DATASET="report2bq"
-DEPLOY_FETCHER=0
-DEPLOY_LOADER=0
-DEPLOY_TRIGGER=0
-DEPLOY_MONITOR=0
-DEPLOY_STORAGE=0
+
+ACTIVATE_APIS=0
+BACKGROUND=0
+CREATE_SERVICE_ACCOUNT=0
 DEPLOY_BQ=0
 DEPLOY_CODE=1
-ACTIVATE_APIS=0
-DEPLOY_RUNNERS=0
+DEPLOY_FETCHER=0
+DEPLOY_JOB_MANAGER=0
+DEPLOY_LOADER=0
+DEPLOY_MONITOR=0
 DEPLOY_OAUTH=0
-CREATE_SERVICE_ACCOUNT=0
+DEPLOY_RUNNERS=0
+DEPLOY_STORAGE=0
+DEPLOY_TRIGGER=0
 USERNAME=0
 
 # Command line parser
@@ -86,14 +94,15 @@ while [[ $1 == -* ]] ; do
       IFS="=" read _cmd DATASET <<< "$1" && [ -z ${DATASET} ] && shift && DATASET=$1
       ;;
     --deploy-all)
-      DEPLOY_FETCHER=1
-      DEPLOY_TRIGGER=1
-      DEPLOY_MONITOR=1
-      DEPLOY_LOADER=1
-      DEPLOY_RUNNERS=1
       DEPLOY_BQ=1
-      DEPLOY_STORAGE=1
+      DEPLOY_FETCHER=1
+      DEPLOY_JOB_MANAGER=1
+      DEPLOY_LOADER=1
+      DEPLOY_MONITOR=1
       DEPLOY_OAUTH=1
+      DEPLOY_RUNNERS=1
+      DEPLOY_STORAGE=1
+      DEPLOY_TRIGGER=1
       ;;
     --deploy-bigquery)
       DEPLOY_BQ=1
@@ -113,6 +122,9 @@ while [[ $1 == -* ]] ; do
     --deploy-job-monitor)
       DEPLOY_MONITOR=1
       ;;
+    --deploy-job-manager)
+      DEPLOY_JOB_MANAGER=1
+      ;;
     --deploy-runner)
       DEPLOY_RUNNERS=1
       ;;
@@ -127,6 +139,9 @@ while [[ $1 == -* ]] ; do
       ;;
     --create-service-account)
       CREATE_SERVICE_ACCOUNT=1
+      ;;
+    --background)
+      BACKGROUND=1
       ;;
     --dry-run)
       DRY_RUN=echo
@@ -154,6 +169,7 @@ if [ ${ACTIVATE_APIS} -eq 1 ]; then
   # Check for active APIs
   APIS_USED=(
     "adsdatahub"
+    "appengine"
     "bigquery"
     "cloudfunctions"
     "cloudscheduler"
@@ -199,8 +215,8 @@ fi
 
 if [ ${CREATE_SERVICE_ACCOUNT} -eq 1 ]; then
   ${DRY_RUN} gcloud iam service-accounts create report2bq --description "Report2BQ Service Account" --project ${PROJECT} \
-  && gcloud iam service-accounts keys create "report2bq@${PROJECT}.iam.gserviceaccount.com.json" --iam-account ${USER} --project ${PROJECT} \
-  && gsutil cp "report2bq@${PROJECT}.iam.gserviceaccount.com.json" gs://${PROJECT}-report2bq-tokens/
+  && ${DRY_RUN} gcloud iam service-accounts keys create "report2bq@${PROJECT}.iam.gserviceaccount.com.json" --iam-account ${USER} --project ${PROJECT} \
+  && ${DRY_RUN} gsutil cp "report2bq@${PROJECT}.iam.gserviceaccount.com.json" gs://${PROJECT}-report2bq-tokens/
   ${DRY_RUN} gcloud projects add-iam-policy-binding ${PROJECT} --member=serviceAccount:${USER} --role=roles/cloudfunctions.invoker
 fi
 
@@ -247,6 +263,10 @@ fi
 
 # Deploy job monitor
 if [ ${DEPLOY_MONITOR} -eq 1 ]; then
+  if [ ${BACKGROUND} -eq 1 ]; then
+    _BG=" & > report2bq-monitor.deploy 2>&1"
+  fi
+
   # Create topic
   ${DRY_RUN} gcloud pubsub topics delete \
     --project=${PROJECT} \
@@ -269,7 +289,7 @@ if [ ${DEPLOY_MONITOR} -eq 1 ]; then
     --service-account=$USER \
     --quiet \
     --timeout=60s \
-    --project=${PROJECT}
+    --project=${PROJECT} ${_BG}
 
   # Create scheduled job
   ${DRY_RUN} gcloud beta scheduler jobs delete \
@@ -283,12 +303,16 @@ if [ ${DEPLOY_MONITOR} -eq 1 ]; then
     --topic="projects/${PROJECT}/topics/job-monitor" \
     --time-zone="America/Toronto" \
     --message-body="RUN" \
-    --project=${PROJECT}
+    --project=${PROJECT} ${_BG}
 fi
 
 # Fetcher
 if [ ${DEPLOY_FETCHER} -eq 1 ]; then
   # Deploy cloud function
+  if [ ${BACKGROUND} -eq 1 ]; then
+    _BG=" & > report2bq-fetcher.deploy 2>&1"
+  fi
+
   echo "report2bq-fetcher"
   ${DRY_RUN} gcloud functions deploy "report2bq-fetcher" \
     --entry-point=report_fetch \
@@ -299,12 +323,16 @@ if [ ${DEPLOY_FETCHER} -eq 1 ]; then
     --service-account=$USER \
     --quiet \
     --timeout=540s \
-    --project=${PROJECT}
+    --project=${PROJECT} ${_BG}
 fi
 
 # Loader
 if [ ${DEPLOY_LOADER} -eq 1 ]; then
   # Deploy cloud function
+  if [ ${BACKGROUND} -eq 1 ]; then
+    _BG=" & > report2bq-loader.deploy 2>&1"
+  fi
+
   echo "report2bq-loader"
   ${DRY_RUN} gcloud functions deploy "report2bq-loader" \
     --entry-point=report_upload \
@@ -317,7 +345,7 @@ if [ ${DEPLOY_LOADER} -eq 1 ]; then
     --set-env-vars=BQ_DATASET=${DATASET} \
     --quiet \
     --timeout=540s \
-    --project=${PROJECT}
+    --project=${PROJECT} ${_BG}
 fi
 
 # Deploy runners
@@ -335,6 +363,10 @@ if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
 
   # Deploy cloud function
   echo "report-runner"
+  if [ ${BACKGROUND} -eq 1 ]; then
+    _BG=" & > report2bq-runner.deploy 2>&1"
+  fi
+
   ${DRY_RUN} gcloud functions deploy "report-runner" \
     --entry-point=report_runner \
     --source=${SOURCE} \
@@ -344,7 +376,7 @@ if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
     --service-account=$USER \
     --quiet \
     --timeout=540s \
-    --project=${PROJECT}
+    --project=${PROJECT} ${_BG}
 
   # Create topic
   ${DRY_RUN} gcloud pubsub topics delete \
@@ -368,7 +400,7 @@ if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
     --trigger-topic="run-monitor" \
     --quiet \
     --timeout=60s \
-    --project=${PROJECT}
+    --project=${PROJECT} ${_BG}
 
   # Create scheduled job
   ${DRY_RUN} gcloud beta scheduler jobs delete \
@@ -386,33 +418,11 @@ if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
     --project=${PROJECT}
 fi
 
-# Deploy runners
+# Deploy oauth
 if [ ${DEPLOY_OAUTH} -eq 1 ]; then
-  echo "OAuth"
-  ${DRY_RUN} gcloud functions deploy "OAuth" \
-    --service-account=$USER \
-    --entry-point=oauth \
-    --allow-unauthenticated \
-    --source=${SOURCE} \
-    --runtime python37 \
-    --memory=1024MB \
-    --trigger-http \
-    --quiet \
-    --timeout=60s \
-    --project=${PROJECT}
-
-  echo "OAuthComplete"
-  ${DRY_RUN} gcloud functions deploy "OAuthComplete" \
-    --service-account=$USER \
-    --entry-point=oauth_complete \
-    --allow-unauthenticated \
-    --source=${SOURCE} \
-    --runtime python37 \
-    --memory=1024MB \
-    --trigger-http \
-    --quiet \
-    --timeout=60s \
-    --project=${PROJECT}
+  if [ ${BACKGROUND} -eq 1 ]; then
+    _BG=" & > report2bq-oauth.deploy 2>&1"
+  fi
 
   ${DRY_RUN} gcloud functions deploy "OAuthRequest" \
     --service-account=$USER \
@@ -422,9 +432,36 @@ if [ ${DEPLOY_OAUTH} -eq 1 ]; then
     --runtime python37 \
     --memory=1024MB \
     --trigger-http \
+    --ingress-settings=internal-only \
     --quiet \
     --timeout=60s \
-    --project=${PROJECT}
+    --project=${PROJECT} ${_BG}
+
+  echo "OAuth"
+  ${DRY_RUN} gcloud functions deploy "OAuth" \
+    --service-account=$USER \
+    --entry-point=oauth \
+    --allow-unauthenticated \
+    --source=${SOURCE} \
+    --ingress-settings=internal-only \
+    --runtime python37 \
+    --memory=1024MB \
+    --trigger-http \
+    --quiet \
+    --timeout=60s \
+    --project=${PROJECT} ${_BG}
+
+  echo "OAuthComplete"
+  ${DRY_RUN} gcloud functions deploy "OAuthComplete" \
+    --service-account=$USER \
+    --entry-point=oauth_complete \
+    --allow-unauthenticated \
+    --source=${SOURCE} \
+    --ingress-settings=internal-only \
+    --runtime python37 \
+    --memory=1024MB \
+    --trigger-http \
+    --quiet \
+    --timeout=60s \
+    --project=${PROJECT} ${_BG}
 fi
-
-

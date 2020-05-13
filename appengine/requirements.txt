@@ -41,7 +41,7 @@ pyasn1
 pyasn1-modules
 pycparser
 pyOpenSSL
-python-jose
+python-jose[cryptography]
 pytz
 pyu2f
 requests

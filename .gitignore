@@ -14,3 +14,8 @@ output.txt
 output2.txt
 report2bq.zip
 **/__pycache__/
+**/node_modules/
+**/.clasp.json
+**/package-lock.json
+**/apps-script/
+.editorconfig

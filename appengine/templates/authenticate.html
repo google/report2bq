@@ -1,0 +1,110 @@
+{#
+# Copyright 2020 Google LLC. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#}
+<!doctype html>
+<html>
+<head>
+  <title>Report2BQ Authentication and Administration</title>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+  <script src="https://apis.google.com/js/client:platform.js?onload=start" async defer></script>
+
+  <script>
+    function start() {
+      gapi.load('auth2', function() {
+        auth2 = gapi.auth2.init({
+          client_id: '{{client_id}}',
+          // Scopes to request in addition to 'profile' and 'email'
+          scope: 'https://www.googleapis.com/auth/adsdatahub',
+          scope: 'https://www.googleapis.com/auth/bigquery',
+          scope: 'https://www.googleapis.com/auth/cloud-platform',
+          scope: 'https://www.googleapis.com/auth/datastore',
+          scope: 'https://www.googleapis.com/auth/dfareporting',
+          scope: 'https://www.googleapis.com/auth/devstorage.read_write',
+          scope: 'https://www.googleapis.com/auth/doubleclickbidmanager',
+          scope: 'https://www.googleapis.com/auth/doubleclicksearch',
+        });
+      });
+    }
+  </script>
+</head>
+<body>
+  <h1>Welcome to Report2PLX!</h1>
+  <div>You are logged in as <strong>{{email}}</strong></div>
+  <p />
+  <div>
+    Please click the button to authenticate to Report2BQ.
+  </div>
+  <div>
+    <div id="signinButton"></div>
+  </div>
+  <script>
+    function onSuccess(googleUser) {
+      console.log('Logged in as: ' + googleUser.getBasicProfile().getName());
+    }
+    function onFailure(error) {
+      console.log(error);
+    }
+    function renderButton() {
+      gapi.signin2.render('signinButton', {
+        'width': 240,
+        'height': 50,
+        'longtitle': true,
+        'theme': 'dark',
+        'onsuccess': onSuccess,
+        'onfailure': onFailure
+      });
+    }
+  </script>
+
+  <script src="https://apis.google.com/js/platform.js?onload=renderButton" async defer></script>
+  
+  <script>
+    $('#signinButton').click(function() {
+      // signInCallback defined in step 6.
+      auth2.grantOfflineAccess().then(signInCallback);
+    });
+  </script>
+
+<!-- END OF BODY -->
+<script>
+  function signInCallback(authResult) {
+    if (authResult['code']) {
+  
+      // Hide the sign-in button now that the user is authorized, for example:
+      $('#signinButton').attr('style', 'display: none');
+  
+      // Send the code to the server
+      $.ajax({
+        type: 'POST',
+        url: '/oauth-complete',
+        // Always include an `X-Requested-With` header in every AJAX request,
+        // to protect against CSRF attacks.
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        contentType: 'application/octet-stream; charset=utf-8',
+        success: function(result) {
+          // Handle or verify the server response.
+        },
+        processData: false,
+        data: authResult['code']
+      });
+    } else {
+      // There was an error.
+    }
+  }
+  </script>
+</body>
+</html>

@@ -21,7 +21,9 @@ __author__ = [
 import logging
 import os
 
+from flask import Request
 from typing import Dict, Any
+from urllib.parse import unquote_plus as unquote
 
 from cloud_functions.job_monitor import JobMonitor
 from cloud_functions.run_monitor import RunMonitor
@@ -30,10 +32,10 @@ from cloud_functions.report_loader import ReportLoader
 from classes.adh import ADH
 from classes.dbm_report_runner import DBMReportRunner
 from classes.dcm_report_runner import DCMReportRunner
+from classes.decorators import measure_memory
 from classes.report2bq import Report2BQ
 from classes.report_type import Type
-from classes.decorators import measure_memory
-from flask import Request
+from classes.scheduler import Scheduler
 
 
 @measure_memory
@@ -216,33 +218,3 @@ def report_runner(event: Dict[str, Any], context=None):
     except Exception as e:
       logging.fatal('Error: {e}\nAttributes supplied: {attributes}'.format(e=e, attributes=attributes))
       return
-
-
-def oauth_request(request: Request) -> str:
-  page = f"""
-<head></head>
-<body>
-<h1>OAuth token generation</h1>
-<p/>
-<form action="/OAuth" type="POST">
-  <label for="email">Please enter your email address:</label><input type="text" id="email" name="email" /><br/>
-  <input type="hidden" name="project" value="{os.environ.get('GCP_PROJECT')}" />
-  <input type="submit" value="SUBMIT REQUEST"></input>
-</form>
-</body>
-"""
-  return page
-
-
-def oauth(request: Request) -> str:
-  logging.info(request.args)
-  project = request.args.get('project', type=str)
-  email = request.args.get('email', type=str)
-  o = OAuth()
-  return o.oauth_init(request, project, email)
-
-
-def oauth_complete(request: Request) -> str:
-  logging.info(request.args)
-  o = OAuth()
-  o.oauth_complete(request)

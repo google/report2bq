@@ -1,0 +1,21 @@
+html, body{
+  margin:0;
+  padding:0;
+  background-color:#FAFAFA;
+  font-family:'Roboto', Arial;
+  color:#545454;
+  font-weight:300;
+}
+
+/* Headers */
+div#main-title{
+  font-size:40px;
+  font-weight:100;
+  margin-left:10px;
+}
+
+div#main-title span.tiny{
+  font-size:20px;
+  font-weight:400;
+  margin:0px 5px;
+}
