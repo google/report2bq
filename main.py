@@ -57,8 +57,9 @@ def report_fetch(event: Dict[str, Any], context=None):
   """
   if 'attributes' in event:
     attributes = event['attributes']
+    logging.info(f'Attributes: {attributes}')
+
     try:
-      logging.info(attributes)
       kwargs = {
         'email': attributes['email'],
         'project': attributes['project'],
@@ -79,24 +80,9 @@ def report_fetch(event: Dict[str, Any], context=None):
       logging.fatal('Error: {e}\nMissing mandatory attributes: {attributes}'.format(e=e, attributes=attributes))
       return
 
+    logging.info(f'args: {kwargs}')
     report2bq = Report2BQ(**kwargs)
     report2bq.run()
-    #   dv360=True if dv360_id else False,
-    #   dv360_id=dv360_id,
-    #   cm=True if cm_id else False,
-    #   cm_id=cm_id,
-    #   sa360=True if sa360_url else False,
-    #   sa360_url=sa360_url,
-    #   force=force,
-    #   profile=profile,
-    #   email=email,
-    #   append=append,
-    #   project=project,
-    #   infer_schema=infer_schema,
-    #   dest_project=dest_project,
-    #   dest_dataset=dest_dataset
-    # )
-    # fetcher.run()
 
 
 def job_monitor(event: Dict[str, Any], context=None):
@@ -130,7 +116,11 @@ def run_monitor(event: Dict[str, Any], context=None):
       event {Dict[str, Any]} -- data sent from the PubSub message
       context {Dict[str, Any]} -- context data. unused
   """
-  RunMonitor().process(event, context)
+  try:
+    RunMonitor().process({}, None)
+
+  except Exception as e:
+    logging.error(e)
 
 
 def report_runner(event: Dict[str, Any], context=None):

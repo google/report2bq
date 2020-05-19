@@ -50,10 +50,8 @@ class RunMonitor(object):
   takes the "fetcher"'s place.
   """
 
-  firestore = Firestore(in_cloud=True, email=None, project=None)
-  CS = storage.Client()
+  firestore = Firestore()
   PS = pubsub.PublisherClient()
-  project = None
 
   def process(self, data: Dict[str, Any], context):
     """[summary]
@@ -63,23 +61,26 @@ class RunMonitor(object):
                                  calling PubSub message
         context {} -- unused
     """
-    self.project = os.environ['GOOGLE_CLOUD_PROJECT']
+    self.project = os.environ['GCP_PROJECT']
 
-    documents = self.firestore.get_all_running()
-    for document in documents:
-      for T in [Type.CM, Type.DV360, Type.SA360, Type.ADH]:
-        config = self.firestore.get_report_config(T, document.id)
-        if config: 
-          runner = document.get().to_dict()
-          config['email'] = runner['email']
-          if T == Type.DV360:
-            self._check_dv360_report(config)
-          elif T == Type.CM:
-            self._check_cm_report(config)
-          break
-        else:
-          logging.error(f'Invalid report: {document.get().to_dict()}')
-          
+    try:
+      documents = self.firestore.get_all_running()
+      for document in documents:
+        for T in [Type.CM, Type.DV360, Type.SA360, Type.ADH]:
+          config = self.firestore.get_report_config(T, document.id)
+          if config: 
+            runner = document.get().to_dict()
+            config['email'] = runner['email']
+            if T == Type.DV360:
+              self._check_dv360_report(config)
+            elif T == Type.CM:
+              self._check_cm_report(config)
+            break
+          else:
+            logging.error(f'Invalid report: {document.get().to_dict()}')
+
+    except Exception as e:
+      logging.error(e)
 
   def _check_dv360_report(self, config: Dict[str, Any]):
     """Check a running DV360 report for completion
