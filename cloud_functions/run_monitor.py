@@ -20,6 +20,7 @@ __author__ = [
 
 import json
 import logging
+import os
 import re
 
 from absl import app
@@ -62,69 +63,69 @@ class RunMonitor(object):
                                  calling PubSub message
         context {} -- unused
     """
-    if 'attributes' in data:
-      self.project = data['attributes']['project']
+    self.project = os.environ['GOOGLE_CLOUD_PROJECT']
 
-      documents = self.firestore.get_all_running()
-      for document in documents:
-        if document['type'] == Type.DV360:
-          self._check_dv360_report(document)
-        elif document['type'] == Type.CM:
-          self._check_dv360_report(document)
+    documents = self.firestore.get_all_running()
+    for document in documents:
+      for T in [Type.CM, Type.DV360, Type.SA360, Type.ADH]:
+        config = self.firestore.get_report_config(T, document.id)
+        if config: 
+          runner = document.get().to_dict()
+          config['email'] = runner['email']
+          if T == Type.DV360:
+            self._check_dv360_report(config)
+          elif T == Type.CM:
+            self._check_cm_report(config)
+          break
         else:
-          logging.error('Invalid report type: {type}'.format(document['type']))
-      
-    else:
-      logging.error('No project specified')
+          logging.error(f'Invalid report: {document.get().to_dict()}')
+          
 
-
-  def _check_dv360_report(self, report: Dict[str, Any]):
+  def _check_dv360_report(self, config: Dict[str, Any]):
     """Check a running DV360 report for completion
     
     Arguments:
         report {Dict[str, Any]} -- The report data structure from Firestore
     """
-    dbm = DBM(email=report['email'], project=self.project)
-    status = dbm.report_state(report['report_id'])
-    config = self.firestore.get_report_config(Type.DV360, report['report_id'])
+    dbm = DBM(email=config['email'], project=self.project)
+    status = dbm.report_state(config['id'])
     append = config['append'] if config and 'append' in config else False
 
-    logging.info('Report {report} status: {status}'.format(report=report['report_id'], status=status))
+    logging.info('Report {report} status: {status}'.format(report=config['id'], status=status))
     if status == 'DONE':
       # Remove job from running
-      self.firestore.remove_report_runner(report)
+      self.firestore.remove_report_runner(config['id'])
 
       # Send pubsub to trigger report2bq now
       topic = 'projects/{project}/topics/report2bq-trigger'.format(project=self.project)
-      self.PS.publish(topic=topic, data=b'RUN', dv360_id=report['report_id'], email=report['email'], append=append, project=self.project)
+      self.PS.publish(topic=topic, data=b'RUN', dv360_id=config['id'], email=config['email'], append=str(append), project=self.project)
     elif status == 'FAILED':
       # Remove job from running
-      logging.error('Report {report} failed!'.format(report=report['report_id']))
-      self.firestore.remove_report_runner(report)
+      logging.error('Report {report} failed!'.format(report=config['id']))
+      self.firestore.remove_report_runner(config['id'])
 
 
-  def _check_cm_report(self, report: Dict[str, Any]):
+  def _check_cm_report(self, config: Dict[str, Any]):
     """Check a running CM report for completion
     
     Arguments:
         report {Dict[str, Any]} -- The report data structure from Firestore
     """
-    dcm = DCM(email=report['email'], superuser=report['superuser'], project=report['project'])
-    config = self.firestore.get_report_config(Type.CM, report['report_id'])
+    dcm = DCM(email=config['email'], project=self.project, profile=config['profile_id'])
     append = config['append'] if config and 'append' in config else False
-    response = dcm.report_state(profile_id=report['profile'], report_id=report['report_id'], file_id=report['file_id'], account_id=report['account_id'])
+    response = dcm.report_state(report_id=config['id'], file_id=config['report_file']['id'])
     status = response['status'] if response and  'status' in response else 'UNKNOWN'
 
-    logging.info('Report {report} status: {status}'.format(report=report['report_id'], status=status))
+    logging.info('Report {report} status: {status}'.format(report=config['id'], status=status))
     if status == 'REPORT_AVAILABLE':
       # Remove job from running
-      self.firestore.remove_report_runner(report)
+      self.firestore.remove_report_runner(config['id'])
 
       # Send pubsub to trigger report2bq now
       topic = 'projects/{project}/topics/report2bq-trigger'.format(project=self.project)
-      self.PS.publish(topic=topic, data=b'RUN', cm_id=report['report_id'], profile=report['profile'], email=report['email'], append=append, project=self.project)
+      self.PS.publish(topic=topic, data=b'RUN', cm_id=config['id'], profile=config['profile_id'], email=config['email'], append=str(append), project=self.project)
 
     elif status == 'FAILED' or status =='CANCELLED':
       # Remove job from running
-      logging.error('Report {report} failed!'.format(report=report['report_id']))
+      logging.error('Report {report} failed!'.format(report=config['id']))
       self.firestore.remove_report_runner(status)

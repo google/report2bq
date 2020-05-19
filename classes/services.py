@@ -4,6 +4,8 @@ from typing import Any, Dict
 
 class Service(Enum):
   SCHEDULER = 'scheduler'
+  DV360 = 'dv360'
+  CM = 'cm'
   
   def __str__(self):
     return str(self.value)
@@ -14,6 +16,14 @@ class Service(Enum):
       'scheduler': {
         'serviceName': 'cloudscheduler',
         'version': 'v1',
+      },
+      'cm': {
+        'serviceName': 'dfareporting',
+        'version': 'v3.3',
+      },
+      'dv360': {
+        'serviceName': 'doubleclickbidmanager',
+        'version': 'v1.1'
       },
     }
     return defs.get(self.value, {})

@@ -26,16 +26,16 @@ import re
 import requests as req
 import time
 
+from apiclient import discovery
 from bs4 import BeautifulSoup
+from html.parser import unescape
+from httplib2 import Http
 from io import BytesIO, StringIO, SEEK_END
+from oauth2client.client import AccessTokenCredentials
 from typing import Dict, List, Any, Tuple
 from urllib.parse import unquote
-from html.parser import unescape
 from xml.dom import minidom
 
-from apiclient import discovery
-from httplib2 import Http
-from oauth2client.client import AccessTokenCredentials
 from classes.credentials import Credentials
 from classes.cloud_storage import Cloud_Storage
 from classes.csv_helpers import CSVHelpers

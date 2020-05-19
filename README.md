@@ -57,39 +57,12 @@ in your browser, and go to Firestore.
 
 1. Go to API > Credentials
 
-1. If you are planning to use ADH, you will need an API key. This is *ONLY* for ADH runners and is only needed
-when you create the runner. It **can** be done safely later. \
+1. You will need an API key. Click "CREATE CREDENTIALS", and you will see this:  
+![](screenshots/3a-CreateAPIKey.png)  
+Select "API Key"
 Click “Restrict Key” \
-Name: “Report2BQ ADH Key” \
-API restrictions->Restrict key \
-Choose “Ads Data Hub API” \
-Click SAVE \
 ![](screenshots/3-API_Key.png)
-
-1. Update the OAuth consent screen \
-![](screenshots/2-OAuth_consent.png)
-
-1. Enable the OAuth flow[](#https-trigger) \
-At the command line, issue the following command:  
-`gcloud functions describe OAuthComplete --project=<PROJECT ID>`  \
-This will go to the newly deployed cloud function and fetch the description. You need the  
-line after `httpsTrigger:`, that starts `url:` 
-```availableMemoryMb: 256
-entryPoint: oauth_complete
-httpsTrigger:
-  url: https://<REGION>-<PROJECT ID>.cloudfunctions.net/OAuthComplete
-ingressSettings: ALLOW_ALL
-labels:
-  deployment-tool: cli-gcloud
-name: projects/<PROJECT ID>/locations/us-central1/functions/OAuthComplete
-runtime: python37
-serviceAccountEmail: <PROJECT ID>@appspot.gserviceaccount.com
-sourceArchiveUrl: gs://<PROJECT ID>-report2bq/report2bq.zip
-status: ACTIVE
-timeout: 60s
-updateTime: '2020-04-01T13:58:49.557Z'
-versionId: '3'
-```
+Name: “Report2BQ API Key” \
 
 1. Create the server's OAuth Id \
 Go to the API Credentials page and create new credentials. These should be of type

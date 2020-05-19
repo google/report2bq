@@ -29,7 +29,7 @@ from datetime import datetime
 from urllib.parse import unquote
 
 from classes.report2bq import Report2BQ
-
+from main import report_fetch
 
 logging.basicConfig(
   filename=f'report2bq-test-harness-{datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.log', 
@@ -43,6 +43,9 @@ flags.DEFINE_integer('dv360_id',
                      None,
                      'Report to load')
 flags.DEFINE_integer('cm_id',
+                     None,
+                     'Report to load')
+flags.DEFINE_integer('report_id',
                      None,
                      'Report to load')
 flags.DEFINE_string('sa360_url',
@@ -111,12 +114,11 @@ def main(unused_argv):
     'dv360': FLAGS.dv360, 
     'cm': FLAGS.cm,
     'force': FLAGS.force, 
-    'rebuild_schema': FLAGS.rebuild_schema,
     'dv360_id': FLAGS.dv360_id,
     'cm_id': FLAGS.cm_id, 
+    'report_id': FLAGS.report_id,
     'profile': FLAGS.profile, 
     'account_id': FLAGS.account, 
-    'superuser': FLAGS.cm_superuser, 
     'email': FLAGS.email,
     'in_cloud': True, 
     'append': FLAGS.append,
@@ -127,8 +129,7 @@ def main(unused_argv):
     'dest_dataset': FLAGS.dest_dataset,
     'infer_schema': FLAGS.infer_schema,
   }
-  reporter = Report2BQ(**attributes)
-  reporter.run()
+  report_fetch({'attributes': attributes}, None)
 
 
 if __name__ == '__main__':

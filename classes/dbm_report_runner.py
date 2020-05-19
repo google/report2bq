@@ -23,6 +23,7 @@ import logging
 import pprint
 import time
 
+from classes import ReportRunner
 from classes.dbm import DBM
 from classes.report2bq import Report2BQ
 from classes.report_type import Type
@@ -30,17 +31,18 @@ from classes.firestore import Firestore
 from io import StringIO
 
 
-class DBMReportRunner(object):
-  def __init__(self, dbm_ids: list=None,
-               email: str=None, synchronous: bool=False, project: str=None):
+class DBMReportRunner(ReportRunner):
+  report_type = Type.DV360
+
+  def __init__(self, dbm_id: str=None,
+               email: str=None, project: str=None):
     self.email = email
-    self.dbm_ids = dbm_ids
-    self.synchronous = synchronous
+    self.dbm_id = dbm_id
     self.project = project
     self.firestore = Firestore(email=email, project=project)
 
 
-  def run(self, unattended: bool=False):
+  def run(self, unattended: bool=True):
     dbm = DBM(email=self.email, project=self.project)
 
     if unattended:
@@ -48,49 +50,47 @@ class DBMReportRunner(object):
     else:
       self._attended_run(dbm)
 
-  def _attended_run(self, dbm: DBM) -> None:
-    successful = []
 
-    for dbm_id in self.dbm_ids:
-      response = dbm.run_report(dbm_id)
-      if response:
-        buffer = StringIO()
-        pprint.pprint(response, stream=buffer)
-        logging.info(buffer.getvalue())
+  def _attended_run(self, dbm: DBM) -> None:
+    response = dbm.run_report(self.dbm_id)
+    if response:
+      buffer = StringIO()
+      pprint.pprint(response, stream=buffer)
+      logging.info(buffer.getvalue())
+
+    while True:
+      status = dbm.report_state(self.dbm_id)
+      logging.info(f'Report {self.dbm_id} status: {status}')
+      if status == 'RUNNING':
+        time.sleep(10)
+
+      elif status == 'DONE':
+        report2bq = Report2BQ(
+          dv360=True, dv360_id=self.dbm_id, email=self.email, 
+          project=self.project
+        )
+        report2bq.handle_report_fetcher(fetcher=dbm, report_id=self.dbm_id)
         break
 
-      while True:
-        status = dbm.report_state(dbm_id)
-        logging.info('Report {report} status: {status}'.format(report=dbm_id, status=status))
-        if status == 'RUNNING':
-          time.sleep(10)
-        elif status == 'DONE':
-          successful.append(dbm_id)
-          break
-        else:
-          break
+      else:
+        logging.error(f'DV360 Report {self.dbm_id} failed to run: {status}')
+        break
     
-    report2bq = Report2BQ(
-      dv360=True, dv360_ids=successful, email=self.email, in_cloud=True, project=self.project
-    )
-    report2bq.handle_dv360_reports()
-
 
   def _unattended_run(self, dbm: DBM) -> None:
-    for dbm_id in self.dbm_ids:
-      response = dbm.run_report(dbm_id)
-      if response:
-        buffer = StringIO()
-        pprint.pprint(response, stream=buffer)
-        logging.error(buffer.getvalue())
-        break 
+    response = dbm.run_report(self.dbm_id)
+    if response:
+      buffer = StringIO()
+      pprint.pprint(response, stream=buffer)
+      logging.error(buffer.getvalue())
+      return 
 
-      runner = {
-        'type': Type.DV360.value,
-        'project': self.project,
-        'report_id': dbm_id,
-        'email': self.email,
-      }
-      self.firestore.store_report_runner(runner)
+    runner = {
+      'type': Type.DV360.value,
+      'project': self.project,
+      'report_id': self.dbm_id,
+      'email': self.email,
+    }
+    self.firestore.store_report_runner(runner)
 
       

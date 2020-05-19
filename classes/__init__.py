@@ -20,11 +20,35 @@ __author__ = [
 
 from typing import Any, Dict, Mapping
 from googleapiclient.errors import HttpError
+from typing import Any, Dict
 
 from classes.decorators import retry
+from classes.report_type import Type
 
 class Fetcher(object):
   @retry(exceptions=HttpError, tries=5, backoff=5)
   def fetch(self, method, **kwargs: Mapping[str, str]) -> Dict[str, Any]:
     result = method(**kwargs).execute()
     return result
+
+
+class ReportFetcher(object):
+  report_type  = None
+
+  def read_header(self, report_details: dict) -> list: pass
+
+  def stream_to_gcs(self, bucket: str, report_details: Dict[str, Any]) -> None: pass
+
+  def normalize_report_details(self, report_object: Dict[str, Any]): pass
+
+  def get_latest_report_file(self, report_id: str): pass
+
+  def run_report(self, report_id: int): pass
+
+  def check_running_report(self, config: Dict[str, Any]): pass
+
+
+class ReportRunner(object):
+  report_type = None
+
+  def run(self, unattended: bool): pass

@@ -19,3 +19,7 @@ report2bq.zip
 **/package-lock.json
 **/apps-script/
 .editorconfig
+**/ae_polymer/
+**/demo/
+appengine/build/
+appengine/test/

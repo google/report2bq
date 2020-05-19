@@ -31,13 +31,13 @@ from classes.report2bq import Report2BQ
 from datetime import datetime
 
 FLAGS = flags.FLAGS
-flags.DEFINE_multi_integer('dbm_id',
+flags.DEFINE_integer('dbm_id',
                            None,
                            'Report to load')
 
-flags.DEFINE_boolean('force',
-                     False,
-                     'Force update, regardless of last update time')
+flags.DEFINE_string('project',
+                     None,
+                     'Project')
 
 flags.DEFINE_string('email',
                      None,
@@ -54,9 +54,9 @@ logging.basicConfig(
 # Stub main()
 def main(unused_argv):
   runner = DBMReportRunner(
-    dbm_ids=FLAGS.dbm_id, 
+    dbm_id=FLAGS.dbm_id, 
     email=FLAGS.email,
-    force=FLAGS.force
+    project=FLAGS.project
   )
   runner.run()
 

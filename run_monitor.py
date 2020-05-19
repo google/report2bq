@@ -18,14 +18,10 @@ __author__ = [
   'davidharcombe@google.com (David Harcombe)'
 ]
 
-from enum import Enum
+# Python logging
+import logging
+import pprint
 
-class Type(Enum):
-  DV360 = 'dbm'
-  CM = 'dcm'
-  SA360 = 'sa360'
-  ADH = 'adh'
-  
+from cloud_functions.run_monitor import RunMonitor
 
-  def __str__(self):
-    return str(self.value)
+RunMonitor().process({}, None)

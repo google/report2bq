@@ -210,11 +210,11 @@ class Firestore(object):
     Arguments:
         runner {Dict[str, Any]} -- store a running report definition
     """
-    document = 'jobs/{report_id}'.format(report_id=runner['report_id'])
+    document = 'running/{report_id}'.format(report_id=runner['report_id'])
     self.client.document(document).set(runner)
 
 
-  def remove_report_runner(self, runner: Dict[str, Any]):
+  def remove_report_runner(self, runner: str):
     """Remove running report
 
     Delete a running report from the list of active reports
@@ -222,5 +222,5 @@ class Firestore(object):
     Arguments:
         runner {Dict[str, Any]} -- [description]
     """
-    document = 'running/{report_id}'.format(report_id=runner['report_id'])
+    document = f'running/{runner}'
     self.client.document(document).delete()

@@ -54,7 +54,7 @@ def measure_memory(method):
   return decorate
 
 
-def retry(exceptions, tries: int=4, delay: int=3, backoff: int=2):
+def retry(exceptions, tries: int=4, delay: int=5, backoff: int=2):
   """
     Retry calling the decorated function using an exponential backoff.
 

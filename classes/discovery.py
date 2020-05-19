@@ -42,6 +42,8 @@ class DiscoverService(object):
     If this is not the case (or, upon attempting to is the service an
     authorization error is raised) the service can be cleared and forced to
     reload.
+r
+r
 
     Args:
 

@@ -29,14 +29,15 @@ import re
 import sys
 import time
 
-# Discovery Service Import
-from apiclient import discovery
-
 # Class Imports
+from classes import ReportFetcher
 from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials
 from classes.csv_helpers import CSVHelpers
-from classes.decorators import measure_memory
+from classes.decorators import measure_memory, retry
+from classes.discovery import DiscoverService
+from classes.report_type import Type
+from classes.services import Service
 from classes.threaded_streamer import ThreadedGCSObjectStreamUpload
 
 # Other imports
@@ -46,28 +47,17 @@ from typing import Dict, Any
 from urllib.request import urlopen
 
 
-class DBM(object):
+class DBM(ReportFetcher):
+  report_type = Type.DV360
 
-  def __init__(self, email: str, project: str):
+  def __init__(self, email: str, project: str, profile: str=None):
     """
     Initialize Reporting Class
     """
     # Get authorized http transport
     self.credentials = Credentials(email=email, project=project)
 
-    # Create service for api calls
-    self.dbm_service = discovery.build(
-        "doubleclickbidmanager",
-        "v1",
-        credentials = self.credentials.get_credentials(),
-        cache_discovery = False
-    )
-
-    # http transport
-    self.http = httplib2.Http()
-
-    # Oauth Headers
-    self.oauth_headers = self.credentials.get_auth_headers()
+    self.dbm_service = DiscoverService.get_service(Service.DV360, self.credentials) 
 
     self.chunk_multiplier = int(os.environ.get('CHUNK_MULTIPLIER', 64))
 
@@ -92,7 +82,7 @@ class DBM(object):
     return result
 
 
-  def get_latest_report_file(self, report_id):
+  def get_latest_report_file(self, report_id: str):
     """
     Pulls a report objects from api report list return
     Args:
@@ -159,44 +149,25 @@ class DBM(object):
     return report_data
 
 
+  @retry(Exception, tries=3, delay=15, backoff=2)
   def run_report(self, report_id: int, retry: int=0):
-    if retry < 5:
-      try:
-        request = self.dbm_service.queries().runquery(queryId=report_id)
-        result = request.execute()
-
-      except Exception as e:
-        retry += 1
-        logging.error('Error {err} caught: backing off for {retry} minutes and retrying.'.format(err=e, retry=retry))
-        time.sleep(60 * retry)
-        return self.run_report(report_id, retry)
-    
-    else:
-      raise Exception('Max retries exceeded')
+    request = self.dbm_service.queries().runquery(queryId=report_id)
+    result = request.execute()
     
     return result
 
 
-  def report_state(self, report_id: int, retry: int=0):
-    if retry < 5:
-      try:
-        request = self.dbm_service.reports().listreports(queryId=report_id)
-        results = request.execute()
+  @retry(Exception, tries=3, delay=15, backoff=2)
+  def report_state(self, report_id: int):
+    request = self.dbm_service.reports().listreports(queryId=report_id)
+    results = request.execute()
 
-        if results:
-          ordered = sorted(results['reports'], key=lambda k: int(k['metadata']['reportDataStartTimeMs']))
-          return ordered[-1]['metadata']['status']['state']
-
-      except Exception as e:
-        retry += 1
-        logging.error('Error {err} caught: backing off for {retry} minutes and retrying.'.format(err=e, retry=retry))
-        time.sleep(60 * retry)
-        return self.report_state(report_id=report_id, retry=retry)
+    if results:
+      ordered = sorted(results['reports'], key=lambda k: int(k['metadata']['reportDataStartTimeMs']))
+      return ordered[-1]['metadata']['status']['state']
     
-    else:
-      raise Exception('Max retries exceeded')
-    
-    return 'UNKNOWN'
+    else:    
+      return 'UNKNOWN'
 
 
   def read_header(self, report_details: dict) -> list:

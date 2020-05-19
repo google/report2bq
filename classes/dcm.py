@@ -21,6 +21,7 @@ __author__ = [
 # Python Imports
 import datetime
 import httplib2
+import inflection
 import io
 import logging
 import os
@@ -29,58 +30,43 @@ import re
 import sys
 import time
 
-# Discovery Service Import
-from apiclient import discovery
 from googleapiclient import http
+from typing import Any, Dict, List
+from queue import Queue, Empty
 
 # Class Imports
+from classes import ReportFetcher
 from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials
 from classes.csv_helpers import CSVHelpers
+from classes.decorators import retry
+from classes.discovery import DiscoverService
+from classes.firestore import Firestore
 from classes.gcs_streamer import GCSObjectStreamUpload
 from classes.report_list import Report_List
+from classes.services import Service
+from classes.report_type import Type
 from classes.threaded_streamer import ThreadedGCSObjectStreamUpload
 
-# Other imports
-from queue import Queue, Empty
 
+class DCM(ReportFetcher):
+  report_type = Type.CM
 
-class DCM(object):
-
-  def __init__(self, email: str=None, superuser: bool=False, project: str=None):
+  def __init__(self, email: str=None, profile: str=None, project: str=None):
     """
     Initialize Reporting Class
     """
     self.project = project
-    self.superuser = superuser
     self.email = email
+    self.profile = profile
 
     # Get authorized http transport
     self.credentials = Credentials(email=email, project=project)
 
-    # Superuser
-    self.superuser = superuser
-    if superuser:
-      version = 'internalv3.3'
-    else:
-      version = 'v3.3'
-
-    # Create service for api calls
-    self.dcm_service = discovery.build(
-        "dfareporting",
-        version,
-        credentials = self.credentials.get_credentials(),
-        cache_discovery = False
-    )
+    self.dcm_service = DiscoverService.get_service(Service.CM, self.credentials) 
 
     # Init Report List Controller
     self.report_list = Report_List()
-
-    # http transport
-    self.http = httplib2.Http()
-
-    # Oauth Headers
-    self.oauth_headers = self.credentials.get_auth_headers()
 
 
   def get_user_profiles(self):
@@ -101,7 +87,7 @@ class DCM(object):
     return result
 
 
-  def get_reports(self, profile_id: int, account_id: int=None) -> Report_List:
+  def get_reports(self) -> Report_List:
     """
     Fetches list of reports for current user
     Args:
@@ -112,21 +98,12 @@ class DCM(object):
 
     # Fetch user reports
     # https://developers.google.com/apis-explorer/#p/dfareporting/v3.1/dfareporting.reports.list
-    if self.superuser:
-      reports = self.dcm_service.reports().list(
-          profileId = profile_id,
-          accountId=account_id,
-          sortField = 'LAST_MODIFIED_TIME',
-          sortOrder = 'DESCENDING',
-          fields = 'items(accountId,fileName,format,id,lastModifiedTime,name,schedule,type)'
-      )
-    else:
-      reports = self.dcm_service.reports().list(
-          profileId = profile_id,
-          sortField = 'LAST_MODIFIED_TIME',
-          sortOrder = 'DESCENDING',
-          fields = 'items(accountId,fileName,format,id,lastModifiedTime,name,schedule,type)'
-      )
+    reports = self.dcm_service.reports().list(
+        profileId = self.profile,
+        sortField = 'LAST_MODIFIED_TIME',
+        sortOrder = 'DESCENDING',
+        fields = 'items(accountId,fileName,format,id,lastModifiedTime,name,schedule,type)'
+    )
 
     # Execute request
     result = reports.execute()
@@ -135,36 +112,24 @@ class DCM(object):
     return result
 
 
-  def get_report_files(self, profile_id, report_id, account_id=None):
+  def get_report_files(self, report_id: int) -> List[Dict[str, Any]]:
     """
     Fetches latest dcm report files
     Args:
-      profile_id: profile id
       report_id: report id
     Returns:
       List of latest DCM report files details
     """
 
     # Fetch report files for specified report
-    if self.superuser:
-      files = self.dcm_service.reports().files().list(
-        profileId = profile_id,
-        accountId = account_id,
-        reportId = report_id,
-        maxResults = '5',
-        sortField = 'LAST_MODIFIED_TIME',
-        # fields = 'items(lastModifiedTime,reportId,status,id,urls/apiUrl)',
-        sortOrder = 'DESCENDING'
-      )
-    else:
-      files = self.dcm_service.reports().files().list(
-        profileId = profile_id,
-        reportId = report_id,
-        maxResults = '5',
-        sortField = 'LAST_MODIFIED_TIME',
-        # fields = 'items(lastModifiedTime,reportId,status,urls/apiUrl)',
-        sortOrder = 'DESCENDING'
-      )
+    files = self.dcm_service.reports().files().list(
+      profileId = self.profile,
+      reportId = report_id,
+      maxResults = '5',
+      sortField = 'LAST_MODIFIED_TIME',
+      # fields = 'items(lastModifiedTime,reportId,status,urls/apiUrl)',
+      sortOrder = 'DESCENDING'
+    )
 
     # Execute request
     result = files.execute()
@@ -173,7 +138,7 @@ class DCM(object):
     return result
 
 
-  def get_report_definition(self, profile_id, report_id, account_id=None):
+  def get_report_definition(self, report_id: int):
     """
     Fetches dcm report definition
 
@@ -184,19 +149,10 @@ class DCM(object):
     Returns:
       List of latest DCM report files details
     """
-
-    # Fetch report definition for specified report
-    if self.superuser:
-      fetcher = self.dcm_service.reports().get(
-        profileId = profile_id,
-        accountId = account_id,
-        reportId = report_id
-      )
-    else:
-      fetcher = self.dcm_service.reports().get(
-        profileId = profile_id,
-        reportId = report_id
-      )
+    fetcher = self.dcm_service.reports().get(
+      profileId = self.profile,
+      reportId = report_id
+    )
 
     # Execute request
     result = fetcher.execute()
@@ -205,7 +161,7 @@ class DCM(object):
     return result
 
 
-  def extract_report_from_report_list(self, reports, report_id):
+  def extract_report_from_report_list(self, reports, report_id: int):
     """
     Pulls a report objects from api report list return
     Args:
@@ -228,7 +184,7 @@ class DCM(object):
     return {}
 
 
-  def get_latest_report_file(self, profile_id: int, report_id: int, account_id: int=None):
+  def get_latest_report_file(self, report_id: int):
     """
     Fetches most recent available dcm report file
     Args:
@@ -239,7 +195,7 @@ class DCM(object):
     """
 
     # List reports
-    reports = self.get_reports(profile_id, account_id)
+    reports = self.get_reports()
 
     # Extract report details
     report = self.extract_report_from_report_list(
@@ -249,7 +205,7 @@ class DCM(object):
 
     # Get latest file
     # Get recent report files
-    files = self.get_report_files(profile_id, report_id, account_id)
+    files = self.get_report_files(report_id)
 
     # Return most recent file
     for file in files['items']:
@@ -259,7 +215,7 @@ class DCM(object):
         report['report_file'] = file
 
         # Append profile id to report
-        report['profile_id'] = str(profile_id)
+        report['profile_id'] = str(self.profile)
 
         # Return Report
         break
@@ -389,7 +345,7 @@ class DCM(object):
     return CSVHelpers.get_column_types(io.BytesIO(bytes_io.read()))
     
     
-  def _stream_to_gcs(self, bucket: str, report_data: dict):
+  def stream_to_gcs(self, bucket: str, report_data: dict):
     """Multi-threaded stream to GCS
     
     Arguments:
@@ -452,46 +408,47 @@ class DCM(object):
     streamer.stop()
 
 
-  def run_report(self, profile_id: int, report_id: int, account_id: int=None, synchronous: bool=False, retry: int=0):
-    if retry < 5:
-      try:
-        if self.superuser:
-          request = self.dcm_service.reports().run(reportId=report_id, profileId=profile_id, accountId=account_id, synchronous=synchronous)
-        else:
-          request = self.dcm_service.reports().run(reportId=report_id, profileId=profile_id, synchronous=synchronous)
-      
-        result = request.execute()
+  @retry(Exception, tries=3, delay=15, backoff=2)
+  def run_report(self, report_id: int, synchronous: bool=False):
+    request = self.dcm_service.reports().run(reportId=report_id, profileId=self.profile, synchronous=synchronous)
+    result = request.execute()
 
-      except Exception as e:
-        retry += 1
-        logging.error('Error {err} caught: backing off for {retry} minutes and retrying.'.format(err=e, retry=retry))
-        time.sleep(60 * retry)
-        return self.run_report(profile_id, report_id, account_id, synchronous, retry)
-    
-    else:
-      raise Exception('Max retries exceeded')
-    
     return result
 
-  def report_state(self, profile_id: int, report_id: int, file_id: int, account_id: int=None, retry: int=0):
-    if retry < 5:
-      try:
-        if self.superuser:
-          request = self.dcm_service.reports().files().get(reportId=report_id, fileId=file_id, profileId=profile_id, accountId=account_id)
-        else:
-          request = self.dcm_service.reports().files().get(reportId=report_id, fileId=file_id, profileId=profile_id)
-    
-        result = request.execute()
 
-      except Exception as e:
-        retry += 1
-        logging.error('Error {err} caught: backing off for {retry} minutes and retrying.'.format(err=e, retry=retry))
-        time.sleep(60 * retry)
-        return self.report_state(
-          profile_id=profile_id, report_id=report_id, account_id=account_id, file_id=file_id, retry=retry
-        )
-    
-    else:
-      raise Exception('Max retries exceeded')
-    
+  @retry(Exception, tries=3, delay=15, backoff=2)
+  def report_state(self, report_id: int, file_id: int):
+    request = self.dcm_service.reports().files().get(reportId=report_id, fileId=file_id, profileId=self.profile)
+    result = request.execute()
+
     return result
+
+
+  def check_running_report(self, config: Dict[str, Any]):
+    """Check a running CM report for completion
+    
+    Arguments:
+        report {Dict[str, Any]} -- The report data structure from Firestore
+    """
+    append = config['append'] if config and 'append' in config else False
+    response = self.report_state(report_id=config['id'], file_id=config['report_file']['id'])
+    status = response['status'] if response and  'status' in response else 'UNKNOWN'
+
+    logging.info('Report {report} status: {status}'.format(report=config['id'], status=status))
+    firestore = Firestore(email=email, project=project)
+    if status == 'REPORT_AVAILABLE':
+      # Remove job from running
+      firestore.remove_report_runner(config['id'])
+
+      # Send pubsub to trigger report2bq now
+      topic = 'projects/{project}/topics/report2bq-trigger'.format(project=self.project)
+      pubsub = pubsub.PublisherClient()
+      pubsub.publish(
+        topic=topic, data=b'RUN', cm_id=config['id'], 
+        profile=config['profile_id'], email=config['email'], append=str(append), project=self.project
+      )
+
+    elif status == 'FAILED' or status =='CANCELLED':
+      # Remove job from running
+      logging.error(f'Report {config["id"]}: {inflection.humanize(status)}.')
+      firestore.remove_report_runner(config['id'])

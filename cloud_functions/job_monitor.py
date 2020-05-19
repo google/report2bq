@@ -61,7 +61,7 @@ class JobMonitor(object):
     documents = firestore.get_all_jobs()
 
     for document in documents:
-      for T in [Type.DCM, Type.DBM, Type.SA360, Type.ADH]:
+      for T in [Type.CM, Type.DV360, Type.SA360, Type.ADH]:
         config = firestore.get_report_config(T, document.id)
         if config: break
 

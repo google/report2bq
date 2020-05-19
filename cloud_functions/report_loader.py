@@ -94,7 +94,7 @@ class ReportLoader(object):
         report configuration.
     """
     config = None
-    for config_type in [Type.DBM, Type.DCM, Type.SA360]:
+    for config_type in [Type.DV360, Type.CM, Type.SA360]:
       config = self.FIRESTORE.get_report_config(config_type, id)
       if config: return config_type, config
 
@@ -121,10 +121,10 @@ class ReportLoader(object):
       raise Exception('No config found for report %s' % report_id)
 
     # Insert with schema and table name from config
-    if config_type == Type.DBM:
+    if config_type == Type.DV360:
       job = self._import_dbm_report(bucket_name, file_name, config)
 
-    elif config_type == Type.DCM:
+    elif config_type == Type.CM:
       job = self._import_dcm_report(bucket_name, file_name, config)
 
     elif config_type == Type.SA360:

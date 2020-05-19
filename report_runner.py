@@ -41,10 +41,10 @@ flags.DEFINE_string('project',
                      'Project id')
 
 # At least one of
-flags.DEFINE_multi_integer('cm_id',
+flags.DEFINE_integer('cm_id',
                            None,
                            'Report to load')
-flags.DEFINE_multi_integer('dv360_id',
+flags.DEFINE_integer('dv360_id',
                            None,
                            'Report to load')
 
@@ -80,19 +80,16 @@ flags.register_multi_flags_validator(['account', 'cm_superuser'],
 def main(unused_argv):
   if FLAGS.dv360_id:
     runner = DBMReportRunner(
-      dbm_ids=FLAGS.dv360_id, 
+      dbm_id=FLAGS.dv360_id, 
       email=FLAGS.email,
       project=FLAGS.project
     )
 
   if FLAGS.cm_id:
     runner = DCMReportRunner(
-      cm_ids=FLAGS.cm_id, 
+      cm_id=FLAGS.cm_id, 
       profile=FLAGS.profile, 
-      account_id=FLAGS.account, 
-      superuser=FLAGS.cm_superuser, 
       email=FLAGS.email,
-      synchronous=False,
       project=FLAGS.project
     )
 

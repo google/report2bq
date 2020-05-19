@@ -31,6 +31,7 @@ googleapis-common-protos
 grpcio
 httplib2
 idna
+inflection
 ipaddress
 lxml
 messytables

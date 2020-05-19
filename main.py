@@ -59,47 +59,44 @@ def report_fetch(event: Dict[str, Any], context=None):
     attributes = event['attributes']
     try:
       logging.info(attributes)
-      email = attributes['email']
-      project = attributes['project']
-      dv360_id = attributes.get('dv360_id', None)
-      cm_id = attributes.get('cm_id', None)
-      sa360_url = attributes.get('sa360_url') if 'sa360_url' in attributes else None
-      profile = attributes.get('profile', None)
-      cm_superuser = attributes.get('cm_superuser', False)
-      account = attributes.get('account', None)
-      if cm_superuser and not account:
-        raise "Superuser must specify account as well as profile"
-      rebuild_schema = attributes.get('rebuild_schema', False)
-      force = attributes.get('force', False)
-      append = attributes.get('append', False)
-      infer_schema = attributes.get('infer_schema', False)
-      dest_project = attributes.get('dest_project', None)
-      dest_dataset = attributes.get('dest_dataset', 'report2bq')
+      kwargs = {
+        'email': attributes['email'],
+        'project': attributes['project'],
+        'report_id': attributes.get('dv360_id') or attributes.get('cm_id') or attributes.get('report_id'),
+        'profile': attributes.get('profile', None),
+        'sa360_url': attributes.get('sa360_url') if 'sa360_url' in attributes else None,
+        'force': attributes.get('force', False),
+        'append': attributes.get('append', False),
+        'infer_schema': attributes.get('infer_schema', False),
+        'dest_project': attributes.get('dest_project', None),
+        'dest_dataset': attributes.get('dest_dataset', 'report2bq'),
+      }
+      if kwargs.get('sa360_url'): kwargs['product'] = Type.SA360
+      elif kwargs.get('profile'): kwargs['product'] = Type.CM
+      else: kwargs['product'] = Type.DV360
 
     except Exception as e:
       logging.fatal('Error: {e}\nMissing mandatory attributes: {attributes}'.format(e=e, attributes=attributes))
       return
 
-    fetcher = Report2BQ(
-      dv360=True if dv360_id else False,
-      dv360_id=dv360_id,
-      cm=True if cm_id else False,
-      cm_id=cm_id,
-      sa360=True if sa360_url else False,
-      sa360_url=sa360_url,
-      rebuild_schema=rebuild_schema,
-      force=force,
-      profile=profile,
-      superuser=cm_superuser,
-      account_id=account,
-      email=email,
-      append=append,
-      project=project,
-      infer_schema=infer_schema,
-      dest_project=dest_project,
-      dest_dataset=dest_dataset
-    )
-    fetcher.run()
+    report2bq = Report2BQ(**kwargs)
+    report2bq.run()
+    #   dv360=True if dv360_id else False,
+    #   dv360_id=dv360_id,
+    #   cm=True if cm_id else False,
+    #   cm_id=cm_id,
+    #   sa360=True if sa360_url else False,
+    #   sa360_url=sa360_url,
+    #   force=force,
+    #   profile=profile,
+    #   email=email,
+    #   append=append,
+    #   project=project,
+    #   infer_schema=infer_schema,
+    #   dest_project=dest_project,
+    #   dest_dataset=dest_dataset
+    # )
+    # fetcher.run()
 
 
 def job_monitor(event: Dict[str, Any], context=None):
@@ -152,35 +149,27 @@ def report_runner(event: Dict[str, Any], context=None):
     try:
       logging.info(attributes)
       if 'type' in attributes:
-        if Type(attributes['type']) == Type.DBM:
-          dv360_ids = [attributes.get('dv360_id')] if 'dv360_id' in attributes else None
+        if Type(attributes['type']) == Type.DV360:
+          dv360_id = attributes.get('dv360_id') if 'dv360_id' in attributes else None
           email = attributes['email']
           project = attributes['project'] or os.environ.get('GCP_PROJECT')
 
           runner = DBMReportRunner(
-            dbm_ids=dv360_ids,
+            dbm_id=dv360_id,
             email=email,
-            synchronous=False,
             project=project
           )
 
-        elif Type(attributes['type']) == Type.DCM:
-          cm_ids = [attributes.get('cm_id')] if 'cm_id' in attributes else None
+        elif Type(attributes['type']) == Type.CM:
+          cm_id = attributes.get('cm_id') if 'cm_id' in attributes else None
           profile = attributes.get('profile', None)
-          cm_superuser = attributes.get('cm_superuser', False)
-          account = attributes.get('account', None)
-          if cm_superuser and not account:
-            raise "Superuser must specify account as well as profile"
           email = attributes['email']
           project = attributes['project'] or os.environ.get('GCP_PROJECT')
 
           runner = DCMReportRunner(
-            cm_ids=cm_ids,
+            cm_id=cm_id,
             profile=profile,
-            superuser=cm_superuser,
-            account_id=account,
             email=email,
-            synchronous=False,
             project=project
           )
 

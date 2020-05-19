@@ -23,6 +23,7 @@ import logging
 import pprint
 import time
 
+from classes import ReportRunner
 from classes.dcm import DCM
 from classes.report2bq import Report2BQ
 from classes.report_type import Type
@@ -30,22 +31,20 @@ from classes.firestore import Firestore
 from io import StringIO
 
 
-class DCMReportRunner(object):
-  def __init__(self, cm_ids: list=None, profile: str=None,
-               account_id: int=None, superuser: bool=False, email: str=None, 
-               synchronous: bool=False, project: str=None):
+class DCMReportRunner(ReportRunner):
+  report_type = Type.CM
+
+  def __init__(self, cm_id: str=None, profile: str=None,
+               email: str=None, project: str=None):
     self.email = email
-    self.cm_ids = cm_ids
+    self.cm_id = cm_id
     self.cm_profile = profile
-    self.account_id = account_id
-    self.superuser = superuser
-    self.synchronous = synchronous
     self.project = project
     self.firestore = Firestore(email=email, project=project)
 
 
-  def run(self, unattended: bool=False) -> None:
-    dcm = DCM(email=self.email, superuser=self.superuser, project=self.project)
+  def run(self, unattended: bool=True) -> None:
+    dcm = DCM(email=self.email, project=self.project, profile=self.cm_profile)
     if unattended:
       self._unattended_run(dcm)
     else:
@@ -54,43 +53,39 @@ class DCMReportRunner(object):
 
   def _attended_run(self, dcm: DCM) -> None:
     successful = []
-    for cm_id in self.cm_ids:
-      response = dcm.run_report(profile_id=self.cm_profile, report_id=cm_id, account_id=self.account_id, synchronous=self.synchronous)
-      if response:
-        buffer = StringIO()
-        pprint.pprint(response, stream=buffer)
-        logging.info(buffer.getvalue())
+    response = dcm.run_report(report_id=self.cm_id, synchronous=True)
+    if response:
+      buffer = StringIO()
+      pprint.pprint(response, stream=buffer)
+      logging.info(buffer.getvalue())
 
-      while response['status'] == 'PROCESSING':
-        time.sleep(60 * 0.5)
-        response = dcm.report_state(profile_id=self.cm_profile, report_id=cm_id, file_id=response['id'], account_id=self.account_id)
-        buffer = StringIO()
-        pprint.pprint(response, stream=buffer)
-        logging.info(buffer.getvalue())
+    while response['status'] == 'PROCESSING':
+      time.sleep(60 * 0.5)
+      response = dcm.report_state(report_id=self.cm_id, file_id=response['id'])
+      buffer = StringIO()
+      pprint.pprint(response, stream=buffer)
+      logging.info(buffer.getvalue())
 
-      successful.append(cm_id)
-
-    report2bq = Report2BQ(cm=True, cm_ids=successful, email=self.email, in_cloud=True, project=self.project, profile=self.cm_profile)
-    report2bq.handle_cm_reports()
+    report2bq = Report2BQ(
+      cm=True, cm_id=self.cm_id, email=self.email, project=self.project,
+      profile=self.cm_profile
+    )
+    report2bq.handle_report_fetcher(fetcher=dcm, report_id=self.cm_id)
 
 
   def _unattended_run(self, dcm: DCM) -> None:
-    for cm_id in self.cm_ids:
-      response = dcm.run_report(profile_id=self.cm_profile, report_id=cm_id, account_id=self.account_id, synchronous=self.synchronous)
-      if response:
-        buffer = StringIO()
-        pprint.pprint(response, stream=buffer)
-        logging.info(buffer.getvalue())
-        break
+    response = dcm.run_report(report_id=self.cm_id, synchronous=False)
+    if response:
+      buffer = StringIO()
+      pprint.pprint(response, stream=buffer)
+      logging.info(buffer.getvalue())
 
-      runner = {
-        'type': Type.CM.value,
-        'project': self.project,
-        'report_id': cm_id,
-        'email': self.email,
-        'profile': self.cm_profile,
-        'account_id': self.account_id,
-        'superuser': self.superuser,
-        'file_id': response['id']
-      }
-      self.firestore.store_report_runner(runner)
+    runner = {
+      'type': Type.CM.value,
+      'project': self.project,
+      'report_id': self.cm_id,
+      'email': self.email,
+      'profile': self.cm_profile,
+      'file_id': response['id']
+    }
+    self.firestore.store_report_runner(runner)
