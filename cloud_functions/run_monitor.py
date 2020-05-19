@@ -128,4 +128,4 @@ class RunMonitor(object):
     elif status == 'FAILED' or status =='CANCELLED':
       # Remove job from running
       logging.error('Report {report} failed!'.format(report=config['id']))
-      self.firestore.remove_report_runner(status)
+      self.firestore.remove_report_runner(config['id'])
