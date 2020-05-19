@@ -92,7 +92,7 @@ class Report2BQ(object):
         logging.error('Cannot append with a different schema.')
         return
 
-      report_data['schema'] = last_report['schema']
+      report_data['schema'] = schema
       report_data['email'] = self.email
       report_data['append'] = self.append
 
@@ -128,19 +128,10 @@ class Report2BQ(object):
   
 
   def run(self):
+    logging.info(f'Product: {self.product}')
     if self.product in [ Type.DV360, Type.CM ]:
       fetcher = FetcherFactory.create_fetcher(self.product, email=self.email, project=self.project, profile=self.cm_profile)
       self.handle_report_fetcher(fetcher=fetcher)
 
     elif self.product == Type.SA360:
       self.handle_sa360()
-
-    # if self.product == Type.DV360:
-    #   fetcher = DBM(self.email, project=self.project)
-    #   self.handle_report_fetcher(fetcher=fetcher)
-    #   # self.handle_dv360_reports()
-
-    # if self.product == Type.CM:
-    #   fetcher = DCM(email=self.email, project=self.project, profile=self.cm_profile)
-    #   self.handle_report_fetcher(fetcher=fetcher)
-    #   # self.handle_cm_reports()

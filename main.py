@@ -56,10 +56,10 @@ def report_fetch(event: Dict[str, Any], context=None):
       context {Dict[str, Any]} -- context data. unused
   """
   if 'attributes' in event:
-    attributes = event['attributes']
-    logging.info(f'Attributes: {attributes}')
-
     try:
+      attributes = event['attributes']
+      logging.info(f'Attributes: {attributes}')
+
       kwargs = {
         'email': attributes['email'],
         'project': attributes['project'],
@@ -76,13 +76,14 @@ def report_fetch(event: Dict[str, Any], context=None):
       elif kwargs.get('profile'): kwargs['product'] = Type.CM
       else: kwargs['product'] = Type.DV360
 
+      logging.info(f'args: {kwargs}')
+      report2bq = Report2BQ(**kwargs)
+      report2bq.run()
+
     except Exception as e:
-      logging.fatal('Error: {e}\nMissing mandatory attributes: {attributes}'.format(e=e, attributes=attributes))
+      logging.fatal(f'Error: {e}')
       return
 
-    logging.info(f'args: {kwargs}')
-    report2bq = Report2BQ(**kwargs)
-    report2bq.run()
 
 
 def job_monitor(event: Dict[str, Any], context=None):

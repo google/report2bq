@@ -162,7 +162,7 @@ while [[ $1 == -* ]] ; do
       FORCE="force=True"
       ;;
     --infer-schema)
-      INFER_SCHEMA="--infer_schema=True"
+      INFER_SCHEMA="infer_schema=True"
       ;;
     --rebuild-schema)
       REBUILD_SCHEMA="rebuild_schema=True"
