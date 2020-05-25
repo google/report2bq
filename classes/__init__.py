@@ -26,7 +26,7 @@ from classes.decorators import retry
 from classes.report_type import Type
 
 class Fetcher(object):
-  @retry(exceptions=HttpError, tries=5, backoff=5)
+  @retry(exceptions=HttpError, tries=3, backoff=2)
   def fetch(self, method, **kwargs: Mapping[str, str]) -> Dict[str, Any]:
     result = method(**kwargs).execute()
     return result
@@ -46,6 +46,8 @@ class ReportFetcher(object):
   def run_report(self, report_id: int): pass
 
   def check_running_report(self, config: Dict[str, Any]): pass
+
+  def get_reports(self) -> Dict[str, Any]: pass
 
 
 class ReportRunner(object):

@@ -17,6 +17,22 @@
 <html>
 <head>
   <title>Report2BQ Authentication and Administration</title>
+
+  <!-- Required styles for Material Web -->
+  <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700">
+
+  <!-- Required Material Web JavaScript library -->
+  <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+  
+  <!-- Local -->
+  <link rel="stylesheet" type="text/css" href="/static/css/main.css">
+
+  <!-- Favicon -->
+  <link rel="icon" href="/static/img/favicon.ico">
+
   <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
   <script src="https://apis.google.com/js/client:platform.js?onload=start" async defer></script>
 
@@ -40,15 +56,37 @@
   </script>
 </head>
 <body>
-  <h1>Welcome to Report2PLX!</h1>
-  <div>You are logged in as <strong>{{email}}</strong></div>
-  <p />
-  <div>
-    Please click the button to authenticate to Report2BQ.
+  <header class="mdc-top-app-bar">
+    <div class="mdc-top-app-bar__row">
+      <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
+        <button class="mdc-icon-button material-icons mdc-top-app-bar__navigation-icon--unbounded">menu</button><span class="mdc-top-app-bar__title">Report2BQ</span>
+      </section>
+    </div>
+  </header>
+
+  <div class="mdc-card mdc-card--outlined report2bq-text-card report2bq-text-card-content">
+    <div class="mdc-card__header">
+      <div class="mdc-card__title mdc-typography mdc-typography--headline5">Report2BQ</div>
+    </div>
+    <div class="mdc-card__primary-action demo-card__primary-action" tabindex="0">
+      <div class="mdc-card__secondary mdc-typography mdc-typography--body2">
+        <div>You are logged in as <strong>{{email}}</strong></div>
+        <div>Please click the button to authenticate to Report2BQ.</div>
+      </div>
+      <div class="mdc-card__actions">
+        <div class="mdc-card__action-buttons">
+            <button class="mdc-button mdc-card__action mdc-card__action--button signinButton" id="signinButton">
+              <span class="mdc-button__ripple"></span>
+              <span class="mdc-button__label" id="signinButton">SIGN IN</span>
+            </button>
+        </div>
+      </div>
+      </div>
   </div>
-  <div>
+
+  <!-- <div>
     <div id="signinButton"></div>
-  </div>
+  </div> -->
   <script>
     function onSuccess(googleUser) {
       console.log('Logged in as: ' + googleUser.getBasicProfile().getName());
@@ -58,10 +96,10 @@
     }
     function renderButton() {
       gapi.signin2.render('signinButton', {
-        'width': 240,
-        'height': 50,
-        'longtitle': true,
-        'theme': 'dark',
+        // 'width': 240,
+        // 'height': 50,
+        // 'longtitle': true,
+        // 'theme': 'dark',
         'onsuccess': onSuccess,
         'onfailure': onFailure
       });
@@ -83,7 +121,7 @@
     if (authResult['code']) {
   
       // Hide the sign-in button now that the user is authorized, for example:
-      $('#signinButton').attr('style', 'display: none');
+      // $('#signinButton').attr('style', 'display: none');
   
       // Send the code to the server
       $.ajax({
@@ -97,6 +135,7 @@
         contentType: 'application/octet-stream; charset=utf-8',
         success: function(result) {
           // Handle or verify the server response.
+          location.href = '/';
         },
         processData: false,
         data: authResult['code']

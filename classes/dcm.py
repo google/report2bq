@@ -35,7 +35,7 @@ from typing import Any, Dict, List
 from queue import Queue, Empty
 
 # Class Imports
-from classes import ReportFetcher
+from classes import Fetcher, ReportFetcher
 from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials
 from classes.csv_helpers import CSVHelpers
@@ -49,7 +49,7 @@ from classes.report_type import Type
 from classes.threaded_streamer import ThreadedGCSObjectStreamUpload
 
 
-class DCM(ReportFetcher):
+class DCM(ReportFetcher, Fetcher):
   report_type = Type.CM
 
   def __init__(self, email: str=None, profile: str=None, project: str=None):
@@ -78,13 +78,12 @@ class DCM(ReportFetcher):
 
     # Fetch User Profiles
     # https://developers.google.com/apis-explorer/#p/dfareporting/v3.1/dfareporting.accountUserProfiles.get
-    profiles = self.dcm_service.userProfiles().list()
-
-    # Execute request
-    result = profiles.execute()
-
-    # Return result
-    return result
+    result = self.fetch(method=self.dcm_service.userProfiles().list, **{
+      # 'fields': 'items(profileId, accountName)'
+    })
+    return [
+      item['profileId'] for item in result['items'] if not item['accountName'].startswith('SUPERUSER')
+    ] if result and 'items' in result else []
 
 
   def get_reports(self) -> Report_List:
@@ -96,20 +95,32 @@ class DCM(ReportFetcher):
       Report list
     """
 
+    if not self.profile:
+      profiles = self.get_user_profiles()
+
+    else:
+      profiles = [self.profile]
     # Fetch user reports
     # https://developers.google.com/apis-explorer/#p/dfareporting/v3.1/dfareporting.reports.list
-    reports = self.dcm_service.reports().list(
-        profileId = self.profile,
-        sortField = 'LAST_MODIFIED_TIME',
-        sortOrder = 'DESCENDING',
-        fields = 'items(accountId,fileName,format,id,lastModifiedTime,name,schedule,type)'
-    )
+    reports = []
 
-    # Execute request
-    result = reports.execute()
+    fields = {
+      'sortField': 'LAST_MODIFIED_TIME',
+      'sortOrder': 'DESCENDING',
+      'fields': 'items(ownerProfileId,fileName,format,id,lastModifiedTime,name,schedule,type)',
+    }
 
-    # Return result
-    return result
+    for profile in profiles:
+      fields['profileId'] = profile
+
+      result = self.fetch(
+          self.dcm_service.reports().list,
+          **fields
+      )
+      if 'items' in result:
+        reports = [*reports, *result['items']]
+    
+    return reports
 
 
   def get_report_files(self, report_id: int) -> List[Dict[str, Any]]:
@@ -122,20 +133,19 @@ class DCM(ReportFetcher):
     """
 
     # Fetch report files for specified report
-    files = self.dcm_service.reports().files().list(
-      profileId = self.profile,
-      reportId = report_id,
-      maxResults = '5',
-      sortField = 'LAST_MODIFIED_TIME',
-      # fields = 'items(lastModifiedTime,reportId,status,urls/apiUrl)',
-      sortOrder = 'DESCENDING'
+    files = self.fetch(
+      method=self.dcm_service.reports().files().list,
+      **{
+        'profileId': self.profile,
+        'reportId': report_id,
+        'maxResults': '5',
+        'sortField': 'LAST_MODIFIED_TIME',
+        # 'fields': items(lastModifiedTime,reportId,status,urls/apiUrl)',
+        'sortOrder': 'DESCENDING'
+      }
     )
 
-    # Execute request
-    result = files.execute()
-
-    # Return result
-    return result
+    return files
 
 
   def get_report_definition(self, report_id: int):
@@ -149,15 +159,14 @@ class DCM(ReportFetcher):
     Returns:
       List of latest DCM report files details
     """
-    fetcher = self.dcm_service.reports().get(
-      profileId = self.profile,
-      reportId = report_id
+    result = self.fetch(
+      method=self.dcm_service.reports().get,
+      **{
+        'profileId': self.profile,
+        'reportId': report_id, 
+      }
     )
 
-    # Execute request
-    result = fetcher.execute()
-
-    # Return result
     return result
 
 

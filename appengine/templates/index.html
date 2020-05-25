@@ -14,51 +14,74 @@
 # limitations under the License.
 #}
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <title>Report2BQ Authentication and Administration</title>
-  <link rel="import" href="/components/polymer/polymer.html">
-  <link rel="import" href="/components/font-roboto/roboto.html">
 
-  <link rel="import" href="/components/paper-card/paper-card.html">
-  <link rel="import" href="/components/paper-header-panel/paper-header-panel.html">
-  <link rel="import" href="/components/paper-tabs/paper-tabs.html">
-  <link rel="import" href="/components/paper-toolbar/paper-toolbar.html">
+  <!-- Required styles for Material Web -->
+  <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700">
 
-  <!-- Polymer Local Components -->
-  <link rel="import" href="/local_components/content-box.html">
-
-  <!-- CSS -->
+  <!-- Required Material Web JavaScript library -->
+  <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+  
+  <!-- Local -->
   <link rel="stylesheet" type="text/css" href="/static/css/main.css">
 
   <!-- Favicon -->
-  <link rel="icon" href="static/img/favicon.ico">
+  <link rel="icon" href="/static/img/favicon.ico">
 </head>
+
 <body>
-    <paper-header-panel>
-      <paper-toolbar class="tall">
-        <div id="main-title" class="middle title" slot="middle">Report<span class="tiny">2</span>BQ <span class="tiny"></span></div>
-      </paper-toolbar>
-    </paper-header-panel>
-    <div>
-      <content-box title="About Report2BQ">
-        <div>
-          <p>Report2BQ allows you to create a synchronized pipeline for any DV360, CM, SA360 or ADH report to BQ and Data Studio.</p>
-          <p>Once you have linked your report, Report2BQ will create a table using report data, immediately making your data available to BigQuery for Client-Facing Data Studio Reports</p>
-          <p>Report2BQ checks every hour for updates to your scheduled reports and will keep your data up-to-date.</p>
-          <p>Contact <a href="mailto:davidharcombe@google.com">davidharcombe@</a> for support.</p>
-        </div>
-      </content-box>
+  <header class="mdc-top-app-bar">
+    <div class="mdc-top-app-bar__row">
+      <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
+        <button class="mdc-icon-button material-icons mdc-top-app-bar__navigation-icon--unbounded">menu</button><span class="mdc-top-app-bar__title">Report2BQ</span>
+      </section>
     </div>
-    <div>
-      <content-box title="Authenticating with Report2BQ">
-        <div>
-          <p>You're already authenticated, but if you'd like to refresh your credentials, please <a href="/authenticate">click here</a>.</p>
-        </div>
-      </content-box>
+  </header>
+
+  <div class="mdc-card mdc-card--outlined report2bq-text-card report2bq-text-card-content">
+    <div class="mdc-card__header">
+      <div class="mdc-card__title mdc-typography mdc-typography--headline5">Report2BQ</div>
     </div>
+    <div class="mdc-card__primary-action demo-card__primary-action" tabindex="0">
+      <div class="mdc-card__secondary mdc-typography mdc-typography--body2">
+        <p>Report2BQ allows you to create a synchronized pipeline for any DV360, CM, SA360 or ADH report to BQ and Data Studio.</p>
+        <p>Once you have linked your report, Report2BQ will create a table using report data, immediately making your data available to BigQuery for client-facing Data Studio Reports</p>
+        <p>Report2BQ checks every hour for updates to your scheduled reports and will keep your data up-to-date.</p>
+        <p>Contact <a href="mailto:davidharcombe@google.com">davidharcombe@</a> for support.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="mdc-card mdc-card--outlined report2bq-text-card report2bq-text-card-content">
+    <div class="mdc-card__primary-action" tabindex="0">
+      <div class="mdc-card__secondary mdc-typography mdc-typography--body2">
+        You're already properly authenticated, but if you're welcome to refresh your credentials any time you like!
+      </div>
+    </div>
+    <div class="mdc-card__actions">
+      <div class="mdc-card__action-buttons">
+          <button class="mdc-button mdc-card__action mdc-card__action--button authenticate">
+            <span class="mdc-button__ripple"></span>
+            <span class="mdc-button__label">REAUTHENTICATE</span>
+          </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    mdc.ripple.MDCRipple.attachTo(document.querySelector('.authenticate'));
+
+    document.querySelector('.authenticate').onclick = function() {
+      location.href = '/authenticate';
+    };
+  </script>
 </body>
 </html>

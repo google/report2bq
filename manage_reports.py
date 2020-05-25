@@ -27,7 +27,10 @@ from absl import flags
 from pprint import pprint
 from typing import Dict, Any
 
-from classes.dcm import DCM
+from classes import ReportFetcher
+from classes.fetcher_factory import FetcherFactory
+from classes.report_type import Type
+# from classes.dcm import DCM
 
 
 FLAGS = flags.FLAGS
@@ -41,6 +44,9 @@ flags.DEFINE_string('email',
 flags.DEFINE_string('project',
                      None,
                      'GCP Project')
+flags.DEFINE_string('product',
+                     'dbm',
+                     'DV360 or CM')
 
 flags.DEFINE_boolean('list',
                      False,
@@ -60,19 +66,6 @@ flags.DEFINE_string('new_name',
 flags.DEFINE_integer('profile',
                      None,
                      'Campaign Manager profile id. Only needed for CM.')
-flags.DEFINE_integer('account',
-                     None,
-                     'CM account id. Required for CM Superusers.')
-
-flags.register_multi_flags_validator(['account', 'profile'],
-                       lambda value: (value.get('account') == None and not value.get('profile') == None),
-                       message='--account requires a --profile to be set.')
-flags.register_multi_flags_validator(['report_id', 'list'],
-                       lambda value: value.get('report_id') == None and not value.get('list'),
-                       message='--list does not take a report_id')
-flags.register_multi_flags_validator(['report_id', 'restore'],
-                       lambda value: value.get('report_id') == None and value.get('restore'),
-                       message='--restore does not take a report_id')
 
 flags.mark_flag_as_required('email')
 flags.mark_flag_as_required('project')
@@ -82,25 +75,25 @@ flags.mark_bool_flags_as_mutual_exclusive(['list', 'backup', 'restore'])
 
 # Stub main()
 def main(unused_argv):
-  if FLAGS.profile:
-    # DCM
-    dcm = DCM(superuser=(FLAGS.profile and FLAGS.account), email=FLAGS.email, project=FLAGS.project)
-
+  fetcher = FetcherFactory.create_fetcher(Type(FLAGS.product), email=FLAGS.email, project=FLAGS.project, profile=FLAGS.profile)
+  
+  if fetcher.report_type == Type.CM:
     if FLAGS.list:
-      reports = dcm.get_reports(profile_id=FLAGS.profile, account_id=FLAGS.account)
+      reports = fetcher.get_reports()
       if reports:
-        print('Report list for profile id {profile}'.format(profile=FLAGS.profile))
+        print('Report list')
         print('')
-        for report in reports.get('items'):
-          print('ID [{id}], "{name}". Type [{type}], running {run}'.format(
+        for report in reports:
+          print('ID [{id}] on profile [{profile}], "{name}". Type [{type}], running {run}'.format(
             id=report['id'],
             name=report['name'],
             type=report['type'],
-            run=report['schedule']['repeats'] if report['schedule']['active'] else 'MANUAL'
+            run=report['schedule']['repeats'] if report['schedule']['active'] else 'MANUAL',
+            profile=report['ownerProfileId']
           ))
 
     if FLAGS.backup:
-      report = dcm.get_report_definition(profile_id=FLAGS.profile, report_id=FLAGS.report_id, account_id=FLAGS.account)
+      report = fetcher.get_report_definition(profile_id=FLAGS.profile, report_id=FLAGS.report_id,)
       with open('config_files/{report}.json'.format(report=FLAGS.report_id), 'w') as report_file:
         report_file.write(json.dumps(report, indent=2))
         report_file.close()
@@ -128,7 +121,20 @@ def main(unused_argv):
 
   else:
     # DV360
-    print('DV360 not implemented yet')
+    if FLAGS.list:
+      reports = fetcher.get_reports()
+      if reports:
+        print('Report list')
+        print('')
+        for report in reports.get('queries'):
+          print('ID [{id}], "{name}". Type [{type}], running {run}'.format(
+            id=report['queryId'],
+            name=report['metadata']['title'],
+            type=report['params']['type'],
+            run=report['schedule']['frequency'] if 'schedule' in report else 'MANUAL'
+          ))
+
+    # print('DV360 not implemented yet')
 
 
 if __name__ == '__main__':

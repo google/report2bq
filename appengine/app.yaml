@@ -4,12 +4,21 @@ runtime: python37
 # Handlers define how to route static requests to your application.
 handlers:
 - url: /local_components/
-  static_dir: google3/experimental/cse_dclk/report2plx/fe/local_components/
+  static_dir: local_components/
 
 # Default Polymer Components
 - url: /components/
-  static_dir: google3/experimental/cse_dclk/report2plx/fe/components/
+  static_dir: components/
 
 # Static files
 - url: /static/
-  static_dir: google3/experimental/cse_dclk/report2plx/fe/static/
+  static_dir: static/
+
+- url: /node_modules/
+  static_dir: node_modules/
+
+- url: /@polymer/
+  static_dir: node_modules/@polymer/
+
+- url: /@webcomponents/
+  static_dir: node_modules/@webcomponents/

@@ -19,3 +19,14 @@ div#main-title span.tiny{
   font-weight:400;
   margin:0px 5px;
 }
+
+.report2bq-text-card {
+  width: 350px;
+  position: relative;
+  top: 80px;
+  left: 20px;
+}
+
+.report2bq-text-card-content {
+  padding: 16px;
+}

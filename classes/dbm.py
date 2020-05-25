@@ -30,7 +30,7 @@ import sys
 import time
 
 # Class Imports
-from classes import ReportFetcher
+from classes import Fetcher, ReportFetcher
 from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials
 from classes.csv_helpers import CSVHelpers
@@ -47,7 +47,7 @@ from typing import Dict, Any
 from urllib.request import urlopen
 
 
-class DBM(ReportFetcher):
+class DBM(ReportFetcher, Fetcher):
   report_type = Type.DV360
 
   def __init__(self, email: str, project: str, profile: str=None):
@@ -71,14 +71,11 @@ class DBM(ReportFetcher):
 
     # Use Discovery Service to make api call
     # https://developers.google.com/apis-explorer/#p/doubleclickbidmanager/v1.1/doubleclickbidmanager.queries.listqueries
-    reports = self.dbm_service.queries().listqueries(
-        fields = 'queries(metadata(googleCloudStoragePathForLatestReport,latestReportRunTimeMs,title),params/type,queryId,schedule/frequency)'
+    result = self.fetch(
+      self.dbm_service.queries().listqueries,
+      **{'fields': 'queries(metadata(googleCloudStoragePathForLatestReport,latestReportRunTimeMs,title),params/type,queryId,schedule/frequency)'}
     )
 
-    # Execute request
-    result = reports.execute()
-
-    # Return results
     return result
 
 
@@ -91,11 +88,11 @@ class DBM(ReportFetcher):
     Returns:
       Report object
     """
+    results = self.fetch(
+      self.dbm_service.reports().listreports,
+      **{ 'queryId': report_id }
+    )
 
-    reports = self.dbm_service.reports().listreports(queryId=report_id)
-
-    # Execute request
-    results = reports.execute()
     if results:
       if 'reports' in results:
         ordered = sorted(results['reports'], key=lambda k: int(k['metadata']['status']['finishTimeMs']))
