@@ -21,12 +21,19 @@ div#main-title span.tiny{
 }
 
 .report2bq-text-card {
-  width: 350px;
+  width: 400px;
   position: relative;
   top: 80px;
   left: 20px;
 }
 
-.report2bq-text-card-content {
+.report2bq-data-card {
+  width: 90%;
+  position: relative;
+  top: 80px;
+  left: 20px;
+}
+
+.report2bq-card-content {
   padding: 16px;
 }

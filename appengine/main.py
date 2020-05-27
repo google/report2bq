@@ -20,14 +20,17 @@ import logging
 import os
 
 from flask import current_app, Flask, render_template, request
+from contextlib import suppress
 from google.auth.transport import requests
 from google.cloud import pubsub_v1
 from google.oauth2 import id_token
 from google.cloud import storage
+from typing import Dict
 
-from report2bq.auth_helper import user
-from report2bq import oauth
-
+from classes.auth_helper import user
+from classes.oauth import OAuth
+from classes.report_type import Type
+from classes.scheduler import Scheduler
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -59,9 +62,10 @@ def set_response_headers(response):
 # [START index]
 @app.route('/', methods=['GET', 'POST'])
 def index():
+  
   project = os.environ['GOOGLE_CLOUD_PROJECT']
   bucket = f'{project}-report2bq-tokens'
-  project_credentials = json.loads(oauth.OAuth.fetch_file(
+  project_credentials = json.loads(OAuth.fetch_file(
     bucket,
     'client_secrets.json'
   ), encoding='utf-8')
@@ -74,6 +78,24 @@ def index():
 
   if has_auth:
     template = JINJA_ENVIRONMENT.get_template('index.html')
+    running_jobs = Scheduler().process(args={'action': 'list', 'project': project, 'email': user_email})
+    jobs = []
+    for job in running_jobs:
+      with suppress(ValueError, KeyError):
+        _attrs = job['pubsubTarget']['attributes']
+        _def = Type(_attrs['type'])
+        j = {
+          'id': job['name'].split('/')[-1],
+          'description': job['description'] if 'description' in job else '-- No description given --',
+          'type': _def,
+          'schedule': job['schedule'],
+          'timezone': job['timeZone'],
+        }
+        
+        j['attributes'] = switch(_def, _attrs)
+        jobs.append(j)
+
+    data = {'jobs': jobs, 'user_email': user_email}
   
   else:
     template = JINJA_ENVIRONMENT.get_template('authenticate.html')
@@ -85,12 +107,47 @@ def index():
   return template.render(data)
 # [END index]
 
+def job_attributes_sa360(attributes: Dict[str, str]) -> Dict[str, str]: 
+  return { 'sa360_url': attributes.get('sa360_url') }
+
+def job_attributes_dv360(attributes: Dict[str, str]) -> Dict[str, str]:
+  return {
+    'report_id': attributes['dv360_id'] or attributes['report_id']
+  }
+
+def job_attributes_cm(attributes: Dict[str, str]) -> Dict[str, str]:
+  return {
+    'report_id': attributes['cm_id'] or attributes['report_id'],
+    'profile': attributes['profile']
+  }
+
+def job_attributes_adh(attributes: Dict[str, str]) -> Dict[str, str]:
+  return {
+    'adh_customer': attributes['adh_customer'],
+    'adh_query': attributes['adh_query'],
+    'api_key': attributes['api_key'],
+    'days': attributes['days'],
+  }
+
+def switch(report_type: Type, attributes: Dict[str, str]) -> Dict[str, str]:
+  job_attribute_extractor = {
+    Type.DV360: job_attributes_dv360,
+    Type.CM: job_attributes_cm,
+    Type.SA360: job_attributes_sa360,
+    Type.ADH: job_attributes_adh,
+  }
+  a = {}
+  for _attr in ['force', 'rebuild_schema', 'infer_schema', 'dest_project', 'dest_dataset']:
+    if _attr in attributes: a[_attr] = attributes[_attr]
+    a.update(job_attribute_extractor[report_type](attributes))
+  return a
+
 
 @app.route('/authenticate', methods=['GET', 'POST'])
 def authenticate():
   project = os.environ['GOOGLE_CLOUD_PROJECT']
   bucket = f'{project}-report2bq-tokens'
-  project_credentials = json.loads(oauth.OAuth.fetch_file(
+  project_credentials = json.loads(OAuth.fetch_file(
     bucket,
     'client_secrets.json'
   ), encoding='utf-8')
@@ -106,7 +163,7 @@ def authenticate():
 
 @app.route('/oauth-complete', methods=['POST'])
 def oauth_complete():
-  return oauth.OAuth().oauth_complete(request)
+  return OAuth().oauth_complete(request)
 
 
 if __name__ == '__main__':

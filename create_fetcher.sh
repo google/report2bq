@@ -255,6 +255,7 @@ elif [ "x${SA360_URL}" != "x" ]; then
   parameters=(
     ${parameters[@]}
     "sa360_url=${SA360_URL}"
+    "type=sa360"
   )
   case ${HOUR} in
     "")
