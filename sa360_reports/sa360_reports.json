@@ -1,0 +1,93 @@
+{
+  "holiday_2020": {
+    "parameters": [
+      {
+        "name": "AgencyId",
+        "path": "reportScope.agencyId",
+        "element_type": "int"
+      },
+      {
+        "name": "AdvertiserId",
+        "path": "reportScope.advertiserId",
+        "element_type": "int"
+      },
+      {
+        "name": "StartDate",
+        "path": "timeRange.startDate"
+      },
+      {
+        "name": "EndDate",
+        "path": "timeRange.endDate"
+      },
+      {
+        "name": "ConversionMetric",
+        "path": "columns",
+        "ordinal": 8
+      },
+      {
+        "name": "RevenueMetric",
+        "path": "columns",
+        "ordinal": 9
+      }
+    ],
+    "report": {
+      "reportScope": {
+        "agencyId": "",
+        "advertiserId": ""
+      },
+      "reportType": "campaign",
+      "columns": [
+        {
+          "columnName": "date"
+        },
+        {
+          "columnName": "account"
+        },
+        {
+          "columnName": "campaign"
+        },
+        {
+          "columnName": "campaignType"
+        },
+        {
+          "columnName": "dailyBudget"
+        },
+        {
+          "columnName": "impr"
+        },
+        {
+          "columnName": "clicks"
+        },
+        {
+          "columnName": "cost"
+        },
+        {
+          "savedColumnName": ""
+        },
+        {
+          "savedColumnName": ""
+        }
+      ],
+      "timeRange": {
+        "startDate": "",
+        "endDate": ""
+      },
+      "filters": [
+        {
+          "column": {
+            "columnName": "accountType"
+          },
+          "operator": "equals",
+          "values": [
+            "Google AdWords"
+          ]
+        }
+      ],
+      "downloadFormat": "csv",
+      "maxRowsPerFile": 10000000,
+      "statisticsCurrency": "agency",
+      "verifySingleTimeZone": "False",
+      "includeRemovedEntities": "False"
+    }
+  }
+}

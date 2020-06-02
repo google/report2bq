@@ -1,0 +1,13 @@
+[
+  {
+    "report": "holiday_2020",
+    "offset": 0,
+    "lookback": 0,
+    "timezone": "America/Toronto",
+    "email": "davidharcombe@google.com",
+    "AgencyId": "20700000001201701",
+    "AdvertiserId": "21700000001494948",
+    "ConversionMetric": "DDA - Custom - Trans",
+    "RevenueMetric": "DDA - Custom - Revenue"
+  }
+]
