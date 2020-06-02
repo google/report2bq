@@ -60,33 +60,6 @@ class Firestore(object):
       self.client = firestore.Client(credentials=Credentials(in_cloud=in_cloud, email=email, project=project).get_credentials())
 
 
-  def store_oauth_state(self, state: str, email: str, project: str) -> None:
-    key = 'oauth/{state}'.format(state=state)
-    data = {
-      'email': email,
-      'project': project
-    }
-    self.client.document(key).set(data)
-
-
-  def get_oauth_state(self, state: str) -> Tuple[str, str]:
-    key = 'oauth/{state}'.format(state=state)
-    data = self.client.document(key)
-    email = project = None
-    if data:
-      values = data.get().to_dict()
-      email = values.get('email')
-      project = values.get('project')
-
-    return email, project
-
-
-  def delete_oauth_state(self, state: str) -> None:
-    key = 'oauth/{state}'.format(state=state)
-    data = self.client.document(key)
-    data.delete()
-    
-
   def get_report_config(self, type: Type, id: str) -> Dict[str, Any]:
     """Load a config
 
@@ -142,7 +115,9 @@ class Firestore(object):
     reports = []
     collection = self.client.collection(type.value).list_documents()
     for document in collection:
-      reports.append(document.get().to_dict())
+      _doc = document.get().to_dict()
+      _doc['_id'] = document.id
+      reports.append(_doc)
 
     return reports
 
@@ -180,12 +155,7 @@ class Firestore(object):
     Returns:
         jobs {List[DocumentReference]} -- List of all available jobs
     """
-    jobs = []
-    collection = self.client.collection('jobs').list_documents()
-    for document in collection:
-      jobs.append(document)
-
-    return jobs
+    return self.get_all_documents(Type._JOBS)
 
 
   def get_all_running(self) -> List[DocumentReference]:
@@ -196,8 +166,19 @@ class Firestore(object):
     Returns:
         runners {List[DocumentReference]} -- list of all running reports
     """
+    return self.get_all_documents(Type._RUNNING)
+
+
+  def get_all_documents(self, type: Type) -> List[DocumentReference]:
+    """List documents
+
+    Lists all documents of a given Type
+    
+    Returns:
+        runners {List[DocumentReference]} -- list of all documents
+    """
     runners = []
-    collection = self.client.collection('running').list_documents()
+    collection = self.client.collection(type.value).list_documents()
     for document in collection:
       runners.append(document)
 
@@ -224,3 +205,54 @@ class Firestore(object):
     """
     document = f'running/{runner}'
     self.client.document(document).delete()
+
+
+  def get_document(self, type: Type, id: str) -> Dict[str, Any]:
+    """Load a document (could be anything, 'type' identifies the root.)
+
+    Load a document
+    
+    Arguments:
+        type {Type} -- document type (document root in firestore)
+        id {str} -- document id
+    
+    Returns:
+        Dict[str, Any] -- stored configuration dictionary, or None
+                          if not present
+    """
+    config = None
+
+    report_name = f'{type.value}/{id}'
+    report = self.client.document(report_name)
+    if report:
+      config = report.get().to_dict()
+
+    return config
+
+
+  def store_document(self, type: Type, id: str, document: Dict[str, Any]):
+    """Store a config
+
+    Store a report's config in Firestore. They're all stored by Type (DCM/DBM/SA360/ADH)
+    and each one within the type is keyed by the appropriate report id.
+    
+    Arguments:
+        type {Type} -- product
+        id {str} -- report id
+        report_data {Dict[str, Any]} -- report configuration
+    """
+    report_name = f'{type.value}/{id}'
+    report = self.client.document(report_name)
+    if report:
+      self.client.document(report_name).delete()
+
+    self.client.document(report_name).set(document)
+
+
+  def update_document(self, type: Type, id: str, new_data: Dict[str, Any]):
+    _existing = self.get_document(type=type, id=id) or {}
+    _existing.update(new_data)
+
+    self.store_document(type=type, id=id, document=_existing)
+
+

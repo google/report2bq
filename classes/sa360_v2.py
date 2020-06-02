@@ -22,9 +22,11 @@ __author__ = [
 import csv
 import json
 import logging
+import os
 import re
 import requests as req
 import time
+import urllib.request
 
 from apiclient import discovery
 from bs4 import BeautifulSoup
@@ -39,25 +41,37 @@ from xml.dom import minidom
 from classes.credentials import Credentials
 from classes.cloud_storage import Cloud_Storage
 from classes.csv_helpers import CSVHelpers
-from classes.threaded_streamer import ThreadedGCSObjectStreamUpload
 from classes.decorators import timeit, measure_memory
+from classes.discovery import DiscoverService
+from classes.firestore import Firestore
+from classes.report_type import Type
+from classes.services import Service
+from classes.threaded_streamer import ThreadedGCSObjectStreamUpload
 
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import storage
 from google.resumable_media import requests, common
 
 # Other imports
+from contextlib import closing
 from queue import Queue, Empty
-
+from urllib.request import urlopen
 
 class SA360(object):
-  def __init__(self, email: str, project: str):
+  def __init__(self, email: str, project: str, append: bool=False, infer_schema: bool=False):
     self.email = email
     self.project = project
     self.creds = Credentials(email=email, project=project)
     self.credentials = storage.Client()._credentials
     self.transport = AuthorizedSession(credentials=self.credentials)
-     
+    self.append = append
+    self.infer_schema = infer_schema
+
+    self.firestore = Firestore(email=email, project=project)
+    
+    self.chunk_multiplier = int(os.environ.get('CHUNK_MULTIPLIER', 64))
+    self.bucket = f'{self.project}-report2bq-upload'
+
 
   def _soupify(self, data: BytesIO) -> BeautifulSoup:
     return BeautifulSoup(data, 'lxml')
@@ -70,6 +84,87 @@ class SA360(object):
     # self.upload_report(bucket=bucket, report_details=report_details, input_buffer=repeater)
     # report_details['id'] = old_id
 
+
+  def handle_offline_report(self, report_config: Dict[str, Any]) -> bool:
+    sa360_service = DiscoverService.get_service(Service.SA360, self.creds)
+    request = sa360_service.reports().get(reportId=report_config['file_id'])
+
+    try:
+      report = request.execute()
+
+      if report['isReportReady']:
+        csv_header, csv_types = self.read_header(report)
+        schema = CSVHelpers.create_table_schema(
+          csv_header, 
+          csv_types if self.infer_schema else None
+        )
+        report_config['schema'] = schema
+        report_config['email'] = self.email
+        report_config['append'] = self.append
+        report_config['files'] = report['files']
+
+        # update the report details please...
+        self.firestore.update_document(Type.SA360_RPT, report_config['report_id'], report_config)
+
+        # ... then stream the file to GCS a la DV360/CM
+        self._stream_report_to_gcs(report_details=report_config)
+
+      return report['isReportReady']
+
+    except:
+      logging.error(f'Report fetch error: {report}')
+      return False
+
+
+  def read_header(self, report_config: dict) -> list:
+    r = urllib.request.Request(report_config['files'][0]['url'])
+    for header in self.creds.get_auth_headers():
+      r.add_header(header, self.creds.get_auth_headers()[header])
+
+    with closing(urlopen(r)) as report:
+      data = report.read(self.chunk_multiplier * 1024 * 1024)
+      bytes_io = BytesIO(data)
+
+    return CSVHelpers.get_column_types(bytes_io)
+
+
+  @measure_memory
+  def _stream_report_to_gcs(self, report_details: Dict[str, Any]) -> None:
+    """Multi-threaded stream to GCS
+    
+    Arguments:
+        bucket {str} -- GCS Bucket
+        report_details {dict} -- Report definition
+    """
+    queue = Queue()
+
+    report_id = report_details['report_id']
+    chunk_size = self.chunk_multiplier * 1024 * 1024
+    out_file = BytesIO()
+
+    streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(credentials=self.creds), 
+                                             bucket_name=self.bucket,
+                                             blob_name=f'{report_id}.csv',
+                                             chunk_size=chunk_size, 
+                                             queue=queue)
+    streamer.start()
+
+    r = urllib.request.Request(report_details['files'][0]['url'])
+    for header in self.creds.get_auth_headers():
+      r.add_header(header, self.creds.get_auth_headers()[header])
+
+    with closing(urlopen(r)) as _report:
+      _downloaded = 0
+      chunk_id = 1
+      _report_size = int(_report.headers['content-length'])
+      while _downloaded < _report_size:
+        chunk = _report.read(chunk_size)
+        _downloaded += len(chunk)
+        queue.put((chunk_id, chunk))
+        chunk_id += 1
+
+    queue.join()
+    streamer.stop()
 
   @timeit
   def _fetch_data(self, report_details: Dict[str, Any], buffer: BytesIO) -> int:

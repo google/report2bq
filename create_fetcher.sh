@@ -46,10 +46,14 @@ Options:
   -------
     --profile     The Campaign Manager profle id under which the report is defined
 
-  SA360 Only
-  ----------
+  SA360 Web Download Report Only
+  ------------------------------
     --sa360-url   The URL of the web download report in SA360. This will be in the format
                   https://searchads.google.com/ds/reports/download?ay=xxxxxxxxx&av=0&rid=000000&of=webquery
+
+  SA360 Dynamic Report Only
+  -------------------------
+    --sa360-id    The UUID of the created SA360 report
 
   ADH Only
   --------
@@ -106,8 +110,11 @@ DEST_PROJECT=                       # Destination project for ADH querys
 DEST_DATASET=                       # Destination dataset for ADH querys
 TIMEZONE=                           # Timezone
 INFER_SCHEMA=                       # Guess the report's schema
+SA360_ID=                           # ID of the SA360 report to schedule
 
 # Command line parameter parser
+QUIT=0
+UNKNOWN=
 while [[ $1 == -* ]] ; do
   case $1 in 
     # Common to SA360, DV360, ADH and CM
@@ -156,6 +163,9 @@ while [[ $1 == -* ]] ; do
       IFS="=" read _cmd SA360_URL <<< "$1" && [ -z ${SA360_URL} ] && shift && SA360_URL=$1
       # SA360_URL=rawurlencode ${SA360_URL}
       ;;
+    --sa360-id*)
+      IFS="=" read _cmd SA360_ID <<< "$1" && [ -z ${SA360_ID} ] && shift && SA360_ID=$1
+      ;;
 
     # Optional  
     --force)
@@ -192,14 +202,25 @@ while [[ $1 == -* ]] ; do
       exit
       ;;
     *)
-      usage
-      echo ""
-      echo "Unknown parameter $1"
+      QUIT=1
+      UNKNOWN=(
+        ${UNKNOWN[@]}
+        $1
+      )
+      QUIT=1
   esac
   shift
 done
 
-if [ "x${REPORT_ID}" == "x" -a "x${SA360_URL}" == "x" -a "x${ADH_CUSTOMER}" == "x" ]; then
+if [[ $QUIT -eq 1 ]]; then
+  echo "Unknkown parameter(s): "
+  echo ${UNKNOWN}
+  echo ""
+  usage
+  exit
+fi
+
+if [ "x${REPORT_ID}" == "x" -a "x${SA360_URL}" == "x" -a "x${ADH_CUSTOMER}" == "x" -a -z ${SA360_ID} ]; then
   usage
   echo ""
   echo You must specify a report id or SA360 url.
@@ -225,6 +246,16 @@ parameters=(
   "${_DEST_PROJECT}"
   "${_DEST_DATASET}"
 )
+
+if [ ! -z "${TIMEZONE}" ]; then
+  TZ=${TIMEZONE}
+  _TZ="--time-zone=${TIMEZONE}"
+else
+  if [ -f /etc/timezone ]; then
+    TZ=`cat /etc/timezone`
+    _TZ="--time-zone=${TZ}"
+  fi
+fi
 
 if [ "x${ADH_CUSTOMER}" != "x" ]; then 
   FETCHER="run-adh-${ADH_CUSTOMER}-${ADH_QUERY}"
@@ -265,6 +296,25 @@ elif [ "x${SA360_URL}" != "x" ]; then
       HOUR="*"
       ;;
   esac
+elif [ ! -z ${SA360_ID} ]; then
+# SA360 dynamic report
+  TRIGGER="report-runner"
+  NAME="run"
+  case ${HOUR} in
+    "")
+      HOUR="*"
+      ;;
+    # *)
+    #   HOUR="*"
+    #   ;;
+  esac
+  FETCHER="${NAME}-sa360-${SA360_ID}"
+  parameters=(
+    ${parameters[@]}
+    "report_id=${SA360_ID}"
+    "type=sa360_report"
+    "timezone=${TZ}"
+  )
 elif [ "x${PROFILE}" == "x" ]; then
   # DV360
   if [[ ${IS_RUNNER} -eq 1 ]]; then
@@ -291,7 +341,7 @@ elif [ "x${PROFILE}" == "x" ]; then
   FETCHER="${NAME}-dv360-${REPORT_ID}"
   parameters=(
     ${parameters[@]}
-    "dv360_id=${REPORT_ID}"
+    "report_id=${REPORT_ID}"
     "type=dbm"
   )
 else
@@ -320,21 +370,13 @@ else
   FETCHER="${NAME}-cm-${REPORT_ID}"
   parameters=(
     ${parameters[@]}
-    "cm_id=${REPORT_ID}"
+    "report_id=${REPORT_ID}"
     "profile=${PROFILE}"
     "type=dcm"
   )
 fi
 
 if [ "x${FETCHER}" != "x" ]; then
-  if [ ! -z "${TIMEZONE}" ]; then
-    _TZ="--time-zone=${TIMEZONE}"
-  else
-    if [ -f /etc/timezone ]; then
-      _TZ="--time-zone=`cat /etc/timezone`"
-    fi
-  fi
-
   ATTRIBUTES=
   for i in ${parameters[@]}; do
     if [ "x${ATTRIBUTES}" == "x" ]; then

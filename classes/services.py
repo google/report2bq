@@ -26,6 +26,7 @@ class Service(Enum):
   SCHEDULER = 'scheduler'
   DV360 = 'dv360'
   CM = 'cm'
+  SA360 = 'sa360'
   
   def __str__(self):
     return str(self.value)
@@ -45,6 +46,10 @@ class Service(Enum):
         'serviceName': 'doubleclickbidmanager',
         'version': 'v1.1'
       },
+      'sa360': {
+        'serviceName': 'doubleclicksearch',
+        'version': 'v2'
+      }
     }
     return defs.get(self.value, {})
 

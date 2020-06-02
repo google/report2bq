@@ -25,9 +25,11 @@ import re
 
 from absl import app
 from typing import Dict, List, Any
+from contextlib import suppress
 
 from classes.dbm import DBM
 from classes.dcm import DCM
+from classes.sa360_v2 import SA360
 from classes.firestore import Firestore
 from classes.report_type import Type
 
@@ -62,19 +64,22 @@ class RunMonitor(object):
         context {} -- unused
     """
     self.project = os.environ['GCP_PROJECT']
+    report_checker = {
+      Type.DV360: self._check_dv360_report,
+      Type.CM: self._check_cm_report,
+      Type.SA360: self._check_sa360_report,
+      Type.SA360_RPT: self._check_sa360_report
+    }
 
     try:
       documents = self.firestore.get_all_running()
       for document in documents:
-        for T in [Type.CM, Type.DV360, Type.SA360, Type.ADH]:
+        with suppress(ValueError):
+          run_config = document.get().to_dict()
+          T = Type(run_config['type'])
           config = self.firestore.get_report_config(T, document.id)
           if config: 
-            runner = document.get().to_dict()
-            config['email'] = runner['email']
-            if T == Type.DV360:
-              self._check_dv360_report(config)
-            elif T == Type.CM:
-              self._check_cm_report(config)
+            report_checker[T](config, run_config)
             break
           else:
             logging.error(f'Invalid report: {document.get().to_dict()}')
@@ -82,7 +87,8 @@ class RunMonitor(object):
     except Exception as e:
       logging.error(e)
 
-  def _check_dv360_report(self, config: Dict[str, Any]):
+
+  def _check_dv360_report(self, config: Dict[str, Any], run_config: Dict[str, Any]):
     """Check a running DV360 report for completion
     
     Arguments:
@@ -99,14 +105,21 @@ class RunMonitor(object):
 
       # Send pubsub to trigger report2bq now
       topic = 'projects/{project}/topics/report2bq-trigger'.format(project=self.project)
-      self.PS.publish(topic=topic, data=b'RUN', dv360_id=config['id'], email=config['email'], append=str(append), project=self.project)
+      self.PS.publish(
+        topic=topic,
+        data=b'RUN',
+        report_id=config['id'],
+        email=config['email'],
+        append=str(append),
+        project=self.project
+      )
     elif status == 'FAILED':
       # Remove job from running
       logging.error('Report {report} failed!'.format(report=config['id']))
       self.firestore.remove_report_runner(config['id'])
 
 
-  def _check_cm_report(self, config: Dict[str, Any]):
+  def _check_cm_report(self, config: Dict[str, Any], run_config: Dict[str, Any]):
     """Check a running CM report for completion
     
     Arguments:
@@ -124,9 +137,28 @@ class RunMonitor(object):
 
       # Send pubsub to trigger report2bq now
       topic = 'projects/{project}/topics/report2bq-trigger'.format(project=self.project)
-      self.PS.publish(topic=topic, data=b'RUN', cm_id=config['id'], profile=config['profile_id'], email=config['email'], append=str(append), project=self.project)
+      self.PS.publish(
+        topic=topic, data=b'RUN',
+        report_id=config['id'],
+        profile=config['profile_id'],
+        email=config['email'],
+        append=str(append),
+        project=self.project)
 
     elif status == 'FAILED' or status =='CANCELLED':
       # Remove job from running
       logging.error('Report {report} failed!'.format(report=config['id']))
       self.firestore.remove_report_runner(config['id'])
+
+
+  def _check_sa360_report(self, config: Dict[str, Any], run_config: Dict[str, Any]): 
+    sa360 = SA360(email=run_config['email'], project=self.project)
+    
+    if sa360.handle_offline_report(report_config=run_config):
+      self.firestore.remove_report_runner(run_config['report_id'])
+      logging.error(f'Report {run_config["report_id"]} done.')
+
+    else:
+      # SA360 ones can't fail - they won't start if there are errors, so it's just
+      # not ready yet. So just leave it here and try again later.
+      logging.error(f'Report {run_config["report_id"]} not ready.')

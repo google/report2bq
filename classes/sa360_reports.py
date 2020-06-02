@@ -1,0 +1,95 @@
+"""
+Copyright 2020 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
+__author__ = [
+  'davidharcombe@google.com (David Harcombe)'
+]
+
+import collections
+import json
+import logging
+import time
+
+from classes import ReportRunner
+from classes.report_type import Type
+from classes.sa360_v2 import SA360
+
+from dataclasses import dataclass
+from io import StringIO
+from typing import Any, Dict, List
+
+
+@dataclass
+class SA360ReportParameter(object):
+  name: str
+  path: str
+  element_type: str = 'str'
+  ordinal: int = None
+    
+
+class SA360ReportTemplate(object):
+  def _update(self, field: SA360ReportParameter, original: Dict[str, Any], new: Dict[str, Any]):
+    for key, val in new.items():
+        if isinstance(val, collections.Mapping):
+            tmp = self._update(field, original.get(key, { }), val)
+            original[key] = tmp
+        elif isinstance(val, list):
+          if field.ordinal:
+            original[key][field.ordinal] = val[0]
+          else:
+            original[key] = (original.get(key, []) + val)
+        else:
+            original[key] = new[key]
+    return original
+
+
+  def _insert(self, data: Dict[Any, Any], field: SA360ReportParameter, value: Any):
+    _path_elements = field.path.split('.')
+    _path_elements.reverse()
+
+    _data = None
+
+    if field.element_type == 'int':
+      _value = int(value)
+    else:
+      _value = value
+
+    try:
+      for _element in _path_elements:
+        if not _data:
+          if field.ordinal:
+            _data = {_element: [_value]}
+          else:
+            _data = { _element: _value }
+
+        else:
+          _data = { _element: _data }
+
+      self._update(field=field, original=data, new=_data)
+
+    except KeyError as k:
+      logging.info(f'Error replacing {self.path}{("["+self.ordinal+"]") if self.ordinal else ""} - not found in data.')
+
+
+  def prepare(self, template: Dict[str, Any], values: Dict[str, Any]) -> Dict[str, Any]:
+    _parameters = template['parameters']
+    _report = template['report']
+
+    for _parameter in _parameters:
+      _param = SA360ReportParameter(**_parameter)
+      self._insert(data=_report, field=_param, value=values[_param.name])
+
+    return _report

@@ -32,6 +32,7 @@ from cloud_functions.report_loader import ReportLoader
 from classes.adh import ADH
 from classes.dbm_report_runner import DBMReportRunner
 from classes.dcm_report_runner import DCMReportRunner
+from classes.sa360_report_runner import SA360ReportRunner
 from classes.decorators import measure_memory
 from classes.report2bq import Report2BQ
 from classes.report_type import Type
@@ -125,7 +126,7 @@ def run_monitor(event: Dict[str, Any], context=None):
 
 
 def report_runner(event: Dict[str, Any], context=None):
-  """Run a DV360/CM or ADH report on demand
+  """Run a DV360, CM, SA360 or ADH report on demand
 
   This allows a user to issue the API-based run report directive to start unscheduled, unschedulable (ie 
   today-based) or simply control the run time of DV360/CM and ADH reports. A job kicked off using this process
@@ -163,6 +164,19 @@ def report_runner(event: Dict[str, Any], context=None):
             email=email,
             project=project
           )
+
+        elif Type(attributes['type']) == Type.SA360_RPT:
+          report_id = attributes['report_id']
+          email = attributes['email']
+          project = attributes['project'] or os.environ.get('GCP_PROJECT')
+          timezone = attributes.get("timezone", None)
+          runner = SA360ReportRunner(
+            report_id=report_id,
+            email=email,
+            project=project,
+            timezone=timezone
+          )
+
 
         elif Type(attributes['type']) == Type.ADH:
           adh_customer = attributes['adh_customer']

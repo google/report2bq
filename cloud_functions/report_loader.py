@@ -35,6 +35,7 @@ from io import BytesIO
 from typing import Dict, Any
 
 from classes.cloud_storage import Cloud_Storage
+from classes.csv_helpers import CSVHelpers
 from classes.firestore import Firestore
 from classes.report_type import Type
 
@@ -94,7 +95,7 @@ class ReportLoader(object):
         report configuration.
     """
     config = None
-    for config_type in [Type.DV360, Type.CM, Type.SA360]:
+    for config_type in [Type.DV360, Type.CM, Type.SA360, Type.SA360_RPT]:
       config = self.FIRESTORE.get_report_config(config_type, id)
       if config: return config_type, config
 
@@ -128,6 +129,9 @@ class ReportLoader(object):
       job = self._import_dcm_report(bucket_name, file_name, config)
 
     elif config_type == Type.SA360:
+      job = self._import_sa360_report(bucket_name, file_name, config)
+
+    elif config_type == Type.SA360_RPT:
       job = self._import_sa360_report(bucket_name, file_name, config)
 
     # Store the completed job in Firestore
@@ -224,7 +228,7 @@ class ReportLoader(object):
 
     dataset = config.get('dest_dataset') or os.environ.get('BQ_DATASET') or 'report2bq'
 
-    table_name = config['table_name']
+    table_name = config.get('table_name', CSVHelpers.sanitize_string(file_name))
     logging.info("bucket %s, table %s, file_name %s" % (bucket_name, table_name, file_name))
 
     json_schema = config['schema']

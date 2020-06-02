@@ -21,10 +21,15 @@ __author__ = [
 from enum import Enum
 
 class Type(Enum):
-  DV360 = 'dbm'
-  CM = 'dcm'
-  SA360 = 'sa360'
   ADH = 'adh'
+  CM = 'dcm'
+  DV360 = 'dbm'
+  SA360 = 'sa360'
+  SA360_RPT = 'sa360_report'
+
+  # Internal use only
+  _JOBS = 'jobs'
+  _RUNNING = 'running'
   
   # def __new__(cls, value):
   #   if value == 'dv360': 
