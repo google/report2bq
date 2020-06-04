@@ -19,7 +19,9 @@ __author__ = [
 ]
 
 import json
+import logging
 
+from contextlib import suppress
 from typing import Dict, List, Any
 
 # Class Imports
@@ -256,3 +258,27 @@ class Firestore(object):
     self.store_document(type=type, id=id, document=_existing)
 
 
+  def delete_document(self, type: Type, id: str, key: str):
+    _existing = self.get_document(type=type, id=id)
+    if not _existing:
+      logging.info(f'Document {type}/{id} does not exist.')
+      return
+
+    with suppress(KeyError):
+      _existing.pop(key)
+
+    self.store_document(type=type, id=id, document=_existing)
+
+
+  def list_documents(self, report_type: Type, key: str=None) -> List[str]:
+    documents = []
+    collection = self.client.collection(f'{report_type.value}').list_documents()
+    for document in collection:
+      if key:
+        if document.id == key:
+          for _document in document.get().to_dict():
+            documents.append(_document)
+      else:
+        documents.append(document.id)
+
+    return documents

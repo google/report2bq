@@ -34,10 +34,11 @@ from google.cloud import scheduler as scheduler
 from google.cloud.pubsub import PublisherClient
 from googleapiclient.errors import HttpError
 
+from classes import Fetcher
 from classes.credentials import Credentials
 from classes.discovery import DiscoverService
+from classes.report_type import Type
 from classes.services import Service
-from classes import Fetcher
 
 
 class Scheduler(Fetcher):
@@ -53,6 +54,7 @@ class Scheduler(Fetcher):
     _action = args.get('action')
     _project = args.get('project')
     _email = args.get('email')
+    _html = args.get('html', True)
 
     _credentials = Credentials(
       email=_email,
@@ -65,11 +67,15 @@ class Scheduler(Fetcher):
     if _action == 'list':
       jobs = self.list_jobs(
         credentials=_credentials, 
-        project=_project, location=_location, 
+        project=_project, 
+        location=_location, 
         email=_email)
-      result = StringIO()
-      result.writelines([f"{job['name']}: {job.get('description') or 'No description.'}<br/>" for job in jobs])
-      return result.getvalue()
+      if _html:
+        result = StringIO()
+        result.writelines([f"{job['name']}: {job.get('description') or 'No description.'}<br/>" for job in jobs])
+        return result.getvalue()
+      else:
+        return jobs
 
     elif _action == 'delete':
       (success, error) = self.delete_job(
@@ -77,6 +83,32 @@ class Scheduler(Fetcher):
         project=_project,
         location=_location,
         job_id=args.get('job_id'))
+
+      if success:
+        return 'OK'
+      else:
+        return f'ERROR!\n{error["error"]["message"]}'
+
+    elif _action == 'enable':
+      (success, error) = self.enable_job(
+        credentials=_credentials, 
+        project=_project,
+        location=_location,
+        job_id=args.get('job_id'),
+        enable=True)
+
+      if success:
+        return 'OK'
+      else:
+        return f'ERROR!\n{error["error"]["message"]}'
+
+    elif _action == 'disable':
+      (success, error) = self.enable_job(
+        credentials=_credentials, 
+        project=_project,
+        location=_location,
+        job_id=args.get('job_id'),
+        enable=False)
 
       if success:
         return 'OK'
@@ -108,6 +140,17 @@ class Scheduler(Fetcher):
           'type': 'sa360',
         })
 
+      elif args.get('sa360_id'):
+        product = _type = Type.SA360_RPT.value
+        hour = args.get('hour', '*')
+        action = 'run'
+        topic = 'report-runner'
+        _attrs.update({
+          'report_id': args.get('sa360_id'),
+          'type': Type.SA360_RPT.value,
+        })
+        args['report_id'] = args.get('sa360_id')
+
       elif args.get('adh_customer'):
         product = _type = 'adh'
         hour = args.get('hour') if args.get('hour') else '2'
@@ -120,11 +163,12 @@ class Scheduler(Fetcher):
           'days': args.get('days'),
           'type': 'adh',
         })
+
       else:
         if args.get('runner'):
           hour = args.get('hour') if args.get('hour') else '1'
           action = 'run'
-          topic = 'rerport_runner'
+          topic = 'report-runner'
         else:
           hour = '*'
           action = 'fetch'
@@ -192,6 +236,10 @@ class Scheduler(Fetcher):
     method = service.projects().locations().jobs().list
     jobs = []
 
+    if not location:
+      locations = self.list_locations(credentials=credentials, project=project)
+      location = locations[-1]
+
     while True:
       _kwargs = {
         'parent': scheduler.CloudSchedulerClient.location_path(project, location),
@@ -218,6 +266,35 @@ class Scheduler(Fetcher):
   def delete_job(self, job_id: str=None, credentials: Credentials=None, project: str=None, location: str=None) -> Tuple[bool, Dict[str, Any]]:
     service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
     method = service.projects().locations().jobs().delete
+    if not location:
+      locations = self.list_locations(credentials=credentials, project=project)
+      location = locations[-1]
+
+    try:
+      method(name=scheduler.CloudSchedulerClient.job_path(project=project, location=location, job=job_id)).execute()
+      return (True, None)
+
+    except HttpError as error:
+      e = json.loads(error.content)
+      return (False, e)
+
+
+  def enable_job(self, 
+    job_id: str=None, 
+    credentials: Credentials=None, 
+    project: str=None, 
+    location: str=None,
+    enable: bool=True
+    ) -> Tuple[bool, Dict[str, Any]]:
+    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    if not location:
+      locations = self.list_locations(credentials=credentials, project=project)
+      location = locations[-1]
+
+    if enable:
+      method = service.projects().locations().jobs().resume
+    else:
+      method = service.projects().locations().jobs().pause
 
     try:
       method(name=scheduler.CloudSchedulerClient.job_path(project=project, location=location, job=job_id)).execute()
@@ -231,6 +308,10 @@ class Scheduler(Fetcher):
   def create_job(self, credentials: Credentials=None, project: str=None, location: str=None, job: Dict[str, Any]=None):
     service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
     _method = service.projects().locations().jobs().create
+
+    if not location:
+      locations = self.list_locations(credentials=credentials, project=project)
+      location = locations[-1]
 
     _parent = scheduler.CloudSchedulerClient.location_path(project=project, location=location)
     _target = {

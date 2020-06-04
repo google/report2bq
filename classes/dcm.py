@@ -164,6 +164,7 @@ class DCM(ReportFetcher, Fetcher):
       **{
         'profileId': self.profile,
         'reportId': report_id, 
+        'fields': 'ownerProfileId,fileName,format,id,lastModifiedTime,name,schedule,type',
       }
     )
 
@@ -181,7 +182,7 @@ class DCM(ReportFetcher, Fetcher):
     """
 
     # Iterate through every report in list
-    for report in reports['items']:
+    for report in reports:
 
       # Check for matching id
       if int(report['id']) == int(report_id):
@@ -204,13 +205,15 @@ class DCM(ReportFetcher, Fetcher):
     """
 
     # List reports
-    reports = self.get_reports()
+    # reports = self.get_reports()
 
     # Extract report details
-    report = self.extract_report_from_report_list(
-        reports=reports,
-        report_id=report_id
-    )
+    # report = self.extract_report_from_report_list(
+    #     reports=reports,
+    #     report_id=report_id
+    # )
+
+    report = self.get_report_definition(report_id)
 
     # Get latest file
     # Get recent report files
@@ -243,39 +246,33 @@ class DCM(ReportFetcher, Fetcher):
     """
 
     # Check if report has ever completed a run
-    if report_object['report_file'] is not None:
-
+    if ('report_file' in report_object) and (report_object['report_file'] is not None):
       # Exists
       gcs_path = report_object['report_file']['urls']['apiUrl']
       latest_runtime = report_object['report_file']['lastModifiedTime']
 
     else:
-
       # Report not yet run
       gcs_path = ""
       latest_runtime = 0
 
     # Check if schedule set
     if 'schedule' in report_object:
-
       # Normalize data
       if report_object['schedule']['active'] is False:
-
         # No Schedule
         schedule_frequency = "ONE_TIME"
       else:
-
         # Scheduled
         schedule_frequency = report_object['schedule']['repeats']
     else:
-
       # Schedule Does Not exist
       schedule_frequency = "ONE_TIME"
 
     # Normalize report data object
     report_data = {
       'id': report_object['id'],
-      'profile_id': report_object['profile_id'],
+      'profile_id': report_object['ownerProfileId'],
       'name': report_object['name'],
       'table_name': re.sub('[^a-zA-Z0-9]+', '_', report_object['name']),
       'type': report_object['type'],
