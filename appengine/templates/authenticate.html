@@ -42,14 +42,7 @@
         auth2 = gapi.auth2.init({
           client_id: '{{client_id}}',
           // Scopes to request in addition to 'profile' and 'email'
-          scope: 'https://www.googleapis.com/auth/adsdatahub',
-          scope: 'https://www.googleapis.com/auth/bigquery',
-          scope: 'https://www.googleapis.com/auth/cloud-platform',
-          scope: 'https://www.googleapis.com/auth/datastore',
-          scope: 'https://www.googleapis.com/auth/dfareporting',
-          scope: 'https://www.googleapis.com/auth/devstorage.read_write',
-          scope: 'https://www.googleapis.com/auth/doubleclickbidmanager',
-          scope: 'https://www.googleapis.com/auth/doubleclicksearch',
+          scope: 'https://www.googleapis.com/auth/adsdatahub https://www.googleapis.com/auth/bigquery https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/dfareporting https://www.googleapis.com/auth/devstorage.read_write https://www.googleapis.com/auth/doubleclickbidmanager https://www.googleapis.com/auth/doubleclicksearch'
         });
       });
     }
