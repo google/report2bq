@@ -29,6 +29,7 @@ from datetime import datetime
 from urllib.parse import unquote
 
 from classes.report2bq import Report2BQ
+from classes.report_type import Type
 from main import report_fetch
 
 logging.basicConfig(
@@ -45,13 +46,14 @@ flags.DEFINE_integer('dv360_id',
 flags.DEFINE_integer('cm_id',
                      None,
                      'Report to load')
-flags.DEFINE_integer('report_id',
+flags.DEFINE_string('report_id',
                      None,
                      'Report to load')
 flags.DEFINE_string('sa360_url',
                     None,
                     'SA360 report URL')
 
+flags.DEFINE_string('product', None, 'Product type')
 flags.DEFINE_boolean('force',
                      False,
                      'Force update, regardless of last update time')
@@ -128,6 +130,7 @@ def main(unused_argv):
     'dest_project': FLAGS.dest_project,
     'dest_dataset': FLAGS.dest_dataset,
     'infer_schema': FLAGS.infer_schema,
+    'product': Type(FLAGS.product),
   }
   report_fetch({'attributes': attributes}, None)
 

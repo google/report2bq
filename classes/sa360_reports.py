@@ -27,6 +27,7 @@ from classes import ReportRunner
 from classes.report_type import Type
 from classes.sa360_v2 import SA360
 
+from contextlib import suppress
 from dataclasses import dataclass
 from io import StringIO
 from typing import Any, Dict, List
@@ -47,12 +48,13 @@ class SA360ReportTemplate(object):
             tmp = self._update(field, original.get(key, { }), val)
             original[key] = tmp
         elif isinstance(val, list):
-          if field.ordinal:
-            original[key][field.ordinal] = val[0]
-          else:
-            original[key] = (original.get(key, []) + val)
+            if field.ordinal:
+                original[key][field.ordinal] = { next(iter(original[key][field.ordinal].keys())): val[0] }
+            else:
+                original[key] = (original.get(key, []) + val)
         else:
             original[key] = new[key]
+
     return original
 
 
@@ -71,17 +73,16 @@ class SA360ReportTemplate(object):
       for _element in _path_elements:
         if not _data:
           if field.ordinal:
-            _data = {_element: [_value]}
+            _data = { _element: [_value] }
           else:
             _data = { _element: _value }
-
         else:
-          _data = { _element: _data }
-
-      self._update(field=field, original=data, new=_data)
+          _data = {_element: _data }
 
     except KeyError as k:
       logging.info(f'Error replacing {self.path}{("["+self.ordinal+"]") if self.ordinal else ""} - not found in data.')
+
+    return _data
 
 
   def prepare(self, template: Dict[str, Any], values: Dict[str, Any]) -> Dict[str, Any]:
@@ -90,6 +91,9 @@ class SA360ReportTemplate(object):
 
     for _parameter in _parameters:
       _param = SA360ReportParameter(**_parameter)
-      self._insert(data=_report, field=_param, value=values[_param.name])
+      with suppress(KeyError):
+        value = values[_param.name]
+        _new = self._insert(data=_report, field=_param, value=value)
+        _report = self._update(field=_param, original=_report, new=_new)
 
     return _report

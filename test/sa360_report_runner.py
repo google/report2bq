@@ -41,30 +41,30 @@ flags.DEFINE_string('file', None, 'JSON file containing the report definition.')
 
 def main(unusedargv):
   scheduler = Scheduler()
-  with open(FLAGS.file) as reports:
-    runners = json.loads(''.join(reports.readlines()))
+  # with open(FLAGS.file) as reports:
+  #   runners = json.loads(''.join(reports.readlines()))
 
-    for runner in runners:
-      id = f"{runner['report']}_{runner['AgencyId']}_{runner['AdvertiserId']}"
-      Firestore().update_document(Type.SA360_RPT, f'{id}', runner)
+  #   for runner in runners:
+  #     id = f"{runner['report']}_{runner['AgencyId']}_{runner['AdvertiserId']}"
+  #     Firestore().update_document(Type.SA360_RPT, f'{id}', runner)
 
-      args = {
-        'action': 'create',
-        'email': runner['email'],
-        'project': 'report2bq-zz9-plural-z-alpha',
-        'force': False,
-        'infer_schema': True,
-        'append': False,
-        'sa360_id': id,
-        'description': 'SA360 disableable job',
-      }
-      scheduler.process(args)
+  #     args = {
+  #       'action': 'create',
+  #       'email': runner['email'],
+  #       'project': 'report2bq-zz9-plural-z-alpha',
+  #       'force': False,
+  #       'infer_schema': True,
+  #       'append': False,
+  #       'sa360_id': id,
+  #       'description': 'SA360 disableable job',
+  #     }
+  #     scheduler.process(args)
 
 
-  # runner = Firestore().get_document(Type.SA360_RPT, '7f403d7e-2ba6-47e9-bcc3-f5d3cecd9c8e')
-  # runners = Firestore().get_all_reports(Type.SA360_RPT)
-  # runner = SA360ReportRunner('7f403d7e-2ba6-47e9-bcc3-f5d3cecd9c8e', None, 'davidharcombe@google.com', 'galvanic-card-234919')
-  # r = runner.run()
+  runner = Firestore().get_document(Type.SA360_RPT, 'holiday_2020_20700000001201701_21700000001494948')
+  runners = Firestore().get_all_reports(Type.SA360_RPT)
+  runner = SA360ReportRunner(report_id='holiday_2020_20700000001201701_21700000001494948', email='davidharcombe@google.com', project='report2bq-zz9-plural-z-alpha')
+  r = runner.run()
 
   # sa360 = SA360(email='davidharcombe@google.com', project='galvanic-card-234919')
   # sa360.handle_offline_report(r)
