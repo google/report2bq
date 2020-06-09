@@ -220,7 +220,7 @@ if [[ $QUIT -eq 1 ]]; then
   exit
 fi
 
-if [ "x${REPORT_ID}" == "x" -a "x${SA360_URL}" == "x" -a "x${ADH_CUSTOMER}" == "x" -a -z ${SA360_ID} ]; then
+if [ "x${REPORT_ID}" == "x" -a "x${SA360_URL}" == "x" -a "x${ADH_CUSTOMER}" == "x" -a "${SA360_ID}x" == "x" ]; then
   usage
   echo ""
   echo You must specify a report id or SA360 url.
