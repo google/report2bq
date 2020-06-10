@@ -370,7 +370,7 @@ class DCM(ReportFetcher, Fetcher):
     downloader = http.MediaIoBaseDownload(out_file, download_request, chunksize=chunk_size)
 
     # Execute the get request and download the file.
-    streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(credentials=self.credentials), 
+    streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(), 
                                              bucket_name=bucket,
                                              blob_name='{id}.csv'.format(id=report_id), 
                                              chunk_size=chunk_size, 

@@ -189,7 +189,7 @@ class DBM(ReportFetcher, Fetcher):
     chunk_size = self.chunk_multiplier * 1024 * 1024
     out_file = io.BytesIO()
 
-    streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(credentials=self.credentials), 
+    streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(), 
                                              bucket_name=bucket,
                                              blob_name='{id}.csv'.format(id=report_id), 
                                              chunk_size=chunk_size, 

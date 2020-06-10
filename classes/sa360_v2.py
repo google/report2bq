@@ -142,7 +142,7 @@ class SA360(object):
     chunk_size = self.chunk_multiplier * 1024 * 1024
     out_file = BytesIO()
 
-    streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(credentials=self.creds), 
+    streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(), 
                                              bucket_name=self.bucket,
                                              blob_name=f'{report_id}.csv',
                                              chunk_size=chunk_size, 
