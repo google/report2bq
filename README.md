@@ -29,6 +29,7 @@ up fetchers or runners and a minimal amount of manual actions to be done.
 
 ### Steps
 
+**Setup the project**
 1. Check out the code \
   `gcloud source repos clone report2bq --project=galvanic-card-234919`
 
@@ -53,9 +54,17 @@ sense to you.
 1. When the installer is finished (this will take a while, possibly as long as half an hour) go to the cloud console
 in your browser, and go to Firestore.
 
-1. Set Firestore to "Native" mode. This **must** be done, and **cannot** be done programatically
+1. Set Firestore to "Native" mode. This **must** be done, and **cannot** be done programmatically
 
-1. Go to API > Credentials
+**Authentication**
+1. Go to API & Services
+
+1. If you have not created an OAuth consent screen set one up. Select OAuth Consent Screen in the menu options. 
+    * The authorised domains to include: (1) The url of your app engine app (2) <project-region>-<project-id>.cloudfunctions.net
+    * Enable scopes required for this app: Ads Data Hub API, DCM/DFA Reporting and Trafficking API, 
+    DCM/DFA Reporting and Trafficking API, DoubleClick Bid Manager API, BigQuery API and Cloud Datastore API
+    
+1. Now navigate to API & Services > Credentials
 
 1. You will need an API key. Click "CREATE CREDENTIALS", and you will see this:  
 ![](screenshots/3a-CreateAPIKey.png)  
@@ -73,11 +82,27 @@ Define the authorized redirect urls to be able to complete the OAuth flow.\
 ![](screenshots/6-RedirectURI.png) \
 Click "+ ADD URI"  and this screen will show up: \
 ![](screenshots/7-OAuthRedirectURI.png) \
-Paste in the `httpsTrigger` URL from [here](#https-trigger) , and click SAVE.
+Paste in the `httpsTrigger` URL: <PROJECT REGION>-<PROJECT ID>.cloudfunctions.net, and click SAVE.
 
-1. Download the file and save it to the tokens bucket \
+1. Download the Client ID JSON and save it to the tokens cloud storage bucket \
 ![](screenshots/5-OAuth_client.png) \
 Click on the download button to save the file. Now upload it to the token storage bucket in the
 cloud, renaming it "client_secrets.json" as you go. You can do this through the web, or using the
 CLI `gsutil` command like this: \
 `gsutil cp <DOWNLOADED FILE> gs://<PROJECT ID>-report2bq-tokens/client_secrets.json`
+
+1. Navigate to IAM > Identity Aware Proxy 'IAP'
+
+1. You should see the report2bq app under HTTPS resources, enable the IAP toggle. Click on the row to show
+the panel to add members. Add the user/email list/domain to the role “IAP-Secured Web App users” to control
+the users that can access the site.
+
+1. Navigate to IAM > Service accounts
+
+1. Create a JSON key for the service account running the cloud function.
+
+1. In gcloud navigate to report2bq > appengine > app.yaml and paste the KEY ID into the API KEY
+
+**Create jobs**
+
+1. Now you can create the runners and fetchers for a given report
