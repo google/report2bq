@@ -30,13 +30,13 @@ up fetchers or runners and a minimal amount of manual actions to be done.
 ### Steps
 
 **Setup the project**
-1. Check out the code \
-  `gcloud source repos clone report2bq --project=galvanic-card-234919`
-
 1. Go to a command line \
 Ensure you have the latest versions of the Google Cloud SDK, so run \
 `gcloud components update` \
 And allow it to update
+
+1. Check out the code \
+  `git clone https://github.com/google.report2bq`
 
 1. Run the installer \
 `./install.sh --project=<PROJECT ID> --dataset=<DATASET NAME> --create-service-account --activate-apis --deploy-all --dry-run` \

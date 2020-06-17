@@ -76,5 +76,5 @@ def main(unused_argv):
 
 
 if __name__ == '__main__':
-  # with suppress(Exception):
+  with suppress(SystemExit):
     app.run(main)
