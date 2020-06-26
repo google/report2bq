@@ -31,10 +31,12 @@ from typing import Dict, List, Any
 # Class Imports
 from classes.credentials import Credentials
 from classes.cloud_storage import Cloud_Storage
+from classes.discovery import DiscoverService
 from classes.firestore import Firestore
 from classes.report_type import Type
+from classes.services import Service
 
-from googleapiclient.discovery import build, Resource
+from googleapiclient.discovery import Resource
 
 
 class ADH(object):
@@ -127,11 +129,7 @@ class ADH(object):
     Returns:
         Resource -- ADH service
     """
-    adh_service = build(
-      'AdsDataHub', 'v1', 
-      credentials=self.credentials.creds, developerKey=self.api_key,
-      cache_discovery=False
-    )
+    adh_service = DiscoverService.get_service(Service.ADH, self.credentials, self.api_key)
     return adh_service
 
 

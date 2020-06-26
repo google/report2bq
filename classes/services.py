@@ -27,6 +27,7 @@ class Service(Enum):
   DV360 = 'dv360'
   CM = 'cm'
   SA360 = 'sa360'
+  ADH = 'adh'
   
   def __str__(self):
     return str(self.value)
@@ -49,6 +50,10 @@ class Service(Enum):
       'sa360': {
         'serviceName': 'doubleclicksearch',
         'version': 'v2'
+      },
+      'adh': {
+        'serviceName': 'AdsDataHub',
+        'version': 'v1'
       }
     }
     return defs.get(self.value, {})
