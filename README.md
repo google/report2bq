@@ -36,7 +36,7 @@ Ensure you have the latest versions of the Google Cloud SDK, so run \
 And allow it to update
 
 1. Check out the code \
-  `git clone https://github.com/google.report2bq`
+  `git clone https://github.com/google/report2bq`
 
 1. Run the installer \
 `./install.sh --project=<PROJECT ID> --dataset=<DATASET NAME> --create-service-account --activate-apis --deploy-all --dry-run` \
@@ -69,9 +69,7 @@ in your browser, and go to Firestore.
 1. You will need an API key. Click "CREATE CREDENTIALS", and you will see this:  
 ![](screenshots/3a-CreateAPIKey.png)  
 Select "API Key"
-Click “Restrict Key” \
-![](screenshots/3-API_Key.png)
-Name: “Report2BQ API Key” \
+Name: “Report2BQ API Key” 
 
 1. Create the server's OAuth Id \
 Go to the API Credentials page and create new credentials. These should be of type

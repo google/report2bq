@@ -5,6 +5,7 @@ dh@google/
 local/
 logs/
 report2bq-3.7/
+report2bq-3.8/
 report_files/
 **/*.csv
 **/*.pyc
