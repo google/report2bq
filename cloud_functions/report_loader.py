@@ -32,7 +32,7 @@ from google.cloud.bigquery import LoadJob
 from google.oauth2.credentials import Credentials
 
 from io import BytesIO
-from typing import Dict, Any
+from typing import Any, Dict
 
 from classes.cloud_storage import Cloud_Storage
 from classes.csv_helpers import CSVHelpers
@@ -265,4 +265,3 @@ class ReportLoader(object):
     logging.info("Starting CSV import job {}".format(load_job.job_id))
 
     return load_job
-                  

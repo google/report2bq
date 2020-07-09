@@ -85,22 +85,22 @@ class SA360(object):
     # report_details['id'] = old_id
 
 
-  def handle_offline_report(self, report_config: Dict[str, Any]) -> bool:
+  def handle_offline_report(self, run_config: Dict[str, Any]) -> bool:
     sa360_service = DiscoverService.get_service(Service.SA360, self.creds)
-    request = sa360_service.reports().get(reportId=report_config['file_id'])
+    request = sa360_service.reports().get(reportId=run_config['file_id'])
 
     try:
       report = request.execute()
 
       if report['isReportReady']:
+        report_config = self.firestore.get_report_config(type=Type.SA360_RPT, id=run_config['report_id'])
+
         csv_header, csv_types = self.read_header(report)
         schema = CSVHelpers.create_table_schema(
           csv_header, 
           csv_types if self.infer_schema else None
         )
         report_config['schema'] = schema
-        report_config['email'] = self.email
-        report_config['append'] = self.append
         report_config['files'] = report['files']
 
         # update the report details please...
@@ -112,7 +112,7 @@ class SA360(object):
       return report['isReportReady']
 
     except:
-      logging.error(f'Report fetch error: {report}')
+      logging.error(f'Report fetch error: Run {run_config["file_id"]} for report {run_config["report_id"]}')
       return False
 
 

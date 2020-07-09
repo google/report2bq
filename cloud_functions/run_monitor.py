@@ -154,9 +154,9 @@ class RunMonitor(object):
   def _check_sa360_report(self, config: Dict[str, Any], run_config: Dict[str, Any]): 
     sa360 = SA360(email=run_config['email'], project=self.project)
     
-    if sa360.handle_offline_report(report_config=run_config):
+    if sa360.handle_offline_report(run_config=run_config):
       self.firestore.remove_report_runner(run_config['report_id'])
-      logging.error(f'Report {run_config["report_id"]} done.')
+      logging.info(f'Report {run_config["report_id"]} done.')
 
     else:
       # SA360 ones can't fail - they won't start if there are errors, so it's just

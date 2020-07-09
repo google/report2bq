@@ -45,7 +45,8 @@ class Report2BQ(object):
     profile=None,
     sa360_url=None,
     force: bool=False, append: bool=False, infer_schema: bool=False,
-    dest_project: str=None, dest_dataset: str='report2bq'):
+    dest_project: str=None, dest_dataset: str='report2bq',
+    notify_topic: str=None, notify_message: str=None):
     self.product = product
 
     self.force = force
@@ -63,6 +64,9 @@ class Report2BQ(object):
 
     self.dest_project = dest_project
     self.dest_dataset = dest_dataset
+
+    self.notify_topic = notify_topic
+    self.notify_message = notify_message
 
     self.firestore = Firestore(email=email, project=project)    
 
@@ -98,6 +102,12 @@ class Report2BQ(object):
 
       if self.dest_project: report_data['dest_project'] = self.dest_project
       if self.dest_dataset: report_data['dest_dataset'] = self.dest_dataset
+      if self.notify_topic:
+        report_data['notifier'] = {
+          'topic': self.notify_topic,
+        }
+        if self.notify_message: report_data['notifier']['message'] = self.notify_message
+        
       self.firestore.store_report_config(fetcher.report_type, self.report_id, report_data)
       fetcher.stream_to_gcs(f'{self.project}-report2bq-upload', report_data)
 
@@ -120,6 +130,11 @@ class Report2BQ(object):
 
     if self.dest_project: report_data['dest_project'] = self.dest_project
     if self.dest_dataset: report_data['dest_dataset'] = self.dest_dataset
+    if self.notify_topic:
+      report_data['notifier'] = {
+        'topic': self.notify_topic,
+      }
+      if self.notify_message: report_data['notifier']['message'] = self.notify_message
     sa360.process(
       bucket='{project}-report2bq-upload'.format(project=self.project),
       report_details=report_data)

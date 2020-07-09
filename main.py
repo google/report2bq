@@ -72,6 +72,8 @@ def report_fetch(event: Dict[str, Any], context=None):
         'infer_schema': attributes.get('infer_schema', False),
         'dest_project': attributes.get('dest_project', None),
         'dest_dataset': attributes.get('dest_dataset', 'report2bq'),
+        'notify_topic': attributes.get('notify_topic', None),
+        'notify_message': attributes.get('notify_message', None),
       }
       if kwargs.get('sa360_url'): kwargs['product'] = Type.SA360
       elif kwargs.get('profile'): kwargs['product'] = Type.CM

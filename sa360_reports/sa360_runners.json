@@ -8,6 +8,10 @@
     "ConversionMetric": "DDA - Custom - Trans",
     "RevenueMetric": "DDA - Custom - Revenue",
     "offset": 0,
-    "lookback": 0
+    "lookback": 0,
+    "notifier": {
+      "topic": "post-processor",
+      "message": "report2bq_execute_metrics_calculation"
+    }
   }
 ]

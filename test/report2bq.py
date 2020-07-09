@@ -108,6 +108,13 @@ flags.DEFINE_integer('account',
                      None,
                      'CM account id. RFequired for CM Superusers.')
 
+flags.DEFINE_string('notify_message',
+                     None,
+                     'Body of post job completion message')
+flags.DEFINE_string('notify_topic',
+                     None,
+                     'Post load job completion topic to notify')
+
 
 # Stub main()
 def main(unused_argv):
@@ -131,6 +138,8 @@ def main(unused_argv):
     'dest_dataset': FLAGS.dest_dataset,
     'infer_schema': FLAGS.infer_schema,
     'product': Type(FLAGS.product),
+    'notify_topic': FLAGS.notify_topic,
+    'notify_message': FLAGS.notify_message,
   }
   report_fetch({'attributes': attributes}, None)
 

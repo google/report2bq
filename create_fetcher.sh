@@ -90,7 +90,9 @@ Options:
     --description Plain text description for the scheduler list
     --infer-schema
                   [BETA] Guess the column types based on a sample of the report's first slice.
-
+    --topic       [BETA] Topic to send a PubSub message to on completion of import job
+    --message     [BETA] Message to send. Attributes of dataset, table name, report id and 
+                  report type will always be sent as part of the message.
     --usage       Show this text
 EOF
 }
@@ -111,6 +113,8 @@ DEST_DATASET=                       # Destination dataset for ADH querys
 TIMEZONE=                           # Timezone
 INFER_SCHEMA=                       # Guess the report's schema
 SA360_ID=                           # ID of the SA360 report to schedule
+TOPIC=                              # Notifier topic for post import processing 
+MESSAGE=                            # Notifier message
 
 # Command line parameter parser
 QUIT=0
@@ -197,6 +201,12 @@ while [[ $1 == -* ]] ; do
     --time-zone*)
       IFS="=" read _cmd TIMEZONE <<< "$1" && [ -z "${TIMEZONE}" ] && shift && TIMEZONE="$1"
       ;;
+    --topic*)
+      IFS="=" read _cmd TOPIC <<< "$1" && [ -z "${TOPIC}" ] && shift && TOPIC="$1"
+      ;;
+    --message*)
+      IFS="=" read _cmd MESSAGE <<< "$1" && [ -z "${MESSAGE}" ] && shift && MESSAGE="$1"
+      ;;
     --help)
       usage
       exit
@@ -236,6 +246,8 @@ fi
 
 [ -z "${DEST_PROJECT}" ] || _DEST_PROJECT="dest_project=${DEST_PROJECT}"
 [ -z "${DEST_DATASET}" ] || _DEST_DATASET="dest_dataset=${DEST_DATASET}"
+[ -z "${TOPIC}" ] || _NOTIFIER_TOPIC="notify_topic=${TOPIC}"
+[ -z "${MESSAGE}" ] || _NOTIFIER_MESSAGE="notify_message=${MESSAGE}"
 
 parameters=(
   "${FORCE}"
@@ -245,6 +257,8 @@ parameters=(
   "project=${PROJECT}"
   "${_DEST_PROJECT}"
   "${_DEST_DATASET}"
+  "${_NOTIFIER_TOPIC}"
+  "${_NOTIFIER_MESSAGE}"
 )
 
 if [ ! -z "${TIMEZONE}" ]; then
