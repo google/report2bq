@@ -220,6 +220,8 @@ class SA360(object):
       fieldnames = [CSVHelpers.sanitize_string(field) for field in re.findall(r'\<th[^>]*\>([^<]*)\<\/th\>', header)]
       # logging.info(f'Fields: {fieldnames}')
       del header
+    else:
+      fieldnames = None
 
     return fieldnames, buffer
 
@@ -230,10 +232,10 @@ class SA360(object):
     while len(_buffer.getvalue()) < html_chunk_size:
       try:
         _block = stream.__next__()
+        if _block: _buffer.write(_block)
       except StopIteration:
         last_chunk = True
 
-      if _block: _buffer.write(_block)
     return _buffer.getvalue(), last_chunk
 
 
@@ -261,6 +263,8 @@ class SA360(object):
       source_size = 0
 
       done = False
+      fieldnames = None
+
       while not done:
         # logging.info(f'Processing chunk {chunk_id}')
         # logging.info(f'Processing chunk {chunk_id}, remainder {remainder.decode("utf-8")}')

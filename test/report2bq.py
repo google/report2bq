@@ -25,6 +25,7 @@ import pprint
 # Class Imports
 from absl import app
 from absl import flags
+from contextlib import suppress
 from datetime import datetime
 from urllib.parse import unquote
 
@@ -145,7 +146,5 @@ def main(unused_argv):
 
 
 if __name__ == '__main__':
-  try:
+  with suppress(SystemExit):
     app.run(main)
-  except Exception as e:
-    logging.error(e)

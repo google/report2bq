@@ -29,10 +29,11 @@ from google.api_core import retry
 from google.cloud import bigquery
 from google.cloud import storage
 from google.cloud.bigquery import LoadJob
+from google.cloud.exceptions import NotFound
 from google.oauth2.credentials import Credentials
 
 from io import BytesIO
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple
 
 from classes.cloud_storage import Cloud_Storage
 from classes.csv_helpers import CSVHelpers
@@ -224,6 +225,7 @@ class ReportLoader(object):
       bq = bigquery.Client(project=project, credentials=creds)
 
     else:
+      project = os.environ.get('GCP_PROJECT')
       bq = bigquery.Client()
 
     dataset = config.get('dest_dataset') or os.environ.get('BQ_DATASET') or 'report2bq'
@@ -245,7 +247,14 @@ class ReportLoader(object):
     # Default action is to completely replace the table each time. If requested, however then
     # we can do an append for (say) huge jobs where you would see the table with 60 days once
     # and then append 'yesterday' each day.
-    import_type = bigquery.WriteDisposition.WRITE_TRUNCATE if not config.get('append', False) else bigquery.WriteDisposition.WRITE_APPEND
+    if config.get('append', False):
+      if self._table_exists(bq, table_ref) and not self._validate_schema(bq, table_ref, schema):
+        logging.error(f"Mismatched schema for {project}.{dataset}.{table_name}, trying anyway")
+
+      import_type = bigquery.WriteDisposition.WRITE_APPEND
+      
+    else:
+      import_type = bigquery.WriteDisposition.WRITE_TRUNCATE
 
     job_config = bigquery.LoadJobConfig()
     job_config.write_disposition = import_type
@@ -265,3 +274,19 @@ class ReportLoader(object):
     logging.info("Starting CSV import job {}".format(load_job.job_id))
 
     return load_job
+
+
+  def _table_exists(self, bq: bigquery.Client, table_ref: bigquery.TableReference) -> bool:
+    try:
+        bq.get_table(table_ref)
+        return True
+
+    except NotFound:
+        return False
+
+
+  def _validate_schema(self, bq: bigquery.Client, table_ref: bigquery.TableReference, schema: List[bigquery.schema.SchemaField]) -> bool:
+    _table = bq.get_table(table_ref)
+    _schema = _table.schema
+
+    return _schema == schema

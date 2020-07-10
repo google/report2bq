@@ -91,11 +91,6 @@ class Report2BQ(object):
         csv_types if self.infer_schema else None
       )
 
-      # validate stored schema against current
-      if self.append and not schema == last_report['schema']:
-        logging.error('Cannot append with a different schema.')
-        return
-
       report_data['schema'] = schema
       report_data['email'] = self.email
       report_data['append'] = self.append
