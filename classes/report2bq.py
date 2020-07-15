@@ -75,36 +75,38 @@ class Report2BQ(object):
     # Get Latest Report
     report_object = fetcher.get_latest_report_file(self.report_id)
 
+    # Normalize Report Details
+    report_data = fetcher.normalize_report_details(report_object=report_object, report_id=self.report_id)
+    last_report = self.firestore.get_report_config(fetcher.report_type, self.report_id)
+
+    if last_report:
+      if report_data['last_updated'] == last_report['last_updated'] and not self.force:
+        logging.info('No change: ignoring.')
+        return
+
+    report_data['email'] = self.email
+    report_data['append'] = self.append
+
+    if self.dest_project: report_data['dest_project'] = self.dest_project
+    if self.dest_dataset: report_data['dest_dataset'] = self.dest_dataset
+    if self.notify_topic:
+      report_data['notifier'] = {
+        'topic': self.notify_topic,
+      }
+      if self.notify_message: report_data['notifier']['message'] = self.notify_message
+      
     if report_object:
-      # Normalize Report Details
-      report_data = fetcher.normalize_report_details(report_object)
-      last_report = self.firestore.get_report_config(fetcher.report_type, self.report_id)
-
-      if last_report:
-        if report_data['last_updated'] == last_report['last_updated'] and not self.force:
-          logging.info('No change: ignoring.')
-          return
-
       csv_header, csv_types = fetcher.read_header(report_data)
-      schema = CSVHelpers.create_table_schema(
-        csv_header, 
-        csv_types if self.infer_schema else None
-      )
+      if csv_header:
+        schema = CSVHelpers.create_table_schema(
+          csv_header, 
+          csv_types if self.infer_schema else None
+        )
 
-      report_data['schema'] = schema
-      report_data['email'] = self.email
-      report_data['append'] = self.append
-
-      if self.dest_project: report_data['dest_project'] = self.dest_project
-      if self.dest_dataset: report_data['dest_dataset'] = self.dest_dataset
-      if self.notify_topic:
-        report_data['notifier'] = {
-          'topic': self.notify_topic,
-        }
-        if self.notify_message: report_data['notifier']['message'] = self.notify_message
-        
-      self.firestore.store_report_config(fetcher.report_type, self.report_id, report_data)
-      fetcher.stream_to_gcs(f'{self.project}-report2bq-upload', report_data)
+        report_data['schema'] = schema
+        fetcher.stream_to_gcs(f'{self.project}-report2bq-upload', report_data)
+      
+    self.firestore.store_report_config(fetcher.report_type, self.report_id, report_data)
 
 
   def handle_sa360(self):

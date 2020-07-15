@@ -144,7 +144,7 @@ def report_runner(event: Dict[str, Any], context=None):
       logging.info(attributes)
       if 'type' in attributes:
         if Type(attributes['type']) == Type.DV360:
-          dv360_id = attributes.get('dv360_id') if 'dv360_id' in attributes else None
+          dv360_id = attributes.get('report_id') if 'report_id' in attributes else None
           email = attributes['email']
           project = attributes['project'] or os.environ.get('GCP_PROJECT')
 
@@ -155,7 +155,7 @@ def report_runner(event: Dict[str, Any], context=None):
           )
 
         elif Type(attributes['type']) == Type.CM:
-          cm_id = attributes.get('cm_id') if 'cm_id' in attributes else None
+          cm_id = attributes.get('report_id') if 'report_id' in attributes else None
           profile = attributes.get('profile', None)
           email = attributes['email']
           project = attributes['project'] or os.environ.get('GCP_PROJECT')

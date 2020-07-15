@@ -39,7 +39,7 @@ class ReportFetcher(object):
 
   def stream_to_gcs(self, bucket: str, report_details: Dict[str, Any]) -> None: pass
 
-  def normalize_report_details(self, report_object: Dict[str, Any]): pass
+  def normalize_report_details(self, report_object: Dict[str, Any], report_id: str): pass
 
   def get_latest_report_file(self, report_id: str): pass
 

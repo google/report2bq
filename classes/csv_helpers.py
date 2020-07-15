@@ -30,14 +30,14 @@ from messytables import types_processor
 from messytables import headers_guess
 from messytables import headers_processor
 from messytables import offset_processor
-from typing import Dict, List
+from typing import Dict, List, Tuple, Type
 
 class CSVHelpers(object):
   """CSV file helpers  
   
   """
   @staticmethod
-  def get_column_types(data: io.BytesIO) -> (List[str], List[str]):
+  def get_column_types(data: io.BytesIO) -> Tuple[List[str], List[str]]:
     """derive the column types
 
     Using messytables' CSV API, attempt to derive the column types based on a best-guess

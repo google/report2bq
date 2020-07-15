@@ -31,7 +31,7 @@ import sys
 import time
 
 from googleapiclient import http
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 from queue import Queue, Empty
 
 # Class Imports
@@ -236,7 +236,7 @@ class DCM(ReportFetcher, Fetcher):
     return report
 
 
-  def normalize_report_details(self, report_object):
+  def normalize_report_details(self, report_object: Dict[str, Any], report_id: str):
     """
     Normalize api results into flattened data structure
     Args:
@@ -253,7 +253,7 @@ class DCM(ReportFetcher, Fetcher):
 
     else:
       # Report not yet run
-      gcs_path = ""
+      gcs_path = ''
       latest_runtime = 0
 
     # Check if schedule set
@@ -261,13 +261,13 @@ class DCM(ReportFetcher, Fetcher):
       # Normalize data
       if report_object['schedule']['active'] is False:
         # No Schedule
-        schedule_frequency = "ONE_TIME"
+        schedule_frequency = 'MANUAL'
       else:
         # Scheduled
         schedule_frequency = report_object['schedule']['repeats']
     else:
       # Schedule Does Not exist
-      schedule_frequency = "ONE_TIME"
+      schedule_frequency = 'MANUAL'
 
     # Normalize report data object
     report_data = {
@@ -281,7 +281,7 @@ class DCM(ReportFetcher, Fetcher):
           float(latest_runtime)/1000.0
       ).strftime("%Y%m%d%H%M"),
       'update_cadence': schedule_frequency,
-      'report_file': report_object['report_file']
+      'report_file': report_object['report_file'] if 'report_file' in report_object else ''
     }
 
     # Return
@@ -339,7 +339,10 @@ class DCM(ReportFetcher, Fetcher):
     return out_file.getvalue()
 
 
-  def read_header(self, report_details: dict) -> list:
+  def read_header(self, report_details: dict) -> Tuple[List[str], List[str]]:
+    if not 'report_file' in report_details:
+      return (None, None)
+
     data = self.read_data_chunk(report_details, 163840)
     bytes_io = io.BytesIO(data)
     csv_start = self.find_first_data_byte(bytes_io.getvalue())
@@ -358,6 +361,9 @@ class DCM(ReportFetcher, Fetcher):
         bucket {str} -- GCS Bucket
         report_data {dict} -- Report definition
     """
+    if not 'report_file' in report_data:
+      return
+
     queue = Queue()
 
     report_id = report_data['id']

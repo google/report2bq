@@ -229,7 +229,7 @@ class SA360(object):
   def _next_chunk(self, stream, html_chunk_size: int=None) -> Tuple[bytes, bool]:
     _buffer = BytesIO()
     last_chunk = False
-    while len(_buffer.getvalue()) < html_chunk_size:
+    while len(_buffer.getvalue()) < html_chunk_size and not last_chunk:
       try:
         _block = stream.__next__()
         if _block: _buffer.write(_block)

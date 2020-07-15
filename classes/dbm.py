@@ -43,7 +43,7 @@ from classes.threaded_streamer import ThreadedGCSObjectStreamUpload
 # Other imports
 from contextlib import closing
 from queue import Queue, Empty
-from typing import Dict, Any
+from typing import Dict, Any, List, Tuple
 from urllib.request import urlopen
 
 
@@ -62,7 +62,7 @@ class DBM(ReportFetcher, Fetcher):
     self.chunk_multiplier = int(os.environ.get('CHUNK_MULTIPLIER', 64))
 
 
-  def get_reports(self):
+  def get_reports(self) -> List[Dict[str, Any]]:
     """
     Fetches list of reports for current user
     Returns:
@@ -74,6 +74,26 @@ class DBM(ReportFetcher, Fetcher):
     result = self.fetch(
       self.dbm_service.queries().listqueries,
       **{'fields': 'queries(metadata(googleCloudStoragePathForLatestReport,latestReportRunTimeMs,title),params/type,queryId,schedule/frequency)'}
+    )
+
+    return result
+
+
+  def get_report(self, report_id: str) -> Dict[str, Any]:
+    """
+    Fetches list of reports for current user
+    Returns:
+      Report list
+    """
+
+    # Use Discovery Service to make api call
+    # https://developers.google.com/apis-explorer/#p/doubleclickbidmanager/v1.1/doubleclickbidmanager.queries.listqueries
+    result = self.fetch(
+      self.dbm_service.queries().getquery,
+      **{
+        'fields': 'metadata(googleCloudStoragePathForLatestReport,latestReportRunTimeMs,title),params/type,queryId,schedule/frequency',
+        'queryId': report_id
+      }
     )
 
     return result
@@ -93,18 +113,18 @@ class DBM(ReportFetcher, Fetcher):
       **{ 'queryId': report_id }
     )
 
+    report = {}
     if results:
       if 'reports' in results:
         ordered = sorted(results['reports'], key=lambda k: int(k['metadata']['status']['finishTimeMs']))
-        return ordered[-1]
+        report = ordered[-1]
       else:
         logging.info('No reports - has this report run successfully yet?')
 
-    # None found, return empty object
-    return {}
+    return report
 
 
-  def normalize_report_details(self, report_object):
+  def normalize_report_details(self, report_object: Dict[str, Any], report_id: str):
     """
     Normalize api results into flattened data structure
     Args:
@@ -113,7 +133,7 @@ class DBM(ReportFetcher, Fetcher):
       Normalized data structure
     """
     # Fetch query details too, as this contains the main piece
-    query_object = self.dbm_service.queries().getquery(queryId=report_object['key']['queryId']).execute()
+    query_object = self.dbm_service.queries().getquery(queryId=report_id).execute()
 
     # Check if report has ever completed a run
     if(
@@ -167,7 +187,10 @@ class DBM(ReportFetcher, Fetcher):
       return 'UNKNOWN'
 
 
-  def read_header(self, report_details: dict) -> list:
+  def read_header(self, report_details: dict) -> Tuple[List[str], List[str]]:
+    if not 'current_path' in report_details:
+      return (None, None)
+
     with closing(urlopen(report_details['current_path'])) as report:
       data = report.read(self.chunk_multiplier * 1024 * 1024)
       bytes_io = io.BytesIO(data)
@@ -183,6 +206,9 @@ class DBM(ReportFetcher, Fetcher):
         bucket {str} -- GCS Bucket
         report_details {dict} -- Report definition
     """
+    if not 'current_path' in report_details:
+      return
+
     queue = Queue()
 
     report_id = report_details['id']
