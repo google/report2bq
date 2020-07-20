@@ -38,9 +38,6 @@ Options:
   --create-service-account
                     Create the service account and client secrets
 
-  --deploy-repo     (Re)Deploy the code from a GCP source repository named 'report2bq'
-                    in the current project.
-
   --deploy-all      (Re)Deploy all portions
   OR
   --deploy-bigquery (Re)Deploy Big Query dataset
@@ -83,6 +80,7 @@ DEPLOY_RUNNERS=0
 DEPLOY_RUN_MONITOR=0
 DEPLOY_STORAGE=0
 DEPLOY_TRIGGER=0
+DEPLOY_POSTPROCESSOR=0
 USERNAME=0
 
 # Command line parser
@@ -104,6 +102,7 @@ while [[ $1 == -* ]] ; do
       DEPLOY_RUN_MONITOR=1
       DEPLOY_STORAGE=1
       DEPLOY_TRIGGER=1
+      DEPLOY_POSTPROCESSOR=1
       ;;
     --deploy-bigquery)
       DEPLOY_BQ=1
@@ -132,8 +131,8 @@ while [[ $1 == -* ]] ; do
     --deploy-storage)
       DEPLOY_STORAGE=1
       ;;
-    --deploy-repo)
-      DEPLOY_CODE=0
+    --deploy-postprocessor)
+      DEPLOY_POSTPROCESSOR=1
       ;;
     --activate-apis)
       ACTIVATE_APIS=1
@@ -234,7 +233,7 @@ if [ ${DEPLOY_CODE} -eq 1 ]; then
   [ -e report2bq.zip ] && rm -f report2bq.zip >/dev/null 2>&1
 
   # Create the zip
-  ${DRY_RUN} zip report2bq.zip main.py requirements.txt README.md LICENSE CONTRIBUTING.md classes/*.py cloud_functions/*.py screenshots/*.*
+  ${DRY_RUN} zip report2bq.zip -r main.py requirements.txt README.md LICENSE CONTRIBUTING.md classes/ cloud_functions/ screenshots/ -x __pycache__ -x *.pyc
 
   # Copy it up
   ${DRY_RUN} gsutil cp report2bq.zip gs://${PROJECT}-report2bq > /dev/null 2>&1
@@ -418,4 +417,30 @@ if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
     --time-zone="America/Toronto" \
     --message-body="RUN" \
     --project=${PROJECT}
+fi
+
+if [ ${DEPLOY_POSTPROCESSOR} -eq 1 ]; then
+  # Create topic
+  ${DRY_RUN} gcloud pubsub topics delete \
+    --project=${PROJECT} \
+    --quiet \
+    "postprocessor"
+
+  ${DRY_RUN} gcloud pubsub topics create \
+    --project=${PROJECT} \
+    --quiet \
+    "postprocessor"
+
+  # Deploy cloud function
+  echo "postprocessor"
+  ${DRY_RUN} gcloud functions deploy "postprocessor" \
+    --service-account=$USER \
+    --entry-point=run_monitor \
+    --source=${SOURCE} \
+    --runtime python37 \
+    --memory=2048MB \
+    --trigger-topic="postprocessor" \
+    --quiet \
+    --timeout=60s \
+    --project=${PROJECT} ${_BG}
 fi

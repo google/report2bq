@@ -18,10 +18,12 @@ __author__ = [
   'davidharcombe@google.com (David Harcombe)'
 ]
 
+import base64
 import logging
 import os
 
 from flask import Request
+from importlib import import_module, invalidate_caches
 from typing import Dict, Any
 from urllib.parse import unquote_plus as unquote
 
@@ -34,6 +36,7 @@ from classes.dbm_report_runner import DBMReportRunner
 from classes.dcm_report_runner import DCMReportRunner
 from classes.sa360_report_runner import SA360ReportRunner
 from classes.decorators import measure_memory
+from classes.postprocessor import install_postprocessor
 from classes.report2bq import Report2BQ
 from classes.report_type import Type
 from classes.scheduler import Scheduler
@@ -214,3 +217,23 @@ def report_runner(event: Dict[str, Any], context=None):
     except Exception as e:
       logging.fatal('Error: {e}\nAttributes supplied: {attributes}'.format(e=e, attributes=attributes))
       return
+
+
+def post_processor(event: Dict[str, Any], context=None):
+  logging.info(f'Event supplied: {event}')
+  if 'data' in event:
+    postprocessor = base64.b64decode(event['data']).decode('utf-8')
+    logging.info(f'Loading and running "{postprocessor}"')
+    install_postprocessor()
+
+  else:
+    logging.fatal('No postprocessor specified')
+    return
+
+  if 'attributes' in event:
+    attributes = event['attributes']
+    _import = f'import classes.postprocessor.{postprocessor}'
+    exec(_import)
+    Processor = getattr(import_module(f'classes.postprocessor.{postprocessor}'), 'Processor')
+
+    Processor().run(**attributes)
