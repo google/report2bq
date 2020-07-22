@@ -43,15 +43,17 @@ class Credentials(object):
     """
     self.project = project
     self.email = email
-
-    # if not self.creds:
     self.bucket = f'{project}-report2bq-tokens'
     self.client_token = f'{email}_user_token.json'
     self.project_credentials = json.loads(Cloud_Storage.fetch_file(bucket=self.bucket, file='client_secrets.json'))
     self.token_details = json.loads(Cloud_Storage.fetch_file(bucket=self.bucket, file=self.client_token))
 
 
-  def _refresh_credentials(self, project_credentials: Dict[str, str], user_token: Dict[str, str]) -> Dict[str, str]:
+  def _refresh_credentials(
+    self, 
+    project_credentials: Dict[str, str], 
+    user_token: Dict[str, str]
+  ) -> Dict[str, str]:
     # Remove top-level element
     secrets = project_credentials['web'] if 'web' in project_credentials else project_credentials['installed']
 

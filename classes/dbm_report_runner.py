@@ -80,17 +80,12 @@ class DBMReportRunner(ReportRunner):
   def _unattended_run(self, dbm: DBM) -> None:
     response = dbm.run_report(self.dbm_id)
     if response:
-      buffer = StringIO()
-      pprint.pprint(response, stream=buffer)
-      logging.error(buffer.getvalue())
-      return 
-
-    runner = {
-      'type': Type.DV360.value,
-      'project': self.project,
-      'report_id': self.dbm_id,
-      'email': self.email,
-    }
-    self.firestore.store_report_runner(runner)
+      runner = {
+        'type': Type.DV360.value,
+        'project': self.project,
+        'report_id': self.dbm_id,
+        'email': self.email,
+      }
+      self.firestore.store_report_runner(runner)
 
       

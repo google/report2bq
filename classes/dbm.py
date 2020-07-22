@@ -46,20 +46,30 @@ from queue import Queue, Empty
 from typing import Dict, Any, List, Tuple
 from urllib.request import urlopen
 
+from googleapiclient.errors import HttpError
+
 
 class DBM(ReportFetcher, Fetcher):
   report_type = Type.DV360
+  email = None
+  project = None
+  profile = None
 
   def __init__(self, email: str, project: str, profile: str=None):
     """
     Initialize Reporting Class
     """
-    # Get authorized http transport
-    self.credentials = Credentials(email=email, project=project)
-
-    self.dbm_service = DiscoverService.get_service(Service.DV360, self.credentials) 
-
+    self.email = email
+    self.project = project
     self.chunk_multiplier = int(os.environ.get('CHUNK_MULTIPLIER', 64))
+
+    # # Get authorized http transport
+    # self.credentials = Credentials(email=email, project=project)
+    # self.dbm_service = DiscoverService.get_service(Service.DV360, Credentials(email=email, project=project)) 
+
+
+  def dbm_service(self):
+    return DiscoverService.get_service(Service.DV360, Credentials(email=self.email, project=self.project)) 
 
 
   def get_reports(self) -> List[Dict[str, Any]]:
@@ -72,7 +82,7 @@ class DBM(ReportFetcher, Fetcher):
     # Use Discovery Service to make api call
     # https://developers.google.com/apis-explorer/#p/doubleclickbidmanager/v1.1/doubleclickbidmanager.queries.listqueries
     result = self.fetch(
-      self.dbm_service.queries().listqueries,
+      self.dbm_service().queries().listqueries,
       **{'fields': 'queries(metadata(googleCloudStoragePathForLatestReport,latestReportRunTimeMs,title),params/type,queryId,schedule/frequency)'}
     )
 
@@ -89,7 +99,7 @@ class DBM(ReportFetcher, Fetcher):
     # Use Discovery Service to make api call
     # https://developers.google.com/apis-explorer/#p/doubleclickbidmanager/v1.1/doubleclickbidmanager.queries.listqueries
     result = self.fetch(
-      self.dbm_service.queries().getquery,
+      self.dbm_service().queries().getquery,
       **{
         'fields': 'metadata(googleCloudStoragePathForLatestReport,latestReportRunTimeMs,title),params/type,queryId,schedule/frequency',
         'queryId': report_id
@@ -109,7 +119,7 @@ class DBM(ReportFetcher, Fetcher):
       Report object
     """
     results = self.fetch(
-      self.dbm_service.reports().listreports,
+      self.dbm_service().reports().listreports,
       **{ 'queryId': report_id }
     )
 
@@ -133,7 +143,7 @@ class DBM(ReportFetcher, Fetcher):
       Normalized data structure
     """
     # Fetch query details too, as this contains the main piece
-    query_object = self.dbm_service.queries().getquery(queryId=report_id).execute()
+    query_object = self.dbm_service().queries().getquery(queryId=report_id).execute()
 
     # Check if report has ever completed a run
     if(
@@ -167,8 +177,9 @@ class DBM(ReportFetcher, Fetcher):
 
 
   @retry(Exception, tries=3, delay=15, backoff=2)
-  def run_report(self, report_id: int, retry: int=0):
-    request = self.dbm_service.queries().runquery(queryId=report_id)
+  def run_report(self, report_id: int, retry: int=0) -> Dict[str, Any]:
+    result = {}
+    request = self.dbm_service().queries().runquery(queryId=report_id)
     result = request.execute()
     
     return result
@@ -176,7 +187,7 @@ class DBM(ReportFetcher, Fetcher):
 
   @retry(Exception, tries=3, delay=15, backoff=2)
   def report_state(self, report_id: int):
-    request = self.dbm_service.reports().listreports(queryId=report_id)
+    request = self.dbm_service().reports().listreports(queryId=report_id)
     results = request.execute()
 
     if results:

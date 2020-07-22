@@ -80,12 +80,12 @@ class DCMReportRunner(ReportRunner):
       pprint.pprint(response, stream=buffer)
       logging.info(buffer.getvalue())
 
-    runner = {
-      'type': Type.CM.value,
-      'project': self.project,
-      'report_id': self.cm_id,
-      'email': self.email,
-      'profile': self.cm_profile,
-      'file_id': response['id']
-    }
-    self.firestore.store_report_runner(runner)
+      runner = {
+        'type': Type.CM.value,
+        'project': self.project,
+        'report_id': self.cm_id,
+        'email': self.email,
+        'profile': self.cm_profile,
+        'file_id': response['id']
+      }
+      self.firestore.store_report_runner(runner)

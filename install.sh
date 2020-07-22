@@ -53,6 +53,8 @@ Options:
   --deploy-job-manager
                     (Re)Deploy the job manager for listing creating and deleting scheduled jobs
 
+  --no-topics       Just deploy the functions; good if you have deployed once and are just 
+                    updating the cloud functions
   --background      Run the Cloud Functions deployments in the background.
                     WARNING: IF YOU DO THIS, BE SURE TO CHECK THE FUNCTION OUTPUT FILES FOR A
                              SUCCESSFUL COMPLETION.
@@ -81,6 +83,7 @@ DEPLOY_RUN_MONITOR=0
 DEPLOY_STORAGE=0
 DEPLOY_TRIGGER=0
 DEPLOY_POSTPROCESSOR=0
+DEPLOY_TOPICS=1
 USERNAME=0
 
 # Command line parser
@@ -145,6 +148,9 @@ while [[ $1 == -* ]] ; do
       ;;
     --dry-run)
       DRY_RUN=echo
+      ;;
+    --no-topics)
+      DEPLOY_TOPICS=0
       ;;
     *)
       usage
@@ -247,36 +253,85 @@ else
   SOURCE="."
 fi
 
-# Deploy uploader trigger
-if [ ${DEPLOY_TRIGGER} -eq 1 ]; then
-  # Create topic
-  ${DRY_RUN} gcloud pubsub topics delete \
-    --project=${PROJECT} \
-    --quiet \
-    "report2bq-trigger"
+# TOPICS & TRIGGERS
+if [ ${DEPLOY_TOPICS} -eq 1 ]; then
+  # fetcher
+  if [ ${DEPLOY_TRIGGER} -eq 1 ]; then
+    # Create topic
+    ${DRY_RUN} gcloud pubsub topics delete \
+      --project=${PROJECT} \
+      --quiet \
+      "report2bq-trigger"
 
-  ${DRY_RUN} gcloud pubsub topics create \
-    --project=${PROJECT} \
-    --quiet \
-    "report2bq-trigger"
+    ${DRY_RUN} gcloud pubsub topics create \
+      --project=${PROJECT} \
+      --quiet \
+      "report2bq-trigger"
+  fi
+
+  # job-monitor
+  if [ ${DEPLOY_MONITOR} -eq 1 ]; then
+    ${DRY_RUN} gcloud pubsub topics delete \
+      --project=${PROJECT} \
+      --quiet \
+      "job-monitor"
+
+    ${DRY_RUN} gcloud pubsub topics create \
+      --project=${PROJECT} \
+      --quiet \
+      "job-monitor"
+  fi
+
+  # report-runner
+  if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
+    # Create topic
+    ${DRY_RUN} gcloud pubsub topics delete \
+      --project=${PROJECT} \
+      --quiet \
+      "report-runner"
+
+    ${DRY_RUN} gcloud pubsub topics create \
+      --project=${PROJECT} \
+      --quiet \
+      "report-runner"
+  fi
+
+  # run-monitor
+  if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
+    # Create topic
+    ${DRY_RUN} gcloud pubsub topics delete \
+      --project=${PROJECT} \
+      --quiet \
+      "run-monitor"
+
+    ${DRY_RUN} gcloud pubsub topics create \
+      --project=${PROJECT} \
+      --quiet \
+      "run-monitor"
+  fi
+
+  # post-processor
+  if [ ${DEPLOY_POSTPROCESSOR} -eq 1 ]; then
+    # Create topic
+    ${DRY_RUN} gcloud pubsub topics delete \
+      --project=${PROJECT} \
+      --quiet \
+      "postprocessor"
+
+    ${DRY_RUN} gcloud pubsub topics create \
+      --project=${PROJECT} \
+      --quiet \
+      "postprocessor"
+  fi
+
 fi
 
+# CLOUD FUNCTIONS
 # Deploy job monitor
 if [ ${DEPLOY_MONITOR} -eq 1 ]; then
   if [ ${BACKGROUND} -eq 1 ]; then
     _BG=" & > report2bq-monitor.deploy 2>&1"
   fi
-
-  # Create topic
-  ${DRY_RUN} gcloud pubsub topics delete \
-    --project=${PROJECT} \
-    --quiet \
-    "job-monitor"
-
-  ${DRY_RUN} gcloud pubsub topics create \
-    --project=${PROJECT} \
-    --quiet \
-    "job-monitor"
 
   # Deploy cloud function 
   echo "job-monitor"
@@ -350,17 +405,6 @@ fi
 
 # Deploy runners
 if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
-  # Create topic
-  ${DRY_RUN} gcloud pubsub topics delete \
-    --project=${PROJECT} \
-    --quiet \
-    "report-runner"
-
-  ${DRY_RUN} gcloud pubsub topics create \
-    --project=${PROJECT} \
-    --quiet \
-    "report-runner"
-
   # Deploy cloud function
   echo "report-runner"
   if [ ${BACKGROUND} -eq 1 ]; then
@@ -380,17 +424,6 @@ if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
 fi
 
 if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
-  # Create topic
-  ${DRY_RUN} gcloud pubsub topics delete \
-    --project=${PROJECT} \
-    --quiet \
-    "run-monitor"
-
-  ${DRY_RUN} gcloud pubsub topics create \
-    --project=${PROJECT} \
-    --quiet \
-    "run-monitor"
-
   # Deploy cloud function
   echo "run-monitor"
   ${DRY_RUN} gcloud functions deploy "run-monitor" \
@@ -420,22 +453,11 @@ if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
 fi
 
 if [ ${DEPLOY_POSTPROCESSOR} -eq 1 ]; then
-  # Create topic
-  ${DRY_RUN} gcloud pubsub topics delete \
-    --project=${PROJECT} \
-    --quiet \
-    "postprocessor"
-
-  ${DRY_RUN} gcloud pubsub topics create \
-    --project=${PROJECT} \
-    --quiet \
-    "postprocessor"
-
   # Deploy cloud function
   echo "postprocessor"
   ${DRY_RUN} gcloud functions deploy "postprocessor" \
     --service-account=$USER \
-    --entry-point=run_monitor \
+    --entry-point=post_processor \
     --source=${SOURCE} \
     --runtime python37 \
     --memory=2048MB \
