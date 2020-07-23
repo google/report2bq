@@ -31,6 +31,7 @@ import sys
 import time
 
 from googleapiclient import http
+from googleapiclient.discovery import Resource
 from typing import Any, Dict, List, Tuple
 from queue import Queue, Empty
 
@@ -59,14 +60,11 @@ class DCM(ReportFetcher, Fetcher):
     self.project = project
     self.email = email
     self.profile = profile
-
-    # Get authorized http transport
-    self.credentials = Credentials(email=email, project=project)
-
-    self.dcm_service = DiscoverService.get_service(Service.CM, self.credentials) 
-
-    # Init Report List Controller
     self.report_list = Report_List()
+
+
+  def service(self) -> Resource:
+    return DiscoverService.get_service(Service.CM, Credentials(email=self.email, project=self.project)) 
 
 
   def get_user_profiles(self):
@@ -78,7 +76,7 @@ class DCM(ReportFetcher, Fetcher):
 
     # Fetch User Profiles
     # https://developers.google.com/apis-explorer/#p/dfareporting/v3.1/dfareporting.accountUserProfiles.get
-    result = self.fetch(method=self.dcm_service.userProfiles().list, **{
+    result = self.fetch(method=self.service().userProfiles().list, **{
       # 'fields': 'items(profileId, accountName)'
     })
     return [
@@ -114,7 +112,7 @@ class DCM(ReportFetcher, Fetcher):
       fields['profileId'] = profile
 
       result = self.fetch(
-          self.dcm_service.reports().list,
+          self.service().reports().list,
           **fields
       )
       if 'items' in result:
@@ -134,7 +132,7 @@ class DCM(ReportFetcher, Fetcher):
 
     # Fetch report files for specified report
     files = self.fetch(
-      method=self.dcm_service.reports().files().list,
+      method=self.service().reports().files().list,
       **{
         'profileId': self.profile,
         'reportId': report_id,
@@ -160,7 +158,7 @@ class DCM(ReportFetcher, Fetcher):
       List of latest DCM report files details
     """
     result = self.fetch(
-      method=self.dcm_service.reports().get,
+      method=self.service().reports().get,
       **{
         'profileId': self.profile,
         'reportId': report_id, 
@@ -329,7 +327,7 @@ class DCM(ReportFetcher, Fetcher):
   def read_data_chunk(self, report_data: dict, chunk: int=16384) -> bytes:
     report_id = report_data['id']
     file_id = report_data['report_file']['id']
-    request = self.dcm_service.files().get_media(reportId=report_id, fileId=file_id)
+    request = self.service().files().get_media(reportId=report_id, fileId=file_id)
 
     # Create a media downloader instance.
     out_file = io.BytesIO()
@@ -372,7 +370,7 @@ class DCM(ReportFetcher, Fetcher):
     chunk_size = 16 * 1024 * 1024
     out_file = io.BytesIO()
 
-    download_request = self.dcm_service.files().get_media(reportId=report_id, fileId=file_id)
+    download_request = self.service().files().get_media(reportId=report_id, fileId=file_id)
     downloader = http.MediaIoBaseDownload(out_file, download_request, chunksize=chunk_size)
 
     # Execute the get request and download the file.
@@ -422,7 +420,7 @@ class DCM(ReportFetcher, Fetcher):
 
   @retry(Exception, tries=3, delay=15, backoff=2)
   def run_report(self, report_id: int, synchronous: bool=False):
-    request = self.dcm_service.reports().run(reportId=report_id, profileId=self.profile, synchronous=synchronous)
+    request = self.service().reports().run(reportId=report_id, profileId=self.profile, synchronous=synchronous)
     result = request.execute()
 
     return result
@@ -430,7 +428,7 @@ class DCM(ReportFetcher, Fetcher):
 
   @retry(Exception, tries=3, delay=15, backoff=2)
   def report_state(self, report_id: int, file_id: int):
-    request = self.dcm_service.reports().files().get(reportId=report_id, fileId=file_id, profileId=self.profile)
+    request = self.service().reports().files().get(reportId=report_id, fileId=file_id, profileId=self.profile)
     result = request.execute()
 
     return result

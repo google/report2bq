@@ -28,6 +28,7 @@ class Service(Enum):
   CM = 'cm'
   SA360 = 'sa360'
   ADH = 'adh'
+  GMAIL = 'gmail'
   
   def __str__(self):
     return str(self.value)
@@ -53,6 +54,10 @@ class Service(Enum):
       },
       'adh': {
         'serviceName': 'AdsDataHub',
+        'version': 'v1'
+      },
+      'gmail': {
+        'serviceName': 'gmail',
         'version': 'v1'
       }
     }

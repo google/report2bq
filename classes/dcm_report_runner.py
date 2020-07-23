@@ -45,6 +45,7 @@ class DCMReportRunner(ReportRunner):
 
   def run(self, unattended: bool=True) -> None:
     dcm = DCM(email=self.email, project=self.project, profile=self.cm_profile)
+    
     if unattended:
       self._unattended_run(dcm)
     else:

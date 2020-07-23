@@ -18,9 +18,9 @@ __author__ = [
     'davidharcombe@google.com (David Harcombe)'
 ]
 
-from typing import Any, Dict, Mapping
+from googleapiclient.discovery import Resource
 from googleapiclient.errors import HttpError
-from typing import Any, Dict
+from typing import Any, Dict, Mapping
 
 from classes.decorators import retry
 from classes.report_type import Type
@@ -48,6 +48,8 @@ class ReportFetcher(object):
   def check_running_report(self, config: Dict[str, Any]): pass
 
   def get_reports(self) -> Dict[str, Any]: pass
+
+  def service(self) -> Resource: pass
 
 
 class ReportRunner(object):

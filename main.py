@@ -27,19 +27,22 @@ from importlib import import_module, invalidate_caches
 from typing import Dict, Any
 from urllib.parse import unquote_plus as unquote
 
+from classes.adh import ADH
+from classes.credentials import Credentials
+from classes.dbm_report_runner import DBMReportRunner
+from classes.dcm_report_runner import DCMReportRunner
+from classes.decorators import measure_memory
+from classes.gmail import GMail, GMailMessage
+from classes.postprocessor import install_postprocessor
+from classes.report2bq import Report2BQ
+from classes.report_type import Type
+from classes.sa360_report_runner import SA360ReportRunner
+from classes.scheduler import Scheduler
+
 from cloud_functions.job_monitor import JobMonitor
 from cloud_functions.run_monitor import RunMonitor
 from cloud_functions.oauth import OAuth
 from cloud_functions.report_loader import ReportLoader
-from classes.adh import ADH
-from classes.dbm_report_runner import DBMReportRunner
-from classes.dcm_report_runner import DCMReportRunner
-from classes.sa360_report_runner import SA360ReportRunner
-from classes.decorators import measure_memory
-from classes.postprocessor import install_postprocessor
-from classes.report2bq import Report2BQ
-from classes.report_type import Type
-from classes.scheduler import Scheduler
 
 
 @measure_memory
@@ -60,8 +63,9 @@ def report_fetch(event: Dict[str, Any], context=None):
       context {Dict[str, Any]} -- context data. unused
   """
   if 'attributes' in event:
+    attributes = event['attributes']
+
     try:
-      attributes = event['attributes']
       logging.info(f'Attributes: {attributes}')
 
       kwargs = {
@@ -87,6 +91,9 @@ def report_fetch(event: Dict[str, Any], context=None):
       report2bq.run()
 
     except Exception as e:
+      if 'email' in attributes:
+        email_error(email=attributes['email'], product='Report Fetcher', event=event, error=e)
+
       logging.fatal(f'Error: {e}')
       return
 
@@ -141,13 +148,15 @@ def report_runner(event: Dict[str, Any], context=None):
       event {Dict[str, Any]} -- data sent from the PubSub message
       context {Dict[str, Any]} -- context data. unused
   """
+  email = None
+
   if 'attributes' in event:
     attributes = event['attributes']
     try:
       logging.info(attributes)
       if 'type' in attributes:
         if Type(attributes['type']) == Type.DV360:
-          dv360_id = attributes.get('report_id') if 'report_id' in attributes else None
+          dv360_id = attributes.get('dv360_id') or attributes.get('report_id')
           email = attributes['email']
           project = attributes['project'] or os.environ.get('GCP_PROJECT')
 
@@ -158,7 +167,7 @@ def report_runner(event: Dict[str, Any], context=None):
           )
 
         elif Type(attributes['type']) == Type.CM:
-          cm_id = attributes.get('report_id') if 'report_id' in attributes else None
+          cm_id = attributes.get('cm_id') or attributes.get('report_id')
           profile = attributes.get('profile', None)
           email = attributes['email']
           project = attributes['project'] or os.environ.get('GCP_PROJECT')
@@ -215,7 +224,10 @@ def report_runner(event: Dict[str, Any], context=None):
         logging.error('No report type specified.')
 
     except Exception as e:
-      logging.fatal('Error: {e}\nAttributes supplied: {attributes}'.format(e=e, attributes=attributes))
+      if email:
+        email_error(email=email, product="report_runner", event=event, error=e)
+
+      logging.fatal(f'Error: {e}\Event Data supplied: {event}')
       return
 
 
@@ -237,3 +249,20 @@ def post_processor(event: Dict[str, Any], context=None):
     Processor = getattr(import_module(f'classes.postprocessor.{postprocessor}'), 'Processor')
 
     Processor().run(**attributes)
+
+
+def email_error(email: str, product: str, event: Dict[str, Any], error: Exception):
+  message = GMailMessage(
+    to=[email], 
+    subject=f'Error in {product or "Report2BQ"}',
+    body=f'''
+Error: {error if error else 'No exception.'}
+
+Event data: {event}
+''', 
+    project=os.environ.get('GCP_PROJECT'))
+
+  GMail().send_message(
+    message=message,
+    credentials=Credentials(email=email, project=os.environ.get('GCP_PROJECT'))
+  )
