@@ -177,6 +177,7 @@ if [ ${ACTIVATE_APIS} -eq 1 ]; then
     "adsdatahub"
     "appengine"
     "bigquery"
+    "cloudbuild"
     "cloudfunctions"
     "cloudscheduler"
     "dfareporting"

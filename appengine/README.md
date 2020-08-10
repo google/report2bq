@@ -60,11 +60,19 @@ Deployed service [default] to [<YOUR APPENGINE URL>]
 1. Navigate to the IAM & Admin > Identity Aware Proxy section in the Google Cloud Console  
 ![](screenshots/1_IAP-enable.png)
 
-1. Activate the IAP (if it is not already active). This will take a couple of minutes - hopefully enough time for the appengine instance to have deployed successfully. If not, just let step  #3 finish.
+1. Activate the IAP (if it is not already active). This will take a couple of minutes - hopefully enough time for the appengine instance to have deployed successfully. If not, just let step #3 finish.  
+**If you need to activate an "OAuth consent screen", these are the steps:**
+   
+   1. Go to API & Services
 
-1. When active, ensure that IAP on "App Engine app" is switched on. The appengine uses IAP to ensure you can control who has access - and to get the logged in user's details.
+   1. If you have not created an OAuth consent screen set one up. Select OAuth Consent Screen in the menu options. 
+       * The authorised domains to include:  
+         * The url of your app engine app
+    
+
+2. When active, ensure that IAP on "App Engine app" is switched on. The appengine uses IAP to ensure you can control who has access - and to get the logged in user's details.
  
-1. Now lock it down. You do this by:
+3. Now lock it down. You do this by:
 
     - Select the `App Engine app` checkbox on the left to open the info panel.
     - Click the `Add member` button, and insert the user(s) (`davidharcombe@google.com` for example) or domains (`google.com`) you want to have access.
@@ -72,8 +80,8 @@ Deployed service [default] to [<YOUR APPENGINE URL>]
     - Click `Save`  
     ![](screenshots/2_IAP-configure.png)
 
-1. Allow the newly deployed appengine access to the project's OAuth.
+4. Allow the newly deployed appengine access to complete the OAuth authentication.
    - Go to the OAuth consent screen at APIs & Services > OAuth consent screen
-   - Add `<YOUR APPENGINE URL>` from step #3 to the list of Authorized Domains
+   - Add `<YOUR APPENGINE URL>/oauth-complete` and `<YOUR APPENGINE URL>` to the 'Authorized Redirect URIs'.
    - Save
 
