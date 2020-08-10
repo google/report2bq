@@ -30,17 +30,8 @@ class Type(Enum):
   # Internal use only
   _JOBS = 'jobs'
   _RUNNING = 'running'
+  _ADMIN = 'administration'
   
-  # def __new__(cls, value):
-  #   if value == 'dv360': 
-  #     obj = DV360
-  #   elif value == 'cm': 
-  #     obj = CM
-  #   else:
-  #     obj = object.__new__(cls)
-
-  #   return obj
-
 
   def __str__(self):
     return str(self.value)

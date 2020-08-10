@@ -50,6 +50,7 @@ class GMailMessage(object):
   def create_message(self) -> Dict[str, Any]:
     message = MIMEText(self._body)
     message['to'] = ','.join(self._to)
+    message['cc'] = ','.join(self._cc)
     message['from'] = f'Report2BQ on {self._project} <noreply-report2bq@google.com>'
     message['subject'] = self._subject
     body = {'raw': urlsafe_b64encode(message.as_string().encode('utf-8')).decode('utf-8')}
