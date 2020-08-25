@@ -31,7 +31,7 @@ from urllib.parse import unquote
 
 from classes.report2bq import Report2BQ
 from classes.report_type import Type
-from main import report_fetch
+from main import report_fetch, report_runner
 
 logging.basicConfig(
   filename=f'report2bq-test-harness-{datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.log', 
@@ -139,10 +139,17 @@ def main(unused_argv):
     'dest_dataset': FLAGS.dest_dataset,
     'infer_schema': FLAGS.infer_schema,
     'product': Type(FLAGS.product),
+    'type': FLAGS.product,
     'notify_topic': FLAGS.notify_topic,
     'notify_message': FLAGS.notify_message,
   }
-  report_fetch({'attributes': attributes}, None)
+
+  if Type(FLAGS.product) == Type.SA360_RPT:
+    f = report_runner
+  else:
+    f = report_fetch
+  
+  f({'attributes': attributes}, None)
 
 
 if __name__ == '__main__':

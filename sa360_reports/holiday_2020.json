@@ -21,12 +21,12 @@
     {
       "name": "ConversionMetric",
       "path": "columns",
-      "ordinal": 8
+      "ordinal": 15
     },
     {
       "name": "RevenueMetric",
       "path": "columns",
-      "ordinal": 9
+      "ordinal": 16
     }
   ],
   "report": {
@@ -40,7 +40,28 @@
         "columnName": "date"
       },
       {
+        "columnName": "agency"
+      },
+      {
+        "columnName": "agencyId"
+      },
+      {
+        "columnName": "advertiser"
+      },
+      {
+        "columnName": "advertiserId"
+      },
+      {
+        "columnName": "accountType"
+      },
+      {
         "columnName": "account"
+      },
+      {
+        "columnName": "accountEngineId"
+      },
+      {
+        "columnName": "campaignEngineId"
       },
       {
         "columnName": "campaign"
@@ -61,12 +82,12 @@
         "columnName": "cost"
       },
       {
-        "savedColumnName": ""
+        "savedColumnName": "[sa360_conversion_metric]"
       },
       {
-        "savedColumnName": ""
+        "savedColumnName": "[sa360_revenue_metric]"
       }
-    ],
+      ],
     "timeRange": {
       "startDate": "",
       "endDate": ""

@@ -37,7 +37,7 @@ def main(unused_argv):
   message = GMailMessage(
     to=[FLAGS.email], 
     body='This is a test report2bq message', 
-    project='galvanic-card-234919')
+    project=FLAGS.project)
 
   mailer = GMail()
   mailer.send_message(message=message, credentials=Credentials(email=FLAGS.email, project=FLAGS.project))
