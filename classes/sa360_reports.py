@@ -96,4 +96,7 @@ class SA360ReportTemplate(object):
         _new = self._insert(data=_report, field=_param, value=value)
         _report = self._update(field=_param, original=_report, new=_new)
 
+    # Filter out blank column names
+    _columns = list(filter(lambda n: n.get('columnName', n.get('savedColumnName', '')) != '', _report['columns']))
+    _report['columns'] = _columns
     return _report

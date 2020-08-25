@@ -97,8 +97,8 @@ class CSVHelpers(object):
     """
     def _sql_field(T):
       if isinstance(T, StringType): R = 'STRING'
-      elif isinstance(T, DecimalType): R = 'FLOAT64'
-      elif isinstance(T, IntegerType): R = 'INT64'
+      elif isinstance(T, DecimalType): R = 'FLOAT'
+      elif isinstance(T, IntegerType): R = 'INTEGER'
       elif isinstance(T, DateType): 
         if T.format == '%Y-%m-%d %HH:%MM:%SS': R = 'DATETIME'
         elif T.format == '%Y-%m-%d': R = 'DATE'

@@ -27,3 +27,5 @@ appengine/test/
 **/*.code-workspace
 **/*.ipynb
 bmo-blast/
+sa360_reports/
+holiday2020_sa360_reports/

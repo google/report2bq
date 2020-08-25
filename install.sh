@@ -34,35 +34,45 @@ Usage:
 Options:
   --project         GCP Project Id
   --dataset         The Big Query datase to verify or create
+
+
+Deployment directives:
   --activate-apis   Activate all missing but required Cloud APIs
   --create-service-account
                     Create the service account and client secrets
-
-  --deploy-all      (Re)Deploy all portions
-  OR
-  --deploy-bigquery (Re)Deploy Big Query dataset
-  --deploy-fetcher  (Re)Deploy fetcher
-  --deploy-job-monitor
-                    (Re)Deploy job monitor
-  --deploy-loader   (Re)Deploy loader
-  --deploy-runner   (Re)Deploy report runners
-  --deploy-run-monitor
-                    (Re)Deploy run monitor
-  --deploy-storage  (Re)Deploy GCS buckets
-  --deploy-trigger  (Re)Deploy triggers
-  --deploy-job-manager
-                    (Re)Deploy the job manager for listing creating and deleting scheduled jobs
+  
+  EITHER:
+    --deploy-all      (Re)Deploy all portions
+  
+  OR ONE OR MORE OF:
+    --deploy-bigquery (Re)Deploy Big Query dataset
+    --deploy-fetcher  (Re)Deploy fetcher
+    --deploy-job-monitor
+                      (Re)Deploy job monitor
+    --deploy-loader   (Re)Deploy loader
+    --deploy-runner   (Re)Deploy report runners
+    --deploy-run-monitor
+                      (Re)Deploy run monitor
+    --deploy-storage  (Re)Deploy GCS buckets
+    --deploy-trigger  (Re)Deploy triggers
+    --deploy-job-manager
+                      (Re)Deploy the job manager for listing creating and deleting scheduled jobs
 
   --no-topics       Just deploy the functions; good if you have deployed once and are just 
                     updating the cloud functions
   --background      Run the Cloud Functions deployments in the background.
                     WARNING: IF YOU DO THIS, BE SURE TO CHECK THE FUNCTION OUTPUT FILES FOR A
                              SUCCESSFUL COMPLETION.
+
+General switches:
+  --administrator   EMail address of the administrator for error messages
   --dry-run         Don't do anything, just print the commands you would otherwise run. Useful 
                     for testing.
   --usage           Show this text
 EOF
 }
+
+function join { local IFS="$1"; shift; echo "$*"; }
 
 # Switch definitions
 PROJECT=
@@ -85,6 +95,7 @@ DEPLOY_TRIGGER=0
 DEPLOY_POSTPROCESSOR=0
 DEPLOY_TOPICS=1
 USERNAME=0
+ADMIN=
 
 # Command line parser
 while [[ $1 == -* ]] ; do
@@ -94,6 +105,9 @@ while [[ $1 == -* ]] ; do
       ;;
     --dataset*)
       IFS="=" read _cmd DATASET <<< "$1" && [ -z ${DATASET} ] && shift && DATASET=$1
+      ;;
+    --administrator*)
+      IFS="=" read _cmd ADMIN <<< "$1" && [ -z ${ADMIN} ] && shift && ADMIN=$1
       ;;
     --deploy-all)
       DEPLOY_BQ=1
@@ -170,6 +184,9 @@ if [ "x${PROJECT}" == "x" ]; then
 fi
 
 USER=report2bq@${PROJECT}.iam.gserviceaccount.com
+if [ ! -z ${ADMIN} ]; then
+  _ADMIN="ADMINISTRATOR_EMAIL=${ADMIN}"
+fi
 
 if [ ${ACTIVATE_APIS} -eq 1 ]; then
   # Check for active APIs
@@ -389,6 +406,12 @@ if [ ${DEPLOY_LOADER} -eq 1 ]; then
     _BG=" & > report2bq-loader.deploy 2>&1"
   fi
 
+  _ENV_VARS=(
+    "DATASET=${DATASET}"
+    ${_ADMIN}
+  )
+  ENVIRONMENT=$(join "," ${_ENV_VARS[@]})
+
   echo "report2bq-loader"
   ${DRY_RUN} gcloud functions deploy "report2bq-loader" \
     --entry-point=report_upload \
@@ -398,7 +421,7 @@ if [ ${DEPLOY_LOADER} -eq 1 ]; then
     --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-upload" \
     --trigger-event="google.storage.object.finalize" \
     --service-account=$USER \
-    --set-env-vars=BQ_DATASET=${DATASET} \
+    --set-env-vars=${ENVIRONMENT} \
     --quiet \
     --timeout=540s \
     --project=${PROJECT} ${_BG}

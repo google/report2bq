@@ -104,14 +104,14 @@ class SA360(object):
         report_config['files'] = report['files']
 
         # update the report details please...
-        self.firestore.update_document(Type.SA360_RPT, report_config['report_id'], report_config)
+        self.firestore.update_document(Type.SA360_RPT, run_config['report_id'], report_config)
 
         # ... then stream the file to GCS a la DV360/CM
-        self._stream_report_to_gcs(report_details=report_config)
+        self._stream_report_to_gcs(report_details=report_config, run_config=run_config)
 
       return report['isReportReady']
 
-    except:
+    except Exception as e:
       logging.error(f'Report fetch error: Run {run_config["file_id"]} for report {run_config["report_id"]}')
       return False
 
@@ -129,7 +129,7 @@ class SA360(object):
 
 
   @measure_memory
-  def _stream_report_to_gcs(self, report_details: Dict[str, Any]) -> None:
+  def _stream_report_to_gcs(self, report_details: Dict[str, Any], run_config: Dict[str, Any]) -> None:
     """Multi-threaded stream to GCS
     
     Arguments:
@@ -138,7 +138,7 @@ class SA360(object):
     """
     queue = Queue()
 
-    report_id = report_details['report_id']
+    report_id = run_config['report_id']
     chunk_size = self.chunk_multiplier * 1024 * 1024
     out_file = BytesIO()
 

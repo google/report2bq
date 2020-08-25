@@ -57,13 +57,6 @@ in your browser, and go to Firestore.
 1. Set Firestore to "Native" mode. This **must** be done, and **cannot** be done programmatically
 
 **Authentication**
-1. Go to API & Services
-
-1. If you have not created an OAuth consent screen set one up. Select OAuth Consent Screen in the menu options. 
-    * The authorised domains to include: (1) The url of your app engine app (2) <project-region>-<project-id>.cloudfunctions.net
-    * Enable scopes required for this app: Ads Data Hub API, DCM/DFA Reporting and Trafficking API, 
-    DCM/DFA Reporting and Trafficking API, DoubleClick Bid Manager API, BigQuery API and Cloud Datastore API
-    
 1. Now navigate to API & Services > Credentials
 
 1. You will need an API key. Click "CREATE CREDENTIALS", and you will see this:  

@@ -36,8 +36,10 @@ from io import BytesIO
 from typing import Any, Dict, List, Tuple
 
 from classes.cloud_storage import Cloud_Storage
+from classes.credentials import Credentials as Report2BQCredentials
 from classes.csv_helpers import CSVHelpers
 from classes.firestore import Firestore
+from classes.gmail import GMail, GMailMessage
 from classes.report_type import Type
 
 
@@ -82,7 +84,7 @@ class ReportLoader(object):
       logging.warn('File added that will not be processed: %s' % file_name)
 
 
-  def _get_report_config(self, id: int) -> (Type, Dict[str, Any]):
+  def _get_report_config(self, id: str) -> (Type, Dict[str, Any]):
     """Fetch the report configuration
 
     Load the stored report configuration from Firestore and return the report type
@@ -120,7 +122,8 @@ class ReportLoader(object):
     config_type, config = self._get_report_config(report_id)
 
     if not config_type:
-      raise Exception('No config found for report %s' % report_id)
+      self._email_error(f'No config found for report {report_id}')
+      raise Exception(f'No config found for report {report_id}')
 
     # Insert with schema and table name from config
     if config_type == Type.DV360:
@@ -231,16 +234,18 @@ class ReportLoader(object):
     dataset = config.get('dest_dataset') or os.environ.get('BQ_DATASET') or 'report2bq'
 
     table_name = config.get('table_name', CSVHelpers.sanitize_string(file_name))
-    logging.info("bucket %s, table %s, file_name %s" % (bucket_name, table_name, file_name))
+    logging.info(f'bucket {bucket_name}, table {table_name}, file_name {file_name}')
 
     json_schema = config['schema']
     schema = []
+    _json_schema = []
     # Build the json format schema that the BQ LoadJob requires from the text-based ones in the config
     for field in json_schema:
       f = bigquery.schema.SchemaField(name=field['name'],
                                       field_type=field['type'],
                                       mode=field['mode'])
       schema.append(f)
+      _json_schema.append(f'{field["name"]}: {field["type"]}')
 
     table_ref = bq.dataset(dataset).table(table_name)
 
@@ -249,6 +254,20 @@ class ReportLoader(object):
     # and then append 'yesterday' each day.
     if config.get('append', False):
       if self._table_exists(bq, table_ref) and not self._validate_schema(bq, table_ref, schema):
+        config_schema = '\n'.join([ f'{field.name}, {field.field_type}' for field in schema])
+        target_schema = '\n'.join([ f'{field.name}, {field.field_type}' for field in bq.get_table(table_ref).schema])
+        self._email_error(
+          email=config['email'], 
+          message=f'''
+Mismatched schema for {project}.{dataset}.{table_name}, trying anyway
+
+Report has schema:
+{config_schema}
+
+Table has schema:
+{target_schema}
+'''
+        )
         logging.error(f"Mismatched schema for {project}.{dataset}.{table_name}, trying anyway")
 
       import_type = bigquery.WriteDisposition.WRITE_APPEND
@@ -267,11 +286,11 @@ class ReportLoader(object):
     # Allow for DV360/CM (SA360 won't) to pass jagged rows, which they do
     job_config.allow_jagged_rows = True
     
-    uri = "gs://%s/%s" % (bucket_name, file_name)
+    uri = f'gs://{bucket_name}/{file_name}'
     load_job = bq.load_table_from_uri(
         uri, table_ref, job_config=job_config
     )  # API request
-    logging.info("Starting CSV import job {}".format(load_job.job_id))
+    logging.info(f'Starting CSV import job {load_job.job_id}')
 
     return load_job
 
@@ -290,3 +309,26 @@ class ReportLoader(object):
     _schema = _table.schema
 
     return _schema == schema
+
+
+  def _email_error(self, message: str, email: str=None, error: Exception=None) -> None:
+    _to = [email] if email else []
+    _administrator = os.environ.get('ADMINISTRATOR_EMAIL') or self.FIRESTORE.get_document(Type._ADMIN, 'admin').get('email')
+    _cc = [_administrator] if _administrator else []
+
+    if _to or _cc:
+      message = GMailMessage(
+        to=_to, 
+        cc=_cc,
+        subject=f'Error in report_loader',
+        body=f'''
+{message}
+
+Error: {error if error else 'No exception.'}
+''', 
+        project=os.environ.get('GCP_PROJECT'))
+
+      GMail().send_message(
+        message=message,
+        credentials=Report2BQCredentials(email=email, project=os.environ.get('GCP_PROJECT'))
+      )
