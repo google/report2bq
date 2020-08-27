@@ -52,4 +52,5 @@ six
 SocksiPy-branch
 uritemplate
 urllib3
+yarl==1.4.2
 web.py

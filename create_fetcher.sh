@@ -91,8 +91,9 @@ Options:
     --infer-schema
                   [BETA] Guess the column types based on a sample of the report's first slice.
     --topic       [BETA] Topic to send a PubSub message to on completion of import job
-    --message     [BETA] Message to send. Attributes of dataset, table name, report id and 
-                  report type will always be sent as part of the message.
+    --message     [BETA] Message to send; this should be the name of the custom function to be
+                  executed. Attributes of dataset, table name, report id and report type will always
+                  be sent along with this as part of the message.
     --usage       Show this text
 EOF
 }
