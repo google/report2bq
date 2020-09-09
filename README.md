@@ -38,8 +38,19 @@ And allow it to update
 1. Check out the code \
   `git clone https://github.com/google/report2bq`
 
+**Before we start to install**
+
+1. Now navigate to API & Services > Credentials
+
+1. You will need an API key. Click "CREATE CREDENTIALS", and you will see this:  
+![](screenshots/3a-CreateAPIKey.png)  
+Select "API Key"
+Name: “Report2BQ API Key” 
+
+**Install the application**
+
 1. Run the installer \
-`./install.sh --project=<PROJECT ID> --dataset=<DATASET NAME> --create-service-account --activate-apis --deploy-all --dry-run` \
+`./install.sh --project=<PROJECT ID> --dataset=<DATASET NAME> --api-key=<API KEY> --create-service-account --activate-apis --deploy-all --dry-run` \
 Project id comes from the GCP dashboard: \
 ![](screenshots/1-project_id.png) \
 `--dry-run` simply shows what the code is _going_ to do, without actually doing anything.  
@@ -57,12 +68,6 @@ in your browser, and go to Firestore.
 1. Set Firestore to "Native" mode. This **must** be done, and **cannot** be done programmatically
 
 **Authentication**
-1. Now navigate to API & Services > Credentials
-
-1. You will need an API key. Click "CREATE CREDENTIALS", and you will see this:  
-![](screenshots/3a-CreateAPIKey.png)  
-Select "API Key"
-Name: “Report2BQ API Key” 
 
 1. Create the server's OAuth Id \
 Go to the API Credentials page and create new credentials. These should be of type

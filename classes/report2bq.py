@@ -76,13 +76,16 @@ class Report2BQ(object):
     report_object = fetcher.get_latest_report_file(self.report_id)
 
     # Normalize Report Details
-    report_data = fetcher.normalize_report_details(report_object=report_object, report_id=self.report_id)
+    report_data = fetcher.fetch_report_config(report_object=report_object, report_id=self.report_id)
     last_report = self.firestore.get_report_config(fetcher.report_type, self.report_id)
 
     if last_report:
       if report_data['last_updated'] == last_report['last_updated'] and not self.force:
         logging.info('No change: ignoring.')
         return
+      report_data = last_report
+    else:
+      report_data = fetcher.normalize_report_details(report_object=report_object, report_id=self.report_id)
 
     report_data['email'] = self.email
     report_data['append'] = self.append

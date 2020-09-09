@@ -177,6 +177,26 @@ class DBM(ReportFetcher, Fetcher):
     return report_data
 
 
+  def fetch_report_config(self, report_object: Dict[str, Any], report_id: str):
+    report_data = self.normalize_report_details(report_object=report_object, report_id=report_id)
+    keys_to_update = [
+      'email',
+      'dest_dataset',
+      'dest_project',
+      'notifier',
+      'schema',
+      'append',
+      'force',
+      'infer_schema'
+    ]
+
+    for key in keys_to_update:
+      if key in report_object:
+        report_data[key] = report_object[key]
+
+    return report_data
+
+
   @retry(Exception, tries=3, delay=15, backoff=2)
   def run_report(self, report_id: int, retry: int=0) -> Dict[str, Any]:
     result = {}

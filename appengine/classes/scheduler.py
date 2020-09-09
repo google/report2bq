@@ -37,6 +37,7 @@ from googleapiclient.errors import HttpError
 from classes.credentials import Credentials
 from classes.discovery import DiscoverService
 from classes.services import Service
+from classes.report_type import Type
 from classes import Fetcher
 
 
@@ -53,6 +54,7 @@ class Scheduler(Fetcher):
     _action = args.get('action')
     _project = args.get('project')
     _email = args.get('email')
+    _html = args.get('html', True)
 
     # _credentials = Credentials(
     #   email=_email,
@@ -66,12 +68,23 @@ class Scheduler(Fetcher):
     if _action == 'list':
       jobs = self.list_jobs(
         credentials=_credentials, 
-        project=_project, location=_location, 
+        project=_project, 
+        location=_location, 
         email=_email)
-      result = StringIO()
-      result.writelines([f"{job['name']}: {job.get('description') or 'No description.'}<br/>" for job in jobs])
+      if _html:
+        result = StringIO()
+        result.writelines([f"{job['name']}: {job.get('description') or 'No description.'}<br/>" for job in jobs])
+        return result.getvalue()
+      else:
+        return jobs
 
-      return jobs
+    elif _action == 'get':
+      (success, job) = self.get_job(
+        credentials=_credentials, 
+        project=_project,
+        location=_location,
+        job_id=args.get('job_id'))
+      return success, job
 
     elif _action == 'delete':
       (success, error) = self.delete_job(
@@ -79,6 +92,32 @@ class Scheduler(Fetcher):
         project=_project,
         location=_location,
         job_id=args.get('job_id'))
+
+      if success:
+        return 'OK'
+      else:
+        return f'ERROR!\n{error["error"]["message"]}'
+
+    elif _action == 'enable':
+      (success, error) = self.enable_job(
+        credentials=_credentials, 
+        project=_project,
+        location=_location,
+        job_id=args.get('job_id'),
+        enable=True)
+
+      if success:
+        return 'OK'
+      else:
+        return f'ERROR!\n{error["error"]["message"]}'
+
+    elif _action == 'disable':
+      (success, error) = self.enable_job(
+        credentials=_credentials, 
+        project=_project,
+        location=_location,
+        job_id=args.get('job_id'),
+        enable=False)
 
       if success:
         return 'OK'
@@ -110,6 +149,17 @@ class Scheduler(Fetcher):
           'type': 'sa360',
         })
 
+      elif args.get('sa360_id'):
+        product = _type = Type.SA360_RPT.value
+        hour = args.get('hour', '*')
+        action = 'run'
+        topic = 'report-runner'
+        _attrs.update({
+          'report_id': args.get('sa360_id'),
+          'type': Type.SA360_RPT.value,
+        })
+        args['report_id'] = args.get('sa360_id')
+
       elif args.get('adh_customer'):
         product = _type = 'adh'
         hour = args.get('hour') if args.get('hour') else '2'
@@ -122,11 +172,12 @@ class Scheduler(Fetcher):
           'days': args.get('days'),
           'type': 'adh',
         })
+
       else:
         if args.get('runner'):
           hour = args.get('hour') if args.get('hour') else '1'
           action = 'run'
-          topic = 'rerport_runner'
+          topic = 'report-runner'
         else:
           hour = '*'
           action = 'fetch'
@@ -180,26 +231,29 @@ class Scheduler(Fetcher):
 
 
   def list_jobs(self, credentials: Credentials=None, project: str=None, location: str=None, email: str=None) -> List[Dict[str, Any]]:
-    """copy from one bucket to another
+    """[summary]
 
-    This is a copy from the bucket defined in the report definition (as DV360 stores it's
-    reports in GCS) into the monitored bucket for upload. It's BLAZING fast, to the extent
-    that there is essentially no limit on the maximum size of a DV360 report we can handle.
+    Args:
+        credentials (Credentials, optional): [description]. Defaults to None.
+        project (str, optional): [description]. Defaults to None.
+        location (str, optional): [description]. Defaults to None.
+        email (str, optional): [description]. Defaults to None.
 
-    The destination file name is the report's id.
-    
-    Arguments:
-        bucket_name {str} -- destination bucket name
-        report {Dict[str, Any]} -- report definition
+    Returns:
+        List[Dict[str, Any]]: [description]
     """
     service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
     token = None
     method = service.projects().locations().jobs().list
     jobs = []
 
+    if not location:
+      locations = self.list_locations(credentials=credentials, project=project)
+      location = locations[-1]
+
     while True:
       _kwargs = {
-        'parent': Scheduler.location_path(project, location),
+        'parent': scheduler.CloudSchedulerClient.location_path(project, location),
         'pageToken': token
       }
 
@@ -223,9 +277,53 @@ class Scheduler(Fetcher):
   def delete_job(self, job_id: str=None, credentials: Credentials=None, project: str=None, location: str=None) -> Tuple[bool, Dict[str, Any]]:
     service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
     method = service.projects().locations().jobs().delete
+    if not location:
+      locations = self.list_locations(credentials=credentials, project=project)
+      location = locations[-1]
 
     try:
-      method(name=Scheduler.job_path(project=project, location=location, job=job_id)).execute()
+      method(name=scheduler.CloudSchedulerClient.job_path(project=project, location=location, job=job_id)).execute()
+      return (True, None)
+
+    except HttpError as error:
+      e = json.loads(error.content)
+      return (False, e)
+
+
+  def get_job(self, job_id: str=None, credentials: Credentials=None, project: str=None, location: str=None) -> Tuple[bool, Dict[str, Any]]:
+    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    method = service.projects().locations().jobs().get
+    if not location:
+      locations = self.list_locations(credentials=credentials, project=project)
+      location = locations[-1]
+
+    try:
+      job = method(name=scheduler.CloudSchedulerClient.job_path(project=project, location=location, job=job_id)).execute()
+      return (True, job)
+
+    except HttpError as error:
+      e = json.loads(error.content)
+      return (False, e)
+
+  def enable_job(self, 
+    job_id: str=None, 
+    credentials: Credentials=None, 
+    project: str=None, 
+    location: str=None,
+    enable: bool=True
+    ) -> Tuple[bool, Dict[str, Any]]:
+    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    if not location:
+      locations = self.list_locations(credentials=credentials, project=project)
+      location = locations[-1]
+
+    if enable:
+      method = service.projects().locations().jobs().resume
+    else:
+      method = service.projects().locations().jobs().pause
+
+    try:
+      method(name=scheduler.CloudSchedulerClient.job_path(project=project, location=location, job=job_id)).execute()
       return (True, None)
 
     except HttpError as error:
@@ -237,14 +335,18 @@ class Scheduler(Fetcher):
     service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
     _method = service.projects().locations().jobs().create
 
-    _parent = Scheduler.location_path(project=project, location=location)
+    if not location:
+      locations = self.list_locations(credentials=credentials, project=project)
+      location = locations[-1]
+
+    _parent = scheduler.CloudSchedulerClient.location_path(project=project, location=location)
     _target = {
       'topicName': f"projects/{project}/topics/{job.get('topic', '')}",
       # 'data': base64.b64encode(b'RUN'),
       'attributes': job.get('attributes', ''),
     }
     body: dict = {
-      "name": Scheduler.job_path(project=project, location=location, job=job.get('name', '')),
+      "name": scheduler.CloudSchedulerClient.job_path(project=project, location=location, job=job.get('name', '')),
       "description": job.get('description', ''),
       "schedule": job.get('schedule', ''),
       "timeZone": job.get('timezone', ''),

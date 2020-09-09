@@ -34,7 +34,7 @@ Usage:
 Options:
   --project         GCP Project Id
   --dataset         The Big Query datase to verify or create
-
+  --api-key         The API key
 
 Deployment directives:
   --activate-apis   Activate all missing but required Cloud APIs
@@ -66,6 +66,7 @@ Deployment directives:
 
 General switches:
   --administrator   EMail address of the administrator for error messages
+  --store-api-key   Store the API key in the GCS tokens bucket for use later
   --dry-run         Don't do anything, just print the commands you would otherwise run. Useful 
                     for testing.
   --usage           Show this text
@@ -78,6 +79,7 @@ function join { local IFS="$1"; shift; echo "$*"; }
 PROJECT=
 USER=
 DATASET="report2bq"
+API_KEY=
 
 ACTIVATE_APIS=0
 BACKGROUND=0
@@ -105,6 +107,9 @@ while [[ $1 == -* ]] ; do
       ;;
     --dataset*)
       IFS="=" read _cmd DATASET <<< "$1" && [ -z ${DATASET} ] && shift && DATASET=$1
+      ;;
+    --api-key*)
+      IFS="=" read _cmd API_KEY <<< "$1" && [ -z ${API_KEY} ] && shift && API_KEY=$1
       ;;
     --administrator*)
       IFS="=" read _cmd ADMIN <<< "$1" && [ -z ${ADMIN} ] && shift && ADMIN=$1
@@ -175,11 +180,14 @@ while [[ $1 == -* ]] ; do
   shift
 done
 
+if [ -z ${API_KEY} ]; then
+  read API_KEY <<< $(gsutil cat gs://${PROJECT}-report2bq-tokens/api.key 2>/dev/null)
+fi
 
-if [ "x${PROJECT}" == "x" ]; then
+if [ -z ${PROJECT} -o -z ${API_KEY} ]; then
   usage
   echo ""
-  echo You must specify a project.
+  echo You must specify a project and API key to proceed.
   exit
 fi
 
@@ -241,7 +249,11 @@ if [ ${CREATE_SERVICE_ACCOUNT} -eq 1 ]; then
   ${DRY_RUN} gcloud iam service-accounts create report2bq --description "Report2BQ Service Account" --project ${PROJECT} \
   && ${DRY_RUN} gcloud iam service-accounts keys create "report2bq@${PROJECT}.iam.gserviceaccount.com.json" --iam-account ${USER} --project ${PROJECT} \
   && ${DRY_RUN} gsutil cp "report2bq@${PROJECT}.iam.gserviceaccount.com.json" gs://${PROJECT}-report2bq-tokens/
-  ${DRY_RUN} gcloud projects add-iam-policy-binding ${PROJECT} --member=serviceAccount:${USER} --role=roles/cloudfunctions.invoker
+  ${DRY_RUN} gcloud projects add-iam-policy-binding ${PROJECT} --member=serviceAccount:${USER} --role=roles/editor
+fi
+
+if [ ${STORE_API_KEY} -eq 1]; then
+  echo ${API_KEY} | gsutil cp - gs://${PROJECT}-report2bq-tokens/api.key
 fi
 
 if [ ${DEPLOY_CODE} -eq 1 ]; then
@@ -345,6 +357,13 @@ if [ ${DEPLOY_TOPICS} -eq 1 ]; then
 fi
 
 # CLOUD FUNCTIONS
+_ENV_VARS=(
+  "DATASET=${DATASET}"
+  "API_KEY=${API_KEY}"
+  ${_ADMIN}
+)
+ENVIRONMENT=$(join "," ${_ENV_VARS[@]})
+
 # Deploy job monitor
 if [ ${DEPLOY_MONITOR} -eq 1 ]; then
   if [ ${BACKGROUND} -eq 1 ]; then
@@ -394,6 +413,7 @@ if [ ${DEPLOY_FETCHER} -eq 1 ]; then
     --memory=2048MB \
     --trigger-topic="report2bq-trigger" \
     --service-account=$USER \
+    --set-env-vars=${ENVIRONMENT} \
     --quiet \
     --timeout=540s \
     --project=${PROJECT} ${_BG}
@@ -405,12 +425,6 @@ if [ ${DEPLOY_LOADER} -eq 1 ]; then
   if [ ${BACKGROUND} -eq 1 ]; then
     _BG=" & > report2bq-loader.deploy 2>&1"
   fi
-
-  _ENV_VARS=(
-    "DATASET=${DATASET}"
-    ${_ADMIN}
-  )
-  ENVIRONMENT=$(join "," ${_ENV_VARS[@]})
 
   echo "report2bq-loader"
   ${DRY_RUN} gcloud functions deploy "report2bq-loader" \
@@ -442,6 +456,7 @@ if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
     --memory=2048MB \
     --trigger-topic="report-runner" \
     --service-account=$USER \
+    --set-env-vars=${ENVIRONMENT} \
     --quiet \
     --timeout=540s \
     --project=${PROJECT} ${_BG}
@@ -457,6 +472,8 @@ if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
     --runtime python37 \
     --memory=1024MB \
     --trigger-topic="run-monitor" \
+    --service-account=$USER \
+    --set-env-vars=${ENVIRONMENT} \
     --quiet \
     --timeout=60s \
     --project=${PROJECT} ${_BG}
@@ -486,6 +503,8 @@ if [ ${DEPLOY_POSTPROCESSOR} -eq 1 ]; then
     --runtime python37 \
     --memory=2048MB \
     --trigger-topic="postprocessor" \
+    --service-account=$USER \
+    --set-env-vars=${ENVIRONMENT} \
     --quiet \
     --timeout=60s \
     --project=${PROJECT} ${_BG}

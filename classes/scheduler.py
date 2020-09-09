@@ -77,6 +77,14 @@ class Scheduler(Fetcher):
       else:
         return jobs
 
+    elif _action == 'get':
+      (success, job) = self.get_job(
+        credentials=_credentials, 
+        project=_project,
+        location=_location,
+        job_id=args.get('job_id'))
+      return success, job
+
     elif _action == 'delete':
       (success, error) = self.delete_job(
         credentials=_credentials, 
@@ -212,7 +220,10 @@ class Scheduler(Fetcher):
 
   def list_locations(self, credentials: Credentials=None, project: str=None):
     service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
-    locations_response = self.fetch(method=service.projects().locations().list, **{'name': scheduler.CloudSchedulerClient.project_path(project)})
+    locations_response = self.fetch(
+      method=service.projects().locations().list,
+      **{'name': Scheduler.project_path(project)}
+    )
     locations = list([ location['locationId'] for location in locations_response['locations'] ])
 
     return locations
@@ -242,7 +253,7 @@ class Scheduler(Fetcher):
 
     while True:
       _kwargs = {
-        'parent': scheduler.CloudSchedulerClient.location_path(project, location),
+        'parent': Scheduler.location_path(project, location),
         'pageToken': token
       }
 
@@ -260,7 +271,7 @@ class Scheduler(Fetcher):
         jobs
       )
     
-    return jobs
+    return list(jobs)
 
 
   def delete_job(self, job_id: str=None, credentials: Credentials=None, project: str=None, location: str=None) -> Tuple[bool, Dict[str, Any]]:
@@ -320,7 +331,7 @@ class Scheduler(Fetcher):
       'attributes': job.get('attributes', ''),
     }
     body: dict = {
-      "name": scheduler.CloudSchedulerClient.job_path(project=project, location=location, job=job.get('name', '')),
+      "name": Scheduler.job_path(project=project, location=location, job=job.get('name', '')),
       "description": job.get('description', ''),
       "schedule": job.get('schedule', ''),
       "timeZone": job.get('timezone', ''),
@@ -333,3 +344,36 @@ class Scheduler(Fetcher):
     }
     request = _method(**_args)
     request.execute()
+
+  def get_job(self, job_id: str=None, credentials: Credentials=None, project: str=None, location: str=None) -> Tuple[bool, Dict[str, Any]]:
+    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    method = service.projects().locations().jobs().get
+    
+    try:
+      job = method(
+        name=Scheduler.job_path(
+          project=project, location=location, job=job_id
+        )).execute()
+      return (True, job)
+
+    except HttpError as error:
+      e = json.loads(error.content)
+      return (False, e)
+
+  @classmethod
+  def job_path(cls, project, location, job):
+      """Return a fully-qualified job string."""
+      return f"projects/{project}/locations/{location}/jobs/{job}"
+
+
+  @classmethod
+  def location_path(cls, project, location):
+      """Return a fully-qualified location string."""
+      return f"projects/{project}/locations/{location}"
+
+
+  @classmethod
+  def project_path(cls, project):
+      """Return a fully-qualified project string."""
+      return f"projects/{project}"
+

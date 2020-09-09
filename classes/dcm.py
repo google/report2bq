@@ -286,6 +286,26 @@ class DCM(ReportFetcher, Fetcher):
     return report_data
 
 
+  def fetch_report_config(self, report_object: Dict[str, Any], report_id: str):
+    report_data = self.normalize_report_details(report_object=report_object, report_id=report_id)
+    keys_to_update = [
+      'email',
+      'dest_dataset',
+      'dest_project',
+      'notifier',
+      'schema',
+      'append',
+      'force',
+      'infer_schema'
+    ]
+
+    for key in keys_to_update:
+      if report_object[key]:
+        report_data[key] = report_object[key]
+
+    return report_data
+
+
   def add_report_to_config(self, report_data):
     """
     Add report to list of tracked reports

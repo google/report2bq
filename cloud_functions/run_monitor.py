@@ -32,11 +32,9 @@ from classes.dcm import DCM
 from classes.sa360_v2 import SA360
 from classes.firestore import Firestore
 from classes.report_type import Type
+from classes.scheduler import Scheduler
 
-from google.cloud import bigquery
 from google.cloud import pubsub
-from google.cloud import storage
-from google.cloud.bigquery import LoadJob
 
 
 class RunMonitor(object):
@@ -54,6 +52,8 @@ class RunMonitor(object):
 
   firestore = Firestore()
   PS = pubsub.PublisherClient()
+
+  schedules = None
 
   def process(self, data: Dict[str, Any], context):
     """[summary]
@@ -77,84 +77,97 @@ class RunMonitor(object):
         with suppress(ValueError):
           run_config = document.get().to_dict()
           T = Type(run_config['type'])
-          config = self.firestore.get_report_config(T, document.id)
-          if config: 
-            report_checker[T](config, run_config)
-            break
-          else:
-            logging.error(f'Invalid report: {document.get().to_dict()}')
+          # config = self.firestore.get_report_config(T, document.id)
+          job_config = self._fetch_schedule(type=T, run_config=run_config)
+          report_checker[T](run_config=run_config, job_config=job_config)
+          # break
+          # else:
+          #   logging.error(f'Invalid report: {document.get().to_dict()}')
 
     except Exception as e:
       logging.error(e)
 
+  def _fetch_schedule(self, type: Type, run_config: Dict[str, Any]) -> Dict[str, Any]:
+    scheduler = Scheduler()
+    (success, job_config) = scheduler.process({
+        'action': 'get', 
+        'project': os.environ['GCP_PROJECT'], 
+        'email': run_config['email'], 
+        'html': False, 
+        'job_id': type.runner(run_config['report_id'])
+      })
 
-  def _check_dv360_report(self, config: Dict[str, Any], run_config: Dict[str, Any]):
+    return job_config
+
+  def _check_dv360_report(self, job_config: Dict[str, Any], run_config: Dict[str, Any]):
     """Check a running DV360 report for completion
     
     Arguments:
         report {Dict[str, Any]} -- The report data structure from Firestore
     """
-    dbm = DBM(email=config['email'], project=self.project)
-    status = dbm.report_state(config['id'])
-    append = config['append'] if config and 'append' in config else False
+    job_attributes = job_config['pubsubTarget']['attributes']
+    dbm = DBM(email=job_attributes['email'], project=self.project)
+    status = dbm.report_state(job_attributes['report_id'])
+    append = job_attributes['append'] if job_attributes and 'append' in job_attributes else False
 
-    logging.info('Report {report} status: {status}'.format(report=config['id'], status=status))
+    logging.info('Report {report} status: {status}'.format(report=job_attributes['report_id'], status=status))
+
     if status == 'DONE':
       # Remove job from running
-      self.firestore.remove_report_runner(config['id'])
+      self.firestore.remove_report_runner(job_attributes['report_id'])
 
       # Send pubsub to trigger report2bq now
-      topic = 'projects/{project}/topics/report2bq-trigger'.format(project=self.project)
+      topic = job_config['pubsubTarget']['topicName']
       self.PS.publish(
         topic=topic,
         data=b'RUN',
-        report_id=config['id'],
-        email=config['email'],
-        append=str(append),
-        project=self.project
+        **job_attributes
       )
+
     elif status == 'FAILED':
       # Remove job from running
-      logging.error('Report {report} failed!'.format(report=config['id']))
-      self.firestore.remove_report_runner(config['id'])
+      logging.error(f'Report {run_config["report_id"]} failed!')
+      self.firestore.remove_report_runner(run_config['report_id'])
 
 
-  def _check_cm_report(self, config: Dict[str, Any], run_config: Dict[str, Any]):
+  def _check_cm_report(self, job_config: Dict[str, Any], run_config: Dict[str, Any]):
     """Check a running CM report for completion
     
     Arguments:
         report {Dict[str, Any]} -- The report data structure from Firestore
     """
-    dcm = DCM(email=config['email'], project=self.project, profile=config['profile_id'])
-    append = config['append'] if config and 'append' in config else False
-    response = dcm.report_state(report_id=config['id'], file_id=config['report_file']['id'])
+    job_attributes = job_config['pubsubTarget']['attributes']
+    dcm = DCM(email=job_attributes['email'], project=self.project, profile=job_attributes['profile_id'])
+    append = job_attributes['append'] if job_attributes and 'append' in job_attributes else False
+    # TODO: Add report_file.id to run_config
+    response = dcm.report_state(report_id=job_attributes['report_id'], file_id=run_config['report_file']['id'])
     status = response['status'] if response and  'status' in response else 'UNKNOWN'
 
-    logging.info('Report {report} status: {status}'.format(report=config['id'], status=status))
+    logging.info('Report {report} status: {status}'.format(report=job_attributes['report_id'], status=status))
     if status == 'REPORT_AVAILABLE':
       # Remove job from running
-      self.firestore.remove_report_runner(config['id'])
+      self.firestore.remove_report_runner(job_attributes['report_id'])
 
       # Send pubsub to trigger report2bq now
       topic = 'projects/{project}/topics/report2bq-trigger'.format(project=self.project)
       self.PS.publish(
         topic=topic, data=b'RUN',
-        report_id=config['id'],
-        profile=config['profile_id'],
-        email=config['email'],
-        append=str(append),
-        project=self.project)
+        **job_attributes)
 
     elif status == 'FAILED' or status =='CANCELLED':
       # Remove job from running
-      logging.error('Report {report} failed!'.format(report=config['id']))
-      self.firestore.remove_report_runner(config['id'])
+      logging.error('Report {report} failed!'.format(report=job_attributes['report_id']))
+      self.firestore.remove_report_runner(job_attributes['report_id'])
 
 
-  def _check_sa360_report(self, config: Dict[str, Any], run_config: Dict[str, Any]): 
+  def _check_sa360_report(self, job_config: Dict[str, Any], run_config: Dict[str, Any]): 
+    job_attributes = job_config['pubsubTarget']['attributes']
     sa360 = SA360(email=run_config['email'], project=self.project)
+
+    # Merge configs
+    config = { **run_config, **job_attributes }
     
-    if sa360.handle_offline_report(run_config=run_config):
+    if sa360.handle_offline_report(run_config=config):
       self.firestore.remove_report_runner(run_config['report_id'])
       logging.info(f'Report {run_config["report_id"]} done.')
 

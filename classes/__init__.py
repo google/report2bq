@@ -41,6 +41,8 @@ class ReportFetcher(object):
 
   def normalize_report_details(self, report_object: Dict[str, Any], report_id: str): pass
 
+  def fetch_report_config(self, report_object: Dict[str, Any], report_id: str): pass
+
   def get_latest_report_file(self, report_id: str): pass
 
   def run_report(self, report_id: int): pass
