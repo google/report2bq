@@ -34,12 +34,10 @@ class Type(Enum):
   
   def runner(self, report_id: str):
     return {
-      Type.ADH: f'run-{Type.ADH.value}-{report_id}',
-      Type.CM: f'run-cm-{report_id}',
-      Type.DV360: f'run-dv360-{report_id}',
-      Type.SA360: f'run-{Type.SA360.value}-{report_id}',
-      Type.SA360_RPT: f'run-{Type.SA360.value}-{report_id}',
-    }.get(self, None)
+      Type._JOBS: None,
+      Type._RUNNING: None,
+      Type._ADMIN: None,
+    }.get(self, f'run-{self.value}-{report_id}')
 
   def __str__(self):
     return str(self.value)

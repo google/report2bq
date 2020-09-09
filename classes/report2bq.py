@@ -113,8 +113,7 @@ class Report2BQ(object):
 
 
   def handle_sa360(self):
-    sa360 = SA360(project=self.project, email=self.email)
-
+    sa360 = SA360(project=self.project, email=self.email, infer_schema=self.infer_schema, append=self.append)
     logging.info(self.sa360_url)
     id = re.match(r'^.*rid=([0-9]+).*$', self.sa360_url).group(1)
     report_data = self.firestore.get_report_config(Type.SA360, id)

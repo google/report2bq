@@ -96,6 +96,7 @@ DEPLOY_STORAGE=0
 DEPLOY_TRIGGER=0
 DEPLOY_POSTPROCESSOR=0
 DEPLOY_TOPICS=1
+STORE_API_KEY=0
 USERNAME=0
 ADMIN=
 
@@ -164,6 +165,9 @@ while [[ $1 == -* ]] ; do
       ;;
     --background)
       BACKGROUND=1
+      ;;
+    --store-api-key)
+      STORE_API_KEY=1
       ;;
     --dry-run)
       DRY_RUN=echo
@@ -252,7 +256,7 @@ if [ ${CREATE_SERVICE_ACCOUNT} -eq 1 ]; then
   ${DRY_RUN} gcloud projects add-iam-policy-binding ${PROJECT} --member=serviceAccount:${USER} --role=roles/editor
 fi
 
-if [ ${STORE_API_KEY} -eq 1]; then
+if [ ${STORE_API_KEY} -eq 1 ]; then
   echo ${API_KEY} | gsutil cp - gs://${PROJECT}-report2bq-tokens/api.key
 fi
 

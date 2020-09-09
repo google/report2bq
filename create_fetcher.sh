@@ -323,7 +323,7 @@ elif [ ! -z ${SA360_ID} ]; then
     #   HOUR="*"
     #   ;;
   esac
-  FETCHER="${NAME}-sa360-${SA360_ID}"
+  FETCHER="${NAME}-sa360_report-${SA360_ID}"
   parameters=(
     ${parameters[@]}
     "report_id=${SA360_ID}"

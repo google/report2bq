@@ -161,10 +161,10 @@ class RunMonitor(object):
 
 
   def _check_sa360_report(self, job_config: Dict[str, Any], run_config: Dict[str, Any]): 
-    job_attributes = job_config['pubsubTarget']['attributes']
     sa360 = SA360(email=run_config['email'], project=self.project)
 
     # Merge configs
+    job_attributes = job_config['pubsubTarget']['attributes'] if 'pubsubTarget' in job_config else {}
     config = { **run_config, **job_attributes }
     
     if sa360.handle_offline_report(run_config=config):

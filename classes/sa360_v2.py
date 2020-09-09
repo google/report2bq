@@ -103,13 +103,13 @@ class SA360(object):
         report_config['schema'] = schema
         report_config['files'] = report['files']
 
-        if run_config['dest_project']: report_config['dest_project'] = run_config['dest_project']
-        if run_config['dest_dataset']: report_config['dest_dataset'] = run_config['dest_dataset']
-        if run_config['notify_topic']:
+        if 'dest_project' in run_config: report_config['dest_project'] = run_config['dest_project']
+        if 'dest_dataset' in run_config: report_config['dest_dataset'] = run_config['dest_dataset']
+        if 'notify_topic' in run_config:
           report_config['notifier'] = {
             'topic': run_config['notify_topic'],
           }
-          if run_config['notify_message']: report_config['notifier']['message'] = run_config['notify_message']
+          if 'notify_message' in run_config: report_config['notifier']['message'] = run_config['notify_message']
 
         # update the report details please...
         self.firestore.update_document(Type.SA360_RPT, run_config['report_id'], report_config)
