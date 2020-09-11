@@ -136,7 +136,7 @@ class JobMonitor(object):
       'dataset': job.destination.dataset_id,
       'table': job.destination.table_id,
       'rows': str(job.output_rows),
-      'id': config.get('id') or config.get('report_id'),
+      'id': config.get('id') or config.get('report_id') or 'Unknown_SA360_REPORT',
       'type': report_type.value,
       'columns': columns
     }

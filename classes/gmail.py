@@ -39,7 +39,7 @@ from typing import Any, Dict, List
 
 
 class GMailMessage(object):
-  def __init__(self, to: List[str]=[], cc: List[str]=None, subject: str=None, body: str='', snippet: str=None, project: str=None):
+  def __init__(self, to: List[str]=[], cc: List[str]=[], subject: str=None, body: str='', snippet: str=None, project: str=None):
     self._to = to
     self._cc = cc
     self._subject = f'[REPORT2BQ on {project or os.environ.get("GCP_PROJECT")}]: {subject or "Important Report2BQ message"}'

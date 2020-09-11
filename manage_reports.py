@@ -45,7 +45,7 @@ flags.DEFINE_string('project',
                      None,
                      'GCP Project')
 flags.DEFINE_string('product',
-                     'dbm',
+                     'dv360',
                      'DV360 or CM')
 
 flags.DEFINE_boolean('list',

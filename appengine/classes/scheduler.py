@@ -193,10 +193,10 @@ class Scheduler(Fetcher):
           })
         else:
           product = 'dv360'
-          _type = 'dbm'
+          _type = 'dv360'
           _attrs.update({
             'dv360_id': args.get('report_id'),
-            'type': 'dbm',
+            'type': 'dv360',
           })
 
       name = f"{action}-{product}-{args.get('report_id')}"

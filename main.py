@@ -248,7 +248,7 @@ def post_processor(event: Dict[str, Any], context=None):
     exec(_import)
     Processor = getattr(import_module(f'classes.postprocessor.{postprocessor}'), 'Processor')
 
-    Processor().run(**attributes)
+    Processor().run(context, **attributes)
 
 
 def email_error(email: str, product: str, event: Dict[str, Any], error: Exception):

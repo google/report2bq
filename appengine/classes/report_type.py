@@ -21,11 +21,23 @@ __author__ = [
 from enum import Enum
 
 class Type(Enum):
-  DV360 = 'dbm'
-  CM = 'dcm'
-  SA360 = 'sa360'
   ADH = 'adh'
+  CM = 'cm'
+  DV360 = 'dv360'
+  SA360 = 'sa360'
+  SA360_RPT = 'sa360_report'
 
+  # Internal use only
+  _JOBS = 'jobs'
+  _RUNNING = 'running'
+  _ADMIN = 'administration'
+  
+  def runner(self, report_id: str):
+    return {
+      Type._JOBS: None,
+      Type._RUNNING: None,
+      Type._ADMIN: None,
+    }.get(self, f'run-{self.value}-{report_id}')
 
   def __str__(self):
     return str(self.value)

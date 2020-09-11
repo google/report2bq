@@ -65,7 +65,7 @@ class PostProcessorLoader(Loader):
 
 
 class PostProcessor(object):
-  def run(self,  **attributes: Mapping[str, str]) -> Dict[str, Any]: pass
+  def run(self, context=None, **attributes: Mapping[str, str]) -> Dict[str, Any]: pass
 
 
 def install_postprocessor():

@@ -300,7 +300,7 @@ class DCM(ReportFetcher, Fetcher):
     ]
 
     for key in keys_to_update:
-      if report_object[key]:
+      if key in report_object:
         report_data[key] = report_object[key]
 
     return report_data

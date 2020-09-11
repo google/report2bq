@@ -357,7 +357,7 @@ elif [ "x${PROFILE}" == "x" ]; then
   parameters=(
     ${parameters[@]}
     "report_id=${REPORT_ID}"
-    "type=dbm"
+    "type=dv360"
   )
 else
   # CM
@@ -387,7 +387,7 @@ else
     ${parameters[@]}
     "report_id=${REPORT_ID}"
     "profile=${PROFILE}"
-    "type=dcm"
+    "type=cm"
   )
 fi
 

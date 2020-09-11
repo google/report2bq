@@ -22,8 +22,8 @@ from enum import Enum
 
 class Type(Enum):
   ADH = 'adh'
-  CM = 'dcm'
-  DV360 = 'dbm'
+  CM = 'cm'
+  DV360 = 'dv360'
   SA360 = 'sa360'
   SA360_RPT = 'sa360_report'
 

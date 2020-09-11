@@ -175,6 +175,9 @@ while [[ $1 == -* ]] ; do
     --no-topics)
       DEPLOY_TOPICS=0
       ;;
+    --no-code)
+      DEPLOY_CODE=0
+      ;;
     *)
       usage
       echo ""
@@ -240,7 +243,7 @@ fi
 
 if [ ${DEPLOY_STORAGE} -eq 1 ]; then
   # Create buckets
-  for bucket in report2bq-tokens report2bq-upload report2bq; do
+  for bucket in report2bq-tokens report2bq-upload report2bq report2bq-postprocessor; do
     gsutil ls -p ${PROJECT} gs://${PROJECT}-${bucket} > /dev/null 2>&1
     RETVAL=$?
     if (( ${RETVAL} != "0" )); then
