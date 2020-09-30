@@ -187,11 +187,11 @@ while [[ $1 == -* ]] ; do
   shift
 done
 
-if [ -z ${API_KEY} ]; then
+if [ -z "${API_KEY}" ]; then
   read API_KEY <<< $(gsutil cat gs://${PROJECT}-report2bq-tokens/api.key 2>/dev/null)
 fi
 
-if [ -z ${PROJECT} -o -z ${API_KEY} ]; then
+if [ -z "${PROJECT}" -o -z "${API_KEY}" ]; then
   usage
   echo ""
   echo You must specify a project and API key to proceed.

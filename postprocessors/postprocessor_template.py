@@ -25,12 +25,16 @@ from typing import Any, Dict, Mapping
 
 from classes.postprocessor import PostProcessor
 
-from google.cloud import bigquery
-
-
 class Processor(PostProcessor):
+  """Post-Processor template for use.
+
+  This is a sample  - valid, but useless - post processor.
+
+  Args:
+      PostProcessor ([type]): [description]
+  """
   def __init__(self) -> None:
     logging.info('Template post-processor')
 
-  def run(self,  **attributes: Mapping[str, str]) -> Dict[str, Any]:
+  def run(self,  context, **attributes: Mapping[str, str]) -> Dict[str, Any]:
     logging.info('Post-process code here')

@@ -21,13 +21,16 @@ __author__ = [
 import collections
 import json
 import logging
+import os
 import pprint
 import pytz
 import time
 
 from classes import ReportRunner
+from classes.credentials import Credentials
 from classes.discovery import DiscoverService
 from classes.firestore import Firestore
+from classes.gmail import GMail, GMailMessage
 from classes.report2bq import Report2BQ
 from classes.report_type import Type
 from classes.sa360_reports import SA360ReportParameter, SA360ReportTemplate
@@ -65,33 +68,67 @@ class SA360ReportRunner(ReportRunner):
 
 
   def _unattended_run(self, sa360: SA360) -> Dict[str, Any]:
-    report_config = self.firestore.get_document(type=Type.SA360_RPT, id=self.report_id)
-    if not report_config:
-      raise NotImplementedError(f'No such runner: {self.report_id}')
+    runner = None
+    report_config = None
+    try:
+    
+      report_config = self.firestore.get_document(type=Type.SA360_RPT, id=self.report_id)
+      if not report_config:
+        raise NotImplementedError(f'No such runner: {self.report_id}')
 
-    _tz = pytz.timezone(report_config.get('timezone') or self.timezone or 'America/Toronto')
-    _today = datetime.now(_tz)
+      _tz = pytz.timezone(report_config.get('timezone') or self.timezone or 'America/Toronto')
+      _today = datetime.now(_tz)
 
-    report_config['StartDate'] = (_today - timedelta(days=(report_config.get('offset') or 0))).strftime('%Y-%m-%d')
-    report_config['EndDate'] = (_today - timedelta(days=(report_config.get('lookback') or 0))).strftime('%Y-%m-%d')
+      report_config['StartDate'] = (_today - timedelta(days=(report_config.get('offset') or 0))).strftime('%Y-%m-%d')
+      report_config['EndDate'] = (_today - timedelta(days=(report_config.get('lookback') or 0))).strftime('%Y-%m-%d')
 
-    template = self.firestore.get_document(Type.SA360_RPT, '_reports').get(report_config['report'])
-    request_body = SA360ReportTemplate().prepare(template=template, values=report_config)
-    sa360_service = DiscoverService.get_service(Service.SA360, sa360.creds)
-    request = sa360_service.reports().request(body=request_body)
-    response = request.execute()
-    logging.info(response)
+      template = self.firestore.get_document(Type.SA360_RPT, '_reports').get(report_config['report'])
+      request_body = SA360ReportTemplate().prepare(template=template, values=report_config)
+      sa360_service = DiscoverService.get_service(Service.SA360, sa360.creds)
+      request = sa360_service.reports().request(body=request_body)
+      response = request.execute()
+      logging.info(response)
 
-    runner = {
-      'type': Type.SA360_RPT.value,
-      'project': self.project,
-      'report_id': self.report_id,
-      'email': self.email,
-      'file_id': response['id']
-    }
-    self.firestore.store_report_runner(runner)
-    return runner
+      runner = {
+        'type': Type.SA360_RPT.value,
+        'project': self.project,
+        'report_id': self.report_id,
+        'email': self.email,
+        'file_id': response['id']
+      }
+      self.firestore.store_report_runner(runner)
 
+    except Exception as e:
+      self._email_error(email=self.email, error=e, report_config=report_config,
+        message=f'Error in SA360 Report Runner for report {self.report_id}')
+
+    finally:
+      return runner
+
+  def _email_error(self, message: str, email: str=None,
+    error: Exception=None, report_config: Dict[str, Any]=None) -> None:
+    _to = [email] if email else []
+    _administrator = os.environ.get('ADMINISTRATOR_EMAIL') or self.FIRESTORE.get_document(Type._ADMIN, 'admin').get('email')
+    _cc = [_administrator] if _administrator else []
+
+    if _to or _cc:
+      message = GMailMessage(
+        to=_to, 
+        cc=_cc,
+        subject=message,
+        body=f'''
+{message}
+
+Config: {report_config if report_config else 'Config unknown.'}
+
+Error: {error if error else 'No exception.'}
+''', 
+        project=os.environ.get('GCP_PROJECT'))
+
+      GMail().send_message(
+        message=message,
+        credentials=Credentials(email=email, project=os.environ.get('GCP_PROJECT'))
+      )
 
   def _attended_run(self, sa360: SA360) -> None: 
     raise NotImplementedError()

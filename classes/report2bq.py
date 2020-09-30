@@ -83,9 +83,8 @@ class Report2BQ(object):
       if report_data['last_updated'] == last_report['last_updated'] and not self.force:
         logging.info('No change: ignoring.')
         return
-      report_data = last_report
-    else:
-      report_data = fetcher.normalize_report_details(report_object=report_object, report_id=self.report_id)
+    
+    report_data = fetcher.normalize_report_details(report_object=report_object, report_id=self.report_id)
 
     report_data['email'] = self.email
     report_data['append'] = self.append

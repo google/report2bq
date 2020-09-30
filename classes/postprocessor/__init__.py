@@ -30,9 +30,18 @@ from importlib.util import spec_from_file_location
 from typing import Any, Dict, Mapping
 
 from classes.cloud_storage import Cloud_Storage
+from google.api_core.exceptions import NotFound
+from google.cloud import bigquery
+from google.cloud.bigquery.table import RowIterator
 
 
 class PostProcessorFinder(MetaPathFinder):
+  """Check class type
+
+  This class checks to see if the class being loaded is a subclass of
+  'PostProcessor'. If it isn't, it won't be loaded.
+  """
+  
   def find_spec(self, fullname, path, target=None):
     """
     Locate the file in GCS. The "spec" should then be 
@@ -47,27 +56,88 @@ class PostProcessorFinder(MetaPathFinder):
 
 
 class PostProcessorLoader(Loader):
-    def create_module(self, spec):
-      return None # use default module creation semantics
+  """Load a PostProcessor
 
-    def exec_module(self, module):
-      try:
-        # Fetch the code here as string:
-        # GCS? BQ? Firestore? All good options
-        filename = module.__name__.split('.')[-1]
-        code = Cloud_Storage.fetch_file(
-          bucket=f'{os.environ.get("GCP_PROJECT")}-report2bq-postprocessor', 
-          file=f'{filename}.py'
-        )
-        exec(code, vars(module))
-      except:
-        raise ModuleNotFoundError()
+  Load an arbitrary PostProcessor subclass into the Python class library 
+  dynamically. The location to check is hardwired here for security
+  reasons.
+  """
+
+  def create_module(self, spec):
+    return None # use default module creation semantics
+
+  def exec_module(self, module):
+    try:
+      # Fetch the code here as string:
+      # GCS? BQ? Firestore? All good options
+      filename = module.__name__.split('.')[-1]
+      code = Cloud_Storage.fetch_file(
+        bucket=(f'{os.environ.get("GCP_PROJECT")}'
+          '-report2bq-postprocessor'), 
+        file=f'{filename}.py'
+      )
+      exec(code, vars(module))
+    except:
+      raise ModuleNotFoundError()
 
 
 class PostProcessor(object):
-  def run(self, context=None, **attributes: Mapping[str, str]) -> Dict[str, Any]: pass
+  """PostProcessor Abstract parent class
 
+  In order to be loaded by the PostProcessor mechanism, all/any classes
+  MUST extend this class and implement the 'run' method.
+  """
 
-def install_postprocessor():
+  def install_postprocessor():
     """Inserts the finder into the import machinery"""
     sys.meta_path.append(PostProcessorFinder())
+
+  def check_table_exists(self, project: str, dataset: str, table: str) -> bool:
+    """Check if a table exists in BigQuery dataset.
+
+    Commonly needed helper function
+
+    Args:
+        project (str): the project to in which the dataset and table in question reside
+        dataset (str): the project to in which the dataset resides
+        table (str): the table to look for
+
+    Returns:
+        bool: True if table is present, False if not
+    """
+    client = bigquery.Client()
+    try:
+      client.get_table(f'{project}.{dataset}.{table}')
+      return True
+      
+    except NotFound:
+      return False
+
+  def execute_and_wait(self, query: str) -> RowIterator:
+    """Execute the sql in the 'query' and wait for the result.
+
+    Commonly needed helper function
+
+    Args:
+        query (str): the query to run
+
+    Returns:
+        RowIterator: the result set
+    """
+    client = bigquery.Client()
+    job = client.query(query)
+    result = job.result()
+    return result
+
+  def run(self, context=None, 
+    **attributes: Mapping[str, str]) -> Dict[str, Any]:
+    """Run the user's PostProcessor code
+
+    Args:
+        context ([type], optional): Cloud Function context. Defaults to None.
+        **attributes: list of attributes passed from the Cloud Function
+
+    Returns:
+        Dict[str, Any]: return value
+    """
+    pass

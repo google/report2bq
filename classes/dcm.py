@@ -136,7 +136,7 @@ class DCM(ReportFetcher, Fetcher):
       **{
         'profileId': self.profile,
         'reportId': report_id,
-        'maxResults': '5',
+        'maxResults': '1',
         'sortField': 'LAST_MODIFIED_TIME',
         # 'fields': items(lastModifiedTime,reportId,status,urls/apiUrl)',
         'sortOrder': 'DESCENDING'
@@ -279,8 +279,9 @@ class DCM(ReportFetcher, Fetcher):
           float(latest_runtime)/1000.0
       ).strftime("%Y%m%d%H%M"),
       'update_cadence': schedule_frequency,
-      'report_file': report_object['report_file'] if 'report_file' in report_object else ''
     }
+    if 'report_file' in report_object:
+      report_data['report_file'] = report_object['report_file']
 
     # Return
     return report_data

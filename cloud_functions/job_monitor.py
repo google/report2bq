@@ -97,7 +97,7 @@ class JobMonitor(object):
                 if job.error_result:
                   logging.error(job.errors)
 
-                self._handle_finished(job=job, config=config, report_type=T)
+                self._handle_finished(job=job, id=document.id, config=config, report_type=T)
                 firestore.mark_import_job_complete(document.id, job)
 
             except Exception as e:
@@ -105,7 +105,7 @@ class JobMonitor(object):
 
           break
 
-  def _handle_finished(self, job: LoadJob, config: Dict[str, Any], report_type: Type):
+  def _handle_finished(self, job: LoadJob, config: Dict[str, Any], report_type: Type , id: str):
     """Deal with completed jobs
 
     When we find a completed job, delete the source CSV from GCS.
@@ -126,17 +126,17 @@ class JobMonitor(object):
         logging.info('File {file} removed from {source}.'.format(file=blob_name, source=bucket_name))
 
       if 'notifier' in config:
-        self.notify(report_type=report_type, config=config, job=job)
+        self.notify(report_type=report_type, id=id, config=config, job=job)
 
 
-  def notify(self, report_type: Type, config: Dict[str, Any], job: LoadJob):
+  def notify(self, report_type: Type, config: Dict[str, Any], job: LoadJob, id: str):
     columns = ';'.join([ field['name'] for field in config['schema'] ])
     attributes = {
       'project': job.destination.project,
       'dataset': job.destination.dataset_id,
       'table': job.destination.table_id,
       'rows': str(job.output_rows),
-      'id': config.get('id') or config.get('report_id') or 'Unknown_SA360_REPORT',
+      'id': id or config.get('id') or config.get('report_id') or 'Unknown_SA360_REPORT',
       'type': report_type.value,
       'columns': columns
     }

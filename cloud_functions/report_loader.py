@@ -67,6 +67,7 @@ class ReportLoader(object):
         event {Dict[str, Any]} -- data sent from the PubSub message
         context {Dict[str, Any]} -- context data. unused
     """
+    logging.info(data)
     bucket_name = data['bucket']
     file_name = data['name']
 
@@ -114,8 +115,6 @@ class ReportLoader(object):
         bucket_name {str} -- name of the source bucket
         file_name {str} -- name of the CSV file
     """
-    logging.warn('Processing: %s' % file_name)
-
     # Load config file. Must be present to continue
     # This could be either DBM/DV360 or (D)CM
     report_id = file_name.split('/')[-1].split('.')[0]
@@ -124,6 +123,8 @@ class ReportLoader(object):
     if not config_type:
       self._email_error(f'No config found for report {report_id}')
       raise Exception(f'No config found for report {report_id}')
+
+    logging.info(config)
 
     # Insert with schema and table name from config
     if config_type == Type.DV360:
