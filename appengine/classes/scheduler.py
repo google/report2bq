@@ -253,7 +253,7 @@ class Scheduler(Fetcher):
 
     while True:
       _kwargs = {
-        'parent': scheduler.CloudSchedulerClient.location_path(project, location),
+        'parent': Scheduler.location_path(project, location),
         'pageToken': token
       }
 
@@ -282,7 +282,7 @@ class Scheduler(Fetcher):
       location = locations[-1]
 
     try:
-      method(name=scheduler.CloudSchedulerClient.job_path(project=project, location=location, job=job_id)).execute()
+      method(name=Scheduler.job_path(project=project, location=location, job=job_id)).execute()
       return (True, None)
 
     except HttpError as error:
@@ -298,7 +298,7 @@ class Scheduler(Fetcher):
       location = locations[-1]
 
     try:
-      job = method(name=scheduler.CloudSchedulerClient.job_path(project=project, location=location, job=job_id)).execute()
+      job = method(name=Scheduler.job_path(project=project, location=location, job=job_id)).execute()
       return (True, job)
 
     except HttpError as error:
@@ -323,7 +323,7 @@ class Scheduler(Fetcher):
       method = service.projects().locations().jobs().pause
 
     try:
-      method(name=scheduler.CloudSchedulerClient.job_path(project=project, location=location, job=job_id)).execute()
+      method(name=Scheduler.job_path(project=project, location=location, job=job_id)).execute()
       return (True, None)
 
     except HttpError as error:
@@ -339,14 +339,14 @@ class Scheduler(Fetcher):
       locations = self.list_locations(credentials=credentials, project=project)
       location = locations[-1]
 
-    _parent = scheduler.CloudSchedulerClient.location_path(project=project, location=location)
+    _parent = Scheduler.location_path(project=project, location=location)
     _target = {
       'topicName': f"projects/{project}/topics/{job.get('topic', '')}",
       # 'data': base64.b64encode(b'RUN'),
       'attributes': job.get('attributes', ''),
     }
     body: dict = {
-      "name": scheduler.CloudSchedulerClient.job_path(project=project, location=location, job=job.get('name', '')),
+      "name": Scheduler.job_path(project=project, location=location, job=job.get('name', '')),
       "description": job.get('description', ''),
       "schedule": job.get('schedule', ''),
       "timeZone": job.get('timezone', ''),
