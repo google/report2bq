@@ -33,7 +33,7 @@ from classes.dbm_report_runner import DBMReportRunner
 from classes.dcm_report_runner import DCMReportRunner
 from classes.decorators import measure_memory
 from classes.gmail import GMail, GMailMessage
-from classes.postprocessor import install_postprocessor
+from classes.postprocessor import PostProcessor
 from classes.report2bq import Report2BQ
 from classes.report_type import Type
 from classes.sa360_report_runner import SA360ReportRunner
@@ -236,7 +236,7 @@ def post_processor(event: Dict[str, Any], context=None):
   if 'data' in event:
     postprocessor = base64.b64decode(event['data']).decode('utf-8')
     logging.info(f'Loading and running "{postprocessor}"')
-    install_postprocessor()
+    PostProcessor.install_postprocessor()
 
   else:
     logging.fatal('No postprocessor specified')
