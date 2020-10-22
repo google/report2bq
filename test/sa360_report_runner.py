@@ -18,6 +18,7 @@ __author__ = [
   'davidharcombe@google.com (David Harcombe)'
 ]
 
+from classes.sa360_reports import SA360ReportTemplate
 import json
 import pprint
 import uuid
@@ -40,35 +41,61 @@ flags.DEFINE_string('file', None, 'JSON file containing the report definition.')
 
 
 def main(unusedargv):
-  scheduler = Scheduler()
-  with open(FLAGS.file) as reports:
-    runners = json.loads(''.join(reports.readlines()))
+  # Test report prepare
+  with open(FLAGS.file) as template_file:
+    template = json.loads(''.join(template_file.readlines()))
+    ready = SA360ReportTemplate().prepare(template=template, values={
+      "report": "holiday_2020",
+      "timezone": "America/Toronto",
+      "email": "davidharcombe@google.com",
+      "AgencyId": "20700000001001042",
+      "AdvertiserId": "21700000001533241",
+      "ConversionMetric": "AW Conversions",
+      "RevenueMetric": "ROAS GA",
+      "offset": 0,
+      "lookback": 0,
+      "notifier": {
+        "topic": "post-processor",
+        "message": "report2bq_execute_metrics_calculation"
+      },
+      "agencyName": "Best Buy Canada",
+      "advertiserName": "Best Buy Canada Search Corporate",
+      "minute": "1"
+    })
 
-    for runner in runners:
-      id = f"{runner['report']}_{runner['AgencyId']}_{runner['AdvertiserId']}"
-      Firestore().update_document(Type.SA360_RPT, f'{id}', runner)
+  # Add new reports
+  # scheduler = Scheduler()
+  # with open(FLAGS.file) as reports:
+  #   runners = json.loads(''.join(reports.readlines()))
 
-      # args = {
-      #   'action': 'create',
-      #   'email': runner['email'],
-      #   'project': 'report2bq-zz9-plural-z-alpha',
-      #   'force': False,
-      #   'infer_schema': True,
-      #   'append': False,
-      #   'sa360_id': id,
-      #   'description': 'SA360 disableable job',
-      #   'dest_dataset': 'holiday_2020_us',
-      # }
-      # scheduler.process(args)
+  #   for runner in runners:
+  #     id = f"{runner['report']}_{runner['AgencyId']}_{runner['AdvertiserId']}"
+  #     Firestore().update_document(Type.SA360_RPT, f'{id}', runner)
+
+  #     args = {
+  #       'action': 'create',
+  #       'email': runner['email'],
+  #       'project': 'report2bq-zz9-plural-z-alpha',
+  #       'force': False,
+  #       'infer_schema': True,
+  #       'append': False,
+  #       'sa360_id': id,
+  #       'description': f'[CA] Holiday 2020: {runner["agencyName"]}/{runner["advertiserName"]}',
+  #       'dest_dataset': 'holiday_2020_us',
+  #       'minute': runner['minute'],
+  #     }
+  #     scheduler.process(args)
 
 
   # runner = Firestore().get_document(Type.SA360_RPT, 'holiday_2020_20700000000000942_21700000001478610')
   # runners = Firestore().get_all_reports(Type.SA360_RPT)
 
-  # runner = SA360ReportRunner(report_id='holiday_2020_20700000000000942_21700000001478610', email='davidharcombe@google.com', project='report2bq-zz9-plural-z-alpha')
-  # r = runner.run()
-  # sa360 = SA360(email='davidharcombe@google.com', project='report2bq-zz9-plural-z-alpha')
-  # sa360.handle_offline_report(r)
+  # Run SA360 Report
+  # runner = SA360ReportRunner(report_id='holiday_2020_20100000000000931_21700000001010531', email='davidharcombe@google.com', project='report2bq-zz9-plural-z-alpha')
+  # runner = SA360ReportRunner(report_id='holiday_2020_20700000001201701_21700000001667419', email='davidharcombe@google.com', project='report2bq-zz9-plural-z-alpha')
+  # if r := runner.run():
+  #   sa360 = SA360(email='davidharcombe@google.com', project='report2bq-zz9-plural-z-alpha')
+  #   sa360.handle_offline_report(r)
 
 if __name__ == '__main__':
   app.run(main)

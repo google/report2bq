@@ -38,22 +38,27 @@ class SA360ReportParameter(object):
   name: str
   path: str
   element_type: str = 'str'
-  ordinal: int = None
-    
+  is_list: bool = False
+  column_type: str = 'savedColumnName'
+  ordinal: int = None       # Now deprecated
+
 
 class SA360ReportTemplate(object):
   def _update(self, field: SA360ReportParameter, original: Dict[str, Any], new: Dict[str, Any]):
     for key, val in new.items():
-        if isinstance(val, collections.Mapping):
-            tmp = self._update(field, original.get(key, { }), val)
-            original[key] = tmp
-        elif isinstance(val, list):
-            if field.ordinal:
-                original[key][field.ordinal] = { next(iter(original[key][field.ordinal].keys())): val[0] }
-            else:
-                original[key] = (original.get(key, []) + val)
-        else:
-            original[key] = new[key]
+      if isinstance(val, collections.Mapping):
+        tmp = self._update(field, original.get(key, { }), val)
+        original[key] = tmp
+      elif isinstance(val, list):
+        ordinal = 0
+        for _item in original[key]:
+          if [ value for value in _item.values() if value == field.name ]:
+            for k in _item.keys():
+              if _item[k] == field.name:
+                original[key][ordinal] = { field.column_type: val[0] }
+          ordinal += 1
+      else:
+        original[key] = new[key]
 
     return original
 
@@ -72,7 +77,7 @@ class SA360ReportTemplate(object):
     try:
       for _element in _path_elements:
         if not _data:
-          if field.ordinal:
+          if field.is_list:
             _data = { _element: [_value] }
           else:
             _data = { _element: _value }

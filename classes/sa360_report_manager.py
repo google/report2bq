@@ -18,14 +18,20 @@ __author__ = [
   'davidharcombe@google.com (David Harcombe)'
 ]
 
+from classes.services import Service
+from classes.discovery import DiscoverService
+from classes.sa360_v2 import SA360
+from classes.sa360_reports import SA360ReportTemplate
 import json
 import logging
+import os
 import pprint
 
 # Class Imports
 from contextlib import suppress
 from datetime import datetime
 from urllib.parse import unquote
+from typing import List
 
 from classes.firestore import Firestore
 from classes.report_type import Type
@@ -33,8 +39,17 @@ from classes.scheduler import Scheduler
 
 
 class SA360Manager(object):
+  sa360 = None
+  sa360_service = None
+  scheduler = None
+  
   def manage(self, **kwargs):
-    firestore = Firestore(project=kwargs['project'], email=kwargs['email'])
+    project = kwargs['project']
+    email = kwargs['email']
+    firestore = Firestore(project=project, email=email)
+    if api_key := kwargs['api_key']: os.environ['API_KEY'] = api_key
+
+    if 'API_KEY' in os.environ: self.scheduler = Scheduler()
 
     args = {
       'report': kwargs.get('name', kwargs.get('file').split('/')[-1].split('.')[0] if kwargs.get('file') else None),
@@ -50,22 +65,27 @@ class SA360Manager(object):
       'show': self.show,
       'add': self.add,
       'delete': self.delete,
+      'validate': self.validate,
     }.get(kwargs['action'])
     
     if action:
+      self.sa360 = SA360(email, project)
       return action(**args)
 
     else:
       raise NotImplementedError()
 
-
   def list_all(self, firestore: Firestore, project: str, _print: bool=False, **unused): 
+    sa360_objects = firestore.list_documents(Type.SA360_RPT)
     reports = firestore.list_documents(Type.SA360_RPT, '_reports')
     if _print:
       print(f'SA360 Dynamic Reports defined for project {project}')
       print()
       for report in reports:
         print(f'  {report}')
+        for sa360_object in sa360_objects:
+          if sa360_object.startswith(report):
+            print(f'    {sa360_object}')
 
     return reports
 
@@ -78,12 +98,10 @@ class SA360Manager(object):
 
     return definition
 
-
   def add(self, firestore: Firestore, report: str, file: str, **unused): 
     with open(file) as definition:
       cfg = json.loads(''.join(definition.readlines()))
       Firestore().update_document(Type.SA360_RPT, '_reports', { report: cfg })
-
 
   def delete(self, firestore: Firestore, project: str, report: str, email: str, **unused): 
     firestore.delete_document(Type.SA360_RPT, '_reports', report)
@@ -105,3 +123,43 @@ class SA360Manager(object):
         'job_id': runner,
       }
       scheduler.process(args)
+
+  def validate(self, firestore: Firestore, project: str, _print: bool=False, **unused):
+    sa360_objects = firestore.list_documents(Type.SA360_RPT)
+    sa360_report_definitions = firestore.get_document(Type.SA360_RPT, '_reports')
+
+    for sa360_object in sa360_objects:
+      if sa360_object == '_reports': continue
+
+      print(f'Validating {sa360_object}:')
+      report = firestore.get_document(Type.SA360_RPT, sa360_object)
+      target_report = sa360_report_definitions[report['report']]
+      custom_columns = self.list_custom_columns(project, report['AgencyId'], report['AdvertiserId'])
+      report_custom_columns = [column['name'] for column in target_report['parameters'] if 'ordinal' in column]
+      valid = True
+      for report_custom_column in report_custom_columns:
+        if report[report_custom_column]:
+          valid = valid and report[report_custom_column] in custom_columns
+          print(f'  Checking {report_custom_column}: {report[report_custom_column]}: {valid}')
+
+      if 'API_KEY' in os.environ:
+        args = {
+          'action': 'enable' if valid else 'disable',
+          'email': self.sa360.email,
+          'project': project,
+          'job_id': f'run-sa360_report-{sa360_object}',
+        }
+        self.scheduler.process(args)
+
+      if not valid:
+        print('  Available custom columns for this agency/advertiser pair:')
+        for custom_column in custom_columns:
+          print(f'    "{custom_column}"')
+
+  def list_custom_columns(self, project: str, agency: int, advertiser: int) -> List[str]:
+    if not self.sa360_service:
+      self.sa360_service = DiscoverService.get_service(Service.SA360, self.sa360.creds)
+    request = self.sa360_service.savedColumns().list(agencyId=agency, advertiserId=advertiser)
+    response = request.execute()
+
+    return [item['savedColumnName'] for item in response['items']]

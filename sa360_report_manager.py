@@ -48,6 +48,7 @@ flags.DEFINE_bool('list', False, 'List all defined reports.')
 flags.DEFINE_bool('show', False, 'Print the defintion of the named report.')
 flags.DEFINE_bool('add', False, 'Add a new report from an SA360 definition format JSON file.')
 flags.DEFINE_bool('delete', False, 'Remove a defined report. This will also disable any runners defined for this report.')
+flags.DEFINE_bool('validate', False, 'Validate a defined report.')
 
 # add
 flags.DEFINE_string('file', None, 'JSON file containing the report definition.')
@@ -58,13 +59,14 @@ flags.DEFINE_string('name', None, 'Name as which the report should be stored. De
 # common
 flags.DEFINE_string('project', None, 'GCP Project act on. Default is the environment default.')
 flags.DEFINE_string('email', None, 'Report owner/user email.')
-
+flags.DEFINE_string('api_key', None, 'API Key for scheduler')
 
 def main(unused_argv):
   if FLAGS.list: action = 'list'
   elif FLAGS.show: action = 'show'
   elif FLAGS.add: action = 'add'
   elif FLAGS.delete: action = 'delete'
+  elif FLAGS.validate: action = 'validate'
   else: raise NotImplementedError()
 
   args = {

@@ -216,6 +216,7 @@ if [ ${ACTIVATE_APIS} -eq 1 ]; then
     "doubleclickbidmanager"
     "doubleclicksearch"
     "firestore"
+    "gmail"
     "pubsub"
     "storage-api"
   )
