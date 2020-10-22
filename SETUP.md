@@ -1,66 +1,31 @@
 # BASIC SETUP
 
-## Creating your OAuth token
-
-### Prerequisites
-
-* A working Pythoh 3.7+ environment
-  * A virtual environment is suggested
-* `pip` installed
-* A Gmail or GSuite account
-* `git` installed and configured
-* **EITHER** a `client_secrets.json` file or the `CLIENT ID` and `CLIENT SECRET` for the project you want to authenticate to.
-
-### Steps
-
-1. Clone the Report2BQ repository from GitHub
-   1. `git clone [https://github.com/google/report2bq.git](https://github.com/google/report2bq.git)`
-   2. `cd report2bq`
-   3. `mkdir config_files`
-2. **[OPTIONAL]** Create and activate a virtual environment
-   1. `virtualenv --python=python3 report2bq-3.7`
-   2. `source report2bq-3.7/bin/activate`
-3. Do one of the following:
-   *  Copy the `client_secrets.json` file into the `config_files` directory you created in step 1 \
-   **OR**
-   * Change lines *44* and *45* in `create_token.py` to read the client id and client secret values like this: \
-   `client_id='[CLIENT ID]'` \
-   `client_secrect='[CLIENT SECRET]'`
-4. Install the required Python libraries
-   1. `pip install -r requirements.txt`
-5. Run the token generator script
-   1. `python create_token.py`
-6. This will respond with: \
-   ```http://0.0.0.0:8080/```
-7. In a browser on that machine, go to `http://localhost:8080`. You should see this, or something similar:
+## User authorization
+1. In a browser, go to your appengine app (which you should have bookmarked during setup`. *You should see this, or something similar:*
 ![](screenshots/SETUP-oauth_request.jpg)
-7. Select the email address, and you will be prompted with: \
+
+1. Select the email address
+
+   1. If you get this prompt, do the following: \
 ![](screenshots/SETUP_unverified.jpg)
-8. Click 'Advanced' to proceed to \
+
+   1. Click 'Advanced' to proceed to \
 ![](screenshots/SETUP_unsafe.jpeg)
-9. Then you will see **8** prompts like this to permit access to various Google systems. *ALL ARE REQUIRED*,
+1. Then you will see prompts like this to permit access to various Google systems. *ALL ARE REQUIRED*,
 so click 'Allow' for each one.
 ![](screenshots/SETUP_allow.jpeg)
-10. The setup will create a file `user_token.json` in the `config_files` subdirectory.
-11. Copy this file to your project's tokens bucket on Google Cloud Storage \
-`gcloud cp config_files/user_token.json gs://[PROJECT ID]-report2bq-tokens/[YOUR EMAIL]_user_token.json`
+   - *It's ok if you get an "Internal Server Error" at the end.*
+1. Congratulations! You are now authorized to create Report2BQ Runner and Fetcher jobs.
 
 ## Creating *fetcher* and *runner* jobs
 
 ### Prerequisites
 
-* An authenticated Gmail or GSuite account for the project
-* `git` installed and configured
-* The latest Google Cloud command-line SDK installed
-
+* * The latest Google Cloud command-line SDK installed
+* All steps in [README.md]() and [./appengine/README.md]() completed.
 ### Steps
-
-1. Clone the Report2BQ repository from GitHub (if you have one installed already, just make sure it's up to date)
-   1. `git clone [https://github.com/google/report2bq.git](https://github.com/google/report2bq.git)`
-   2. `cd report2bq`
-2. Run the `create_fetcher.sh` to see all the options:
+1. Run `create_fetcher.sh` to see all the options:
 ```
-$ ./create_fetcher.sh --help
 create_fetcher.sh
 =================
 
@@ -73,6 +38,10 @@ Options:
     --project     GCP Project Id
     --email       Email address attached to the OAuth token stored in GCS
     --runner      Create a report runner rather than a report fetcher
+    --dest-project
+                  Destination GCP project (if different than "--project")
+    --dest-dataset
+                  Destination BQ dataset (if not 'report2bq')
 
   DV360/CM
   --------
@@ -82,10 +51,14 @@ Options:
   -------
     --profile     The Campaign Manager profle id under which the report is defined
 
-  SA360 Only
-  ----------
+  SA360 Web Download Report Only
+  ------------------------------
     --sa360-url   The URL of the web download report in SA360. This will be in the format
                   https://searchads.google.com/ds/reports/download?ay=xxxxxxxxx&av=0&rid=000000&of=webquery
+
+  SA360 Dynamic Report Only
+  -------------------------
+    --sa360-id    The UUID of the created SA360 report
 
   ADH Only
   --------
@@ -97,10 +70,6 @@ Options:
 
   Other
   -----
-    --dest-project
-                  Destination GCP project for ADH query results
-    --dest-dataset
-                  Destination BQ dataset for ADH query results
     --force       Force the report to upload EVERY TIME rather than just when updates are detected
     --rebuild-schema
                   Force the report to redefine the schema by re-reading the CSV header. Use with care.
@@ -122,15 +91,20 @@ Options:
     --description Plain text description for the scheduler list
     --infer-schema
                   [BETA] Guess the column types based on a sample of the report's first slice.
-
+    --topic       [BETA] Topic to send a PubSub message to on completion of import job
+    --message     [BETA] Message to send; this should be the name of the custom function to be
+                  executed. Attributes of dataset, table name, report id and report type will always
+                  be sent along with this as part of the message.
     --usage       Show this text
+
+You must specify a report id or SA360 url.
 ```
 3. Mandatory parameters are:
 * `--project` - defines the target project for the job
 * `--email` - defines the email address of the project owner  
   All other parameters vary according to the type of job being created
 
-#### Creatng a DV360 or CM `fetcher` to grab report results
+#### Creating a DV360 or CM `fetcher` to grab report results
 
 **Base command**
 

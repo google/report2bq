@@ -37,6 +37,10 @@ Options:
     --project     GCP Project Id
     --email       Email address attached to the OAuth token stored in GCS
     --runner      Create a report runner rather than a report fetcher
+    --dest-project
+                  Destination GCP project (if different than "--project")
+    --dest-dataset
+                  Destination BQ dataset (if not 'report2bq')
 
   DV360/CM
   --------
@@ -62,10 +66,6 @@ Options:
     --adh-query   The ADH Query Id
     --api-key     ADH API Key, created in the GCP Console
     --days        Days lookback for the ADH report. This defaults to 60.
-    --dest-project
-                  Destination GCP project for ADH query results
-    --dest-dataset
-                  Destination BQ dataset for ADH query results
 
   Other
   -----
@@ -99,8 +99,8 @@ EOF
 }
 
 # Switch definitions
-PROJECT="galvanic-card-234919"      # Project id
-FORCE=                              # Force an install overrwrite of objects
+PROJECT=                            # Project id
+FORCE=                              # Force an install overwrite of objects
 FETCHER=                            # 'Fetcher' name
 REBUILD_SCHEMA=                     # issue a --rebuild_schema directive. Use with care
 TRIGGER="report2bq-trigger"         # Name of the trigger PubSub queue
@@ -109,8 +109,8 @@ APPEND=                             # Set to make the installed fetcher append t
 HOUR=""                             # Hour at which to run
 DAYS=60                             # Default day lookback for ADH
 IS_RUNNER=0                         # Is this a 'run' or a 'fetch'
-DEST_PROJECT=                       # Destination project for ADH querys
-DEST_DATASET=                       # Destination dataset for ADH querys
+DEST_PROJECT=                       # Destination project
+DEST_DATASET=                       # Destination dataset
 TIMEZONE=                           # Timezone
 INFER_SCHEMA=                       # Guess the report's schema
 SA360_ID=                           # ID of the SA360 report to schedule
