@@ -33,7 +33,7 @@ Usage:
 
 Options:
   --project         GCP Project Id
-  --dataset         The Big Query datase to verify or create
+  --dataset         The Big Query dataset to verify or create
   --api-key         The API key
 
 Deployment directives:

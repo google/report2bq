@@ -63,14 +63,18 @@ For detailed directions on what the installer can do, please see later or check 
 sense to you.
 
 1. When the installer is finished (this will take a while, possibly as long as half an hour) go to the cloud console
-in your browser, and go to Firestore.
+in your browser, and go to Firestore (From the Cloud Console).
 
 1. Set Firestore to "Native" mode. This **must** be done, and **cannot** be done programmatically
+![](screenshots/firestore-to-native-mode-0.png)
+![](screenshots/firestore-to-native-mode-2.png)
+![](screenshots/firestore-to-native-mode-1.png)
 
 **Authentication**
 
 1. Create the server's OAuth Id \
-Go to the API Credentials page and create new credentials. These should be of type
+*(Note: You may need to "Configure Consent Screen" first. User type is likely "Internal", App name should be some variation on "`[Solution Name]` - Report2BQ"). User your email address for the email address fields. Don't worry about any non-required fields.)*\
+1.1 Go to the API Credentials page and create new credentials. These should be of type
 'Web Application'. \
 ![](screenshots/4-OAuthClientId.png) \
 Now name it something sensible and memorable like 'Report2BQ oAuth Client Id'. \
@@ -78,7 +82,7 @@ Define the authorized redirect urls to be able to complete the OAuth flow.\
 ![](screenshots/6-RedirectURI.png) \
 Click "+ ADD URI"  and this screen will show up: \
 ![](screenshots/7-OAuthRedirectURI.png) \
-Paste in the `httpsTrigger` URL: <PROJECT REGION>-<PROJECT ID>.cloudfunctions.net, and click SAVE.
+Paste in the `httpsTrigger` URL: `https:\\<PROJECT REGION>-<PROJECT ID>.cloudfunctions.net`,(e.g., `https://us-east1-my-rbq-project.cloudfunctions.net`) and click SAVE.
 
 1. Download the Client ID JSON and save it to the tokens cloud storage bucket \
 ![](screenshots/5-OAuth_client.png) \
@@ -87,18 +91,9 @@ cloud, renaming it "client_secrets.json" as you go. You can do this through the 
 CLI `gsutil` command like this: \
 `gsutil cp <DOWNLOADED FILE> gs://<PROJECT ID>-report2bq-tokens/client_secrets.json`
 
-1. Navigate to IAM > Identity Aware Proxy 'IAP'
+1. Navigate to IAM > Identity Aware Proxy 'IAP'. (Enable it, if needed.)
 
-1. You should see the report2bq app under HTTPS resources, enable the IAP toggle. Click on the row to show
-the panel to add members. Add the user/email list/domain to the role “IAP-Secured Web App users” to control
-the users that can access the site.
+1. Follow steps on [./appengine/README.md]() to install the App Engine project that will allow users to grant permission to Report2BQ to run on their behalf.
 
-1. Navigate to IAM > Service accounts
-
-1. Create a JSON key for the service account running the cloud function.
-
-1. In gcloud navigate to report2bq > appengine > app.yaml and paste the KEY ID into the API KEY
-
-**Create jobs**
-
-1. Now you can create the runners and fetchers for a given report
+1. Once you have set up the App Engine project in the previous step, you can create the runners and fetchers for a given report.\
+*See **[SETUP.md]()** for details on how to do this.*
