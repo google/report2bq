@@ -29,7 +29,7 @@ up fetchers or runners and a minimal amount of manual actions to be done.
 
 ### Steps
 
-**Setup the project**
+#### Setup the project
 1. Go to a command line \
 Ensure you have the latest versions of the Google Cloud SDK, so run \
 `gcloud components update` \
@@ -38,7 +38,7 @@ And allow it to update
 1. Check out the code \
   `git clone https://github.com/google/report2bq`
 
-**Before we start to install**
+####Before we start to install
 
 1. Now navigate to API & Services > Credentials
 
@@ -47,7 +47,7 @@ And allow it to update
 Select "API Key"
 Name: “Report2BQ API Key” 
 
-**Install the application**
+####Install the application
 
 1. Run the installer \
 `./install.sh --project=<PROJECT ID> --dataset=<DATASET NAME> --api-key=<API KEY> --create-service-account --activate-apis --deploy-all --dry-run` \
@@ -70,7 +70,7 @@ in your browser, and go to Firestore (From the Cloud Console).
 ![](screenshots/firestore-to-native-mode-2.png)
 ![](screenshots/firestore-to-native-mode-1.png)
 
-**Authentication**
+####Authentication
 
 1. Create the server's OAuth Id \
 *(Note: You may need to "Configure Consent Screen" first. User type is likely "Internal", App name should be some variation on "`[Solution Name]` - Report2BQ"). User your email address for the email address fields. Don't worry about any non-required fields.)*\
@@ -93,7 +93,7 @@ CLI `gsutil` command like this: \
 
 1. Navigate to IAM > Identity Aware Proxy 'IAP'. (Enable it, if needed.)
 
-1. Follow steps on [./appengine/README.md]() to install the App Engine project that will allow users to grant permission to Report2BQ to run on their behalf.
+1. Follow steps on [./appengine/README.md](./appengine/README.md) to install the App Engine project that will allow users to grant permission to Report2BQ to run on their behalf.
 
 1. Once you have set up the App Engine project in the previous step, you can create the runners and fetchers for a given report.\
-*See **[SETUP.md]()** for details on how to do this.*
+*See **[SETUP.md](SETUP.md)** for details on how to do this.*

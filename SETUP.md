@@ -20,9 +20,8 @@ so click 'Allow' for each one.
 ## Creating *fetcher* and *runner* jobs
 
 ### Prerequisites
-
-* * The latest Google Cloud command-line SDK installed
-* All steps in [README.md]() and [./appengine/README.md]() completed.
+* The latest Google Cloud command-line SDK installed
+* All steps in [README.md](README.md) and [./appengine/README.md](./appengine/README.md) completed.
 ### Steps
 1. Run `create_fetcher.sh` to see all the options:
 ```
@@ -106,7 +105,7 @@ You must specify a report id or SA360 url.
 
 #### Creating a DV360 or CM `fetcher` to grab report results
 
-**Base command**
+##### Base command
 
 * _DV360_  
 `./create_fetcher.sh --project [PROJECT ID] --email [EMAIL ADDRESS] --report-id [REPORT ID] --description "A report description"`
@@ -132,7 +131,7 @@ The `--description` is not strictly *mandatory*, but it's a really nice thing to
 
 #### Creatng a DV360 or CM `runner` to grab report results
 
-**Base command**
+##### Base command
 
 * _DV360_  
 `./create_fetcher.sh --project [PROJECT ID] --email [EMAIL ADDRESS] --report-id [REPORT ID] --runner --description "A report description"`
