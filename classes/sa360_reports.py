@@ -77,7 +77,7 @@ class SA360ReportTemplate(object):
     try:
       for _element in _path_elements:
         if not _data:
-          if field.is_list:
+          if field.is_list or field.ordinal:
             _data = { _element: [_value] }
           else:
             _data = { _element: _value }
@@ -97,7 +97,12 @@ class SA360ReportTemplate(object):
     for _parameter in _parameters:
       _param = SA360ReportParameter(**_parameter)
       with suppress(KeyError):
-        value = values[_param.name]
+        if isinstance(values[_param.name], collections.Mapping):
+          value = values[_param.name]['value']
+          if 'type' in values[_param.name]:
+            _param.column_type = values[_param.name]['type']
+        else:
+          value = values[_param.name]
         _new = self._insert(data=_report, field=_param, value=value)
         _report = self._update(field=_param, original=_report, new=_new)
 
