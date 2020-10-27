@@ -50,7 +50,7 @@ def main(unusedargv):
       "email": "davidharcombe@google.com",
       "AgencyId": "20700000001001042",
       "AdvertiserId": "21700000001533241",
-      "ConversionMetric": "AW Conversions",
+      "ConversionMetric": { "value": "AW Conversions", "type": "columnName" },
       "RevenueMetric": "ROAS GA",
       "offset": 0,
       "lookback": 0,
