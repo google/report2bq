@@ -42,6 +42,7 @@ class SA360Manager(object):
   sa360 = None
   sa360_service = None
   scheduler = None
+  saved_column_names = {}
   
   def manage(self, **kwargs):
     project = kwargs['project']
@@ -124,42 +125,80 @@ class SA360Manager(object):
       }
       scheduler.process(args)
 
-  def validate(self, firestore: Firestore, project: str, _print: bool=False, **unused):
-    sa360_objects = firestore.list_documents(Type.SA360_RPT)
+  def validate(self, firestore: Firestore, project: str, _print: bool=False, file=None, **unused):
     sa360_report_definitions = firestore.get_document(Type.SA360_RPT, '_reports')
+
+    if file:
+      with open(file) as rpt:
+        sa360_objects = json.loads(''.join(rpt.readlines()))
+    else:
+      sa360_objects = firestore.list_documents(Type.SA360_RPT)
 
     for sa360_object in sa360_objects:
       if sa360_object == '_reports': continue
 
-      print(f'Validating {sa360_object}:')
-      report = firestore.get_document(Type.SA360_RPT, sa360_object)
-      target_report = sa360_report_definitions[report['report']]
-      custom_columns = self.list_custom_columns(project, report['AgencyId'], report['AdvertiserId'])
-      report_custom_columns = [column['name'] for column in target_report['parameters'] if 'ordinal' in column]
-      valid = True
-      for report_custom_column in report_custom_columns:
-        if report[report_custom_column]:
-          valid = valid and report[report_custom_column] in custom_columns
-          print(f'  Checking {report_custom_column}: {report[report_custom_column]}: {valid}')
+      if file:
+        self._file_based(project, sa360_report_definitions, sa360_object)
 
-      if 'API_KEY' in os.environ:
-        args = {
-          'action': 'enable' if valid else 'disable',
-          'email': self.sa360.email,
-          'project': project,
-          'job_id': f'run-sa360_report-{sa360_object}',
-        }
-        self.scheduler.process(args)
+      else:
+        self._firestore_based(project, firestore, sa360_report_definitions, sa360_object)
 
-      if not valid:
-        print('  Available custom columns for this agency/advertiser pair:')
-        for custom_column in custom_columns:
-          print(f'    "{custom_column}"')
+  def _file_based(self, project, sa360_report_definitions, report):
+    print(f'Validating {report.get("agencyName", "-")} ({report["AgencyId"]}/{report["AdvertiserId"]}):')
+    target_report = sa360_report_definitions[report['report']]
+    custom_columns = self.list_custom_columns(project, report['AgencyId'], report['AdvertiserId'])
+    report_custom_columns = [column['name'] for column in target_report['parameters'] if 'ordinal' in column]
+    valid = True
+    for report_custom_column in report_custom_columns:
+      if report[report_custom_column]:
+        valid = valid and report[report_custom_column] in custom_columns
+        print(f'  Checking {report_custom_column}: {report[report_custom_column]}: {valid}')
+
+    if not valid:
+      print('  Available custom columns for this agency/advertiser pair:')
+      for custom_column in custom_columns:
+        print(f'    "{custom_column}"')
+
+  def _firestore_based(self, project, firestore, sa360_report_definitions, sa360_object): 
+    print(f'Validating {sa360_object}:')
+    report = firestore.get_document(Type.SA360_RPT, sa360_object)
+    target_report = sa360_report_definitions[report['report']]
+    custom_columns = self.list_custom_columns(project, report['AgencyId'], report['AdvertiserId'])
+    report_custom_columns = [column['name'] for column in target_report['parameters'] if 'ordinal' in column]
+    valid = True
+    for report_custom_column in report_custom_columns:
+      if report[report_custom_column]:
+        valid = valid and report[report_custom_column] in custom_columns
+        print(f'  Checking {report_custom_column}: {report[report_custom_column]}: {valid}')
+
+    if 'API_KEY' in os.environ:
+      args = {
+        'action': 'enable' if valid else 'disable',
+        'email': self.sa360.email,
+        'project': project,
+        'job_id': f'run-sa360_report-{sa360_object}',
+      }
+      self.scheduler.process(args)
+
+    if not valid:
+      print('  Available custom columns for this agency/advertiser pair:')
+      for custom_column in custom_columns:
+        print(f'    "{custom_column}"')
 
   def list_custom_columns(self, project: str, agency: int, advertiser: int) -> List[str]:
+    if saved_columns := self.saved_column_names.get((agency, advertiser)):
+      return saved_columns
+
     if not self.sa360_service:
       self.sa360_service = DiscoverService.get_service(Service.SA360, self.sa360.creds)
+
     request = self.sa360_service.savedColumns().list(agencyId=agency, advertiserId=advertiser)
     response = request.execute()
 
-    return [item['savedColumnName'] for item in response['items']]
+    if 'items' in response:
+      saved_columns = [item['savedColumnName'] for item in response['items']]
+      self.saved_column_names[(agency, advertiser)] = saved_columns
+    else:
+      saved_columns = ['--- No custom columns found ---']
+
+    return saved_columns

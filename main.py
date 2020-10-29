@@ -82,7 +82,13 @@ def report_fetch(event: Dict[str, Any], context=None):
         'notify_topic': attributes.get('notify_topic', None),
         'notify_message': attributes.get('notify_message', None),
       }
-      if kwargs.get('sa360_url'): kwargs['product'] = Type.SA360
+      kwargs.update(attributes)
+
+      if 'type' in attributes:
+        if attributes['type'] == 'dbm': kwargs['product'] = Type.DV360
+        elif attributes['type'] == 'dcm': kwargs['product'] = Type.CM
+        else: kwargs['product'] = Type(attributes['type'])
+      elif kwargs.get('sa360_url'): kwargs['product'] = Type.SA360
       elif kwargs.get('profile'): kwargs['product'] = Type.CM
       else: kwargs['product'] = Type.DV360
 
@@ -248,7 +254,7 @@ def post_processor(event: Dict[str, Any], context=None):
     exec(_import)
     Processor = getattr(import_module(f'classes.postprocessor.{postprocessor}'), 'Processor')
 
-    Processor().run(context, **attributes)
+    Processor().run(context=context, **attributes)
 
 
 def email_error(email: str, product: str, event: Dict[str, Any], error: Exception):

@@ -25,7 +25,7 @@ import uuid
 
 from absl import app, flags
 
-from classes.firestore import Firestore
+from classes.firestore import Firestore, firestore
 from classes.report_type import Type
 from classes.sa360_report_runner import SA360ReportRunner
 from classes.sa360_v2 import SA360
@@ -42,49 +42,50 @@ flags.DEFINE_string('file', None, 'JSON file containing the report definition.')
 
 def main(unusedargv):
   # Test report prepare
-  with open(FLAGS.file) as template_file:
-    template = json.loads(''.join(template_file.readlines()))
-    ready = SA360ReportTemplate().prepare(template=template, values={
-      "report": "holiday_2020",
-      "timezone": "America/Toronto",
-      "email": "davidharcombe@google.com",
-      "AgencyId": "20700000001001042",
-      "AdvertiserId": "21700000001533241",
-      "ConversionMetric": { "value": "AW Conversions", "type": "columnName" },
-      "RevenueMetric": "ROAS GA",
-      "offset": 0,
-      "lookback": 0,
-      "notifier": {
-        "topic": "post-processor",
-        "message": "report2bq_execute_metrics_calculation"
-      },
-      "agencyName": "Best Buy Canada",
-      "advertiserName": "Best Buy Canada Search Corporate",
-      "minute": "1"
-    })
+  # with open(FLAGS.file) as template_file:
+  #   template = json.loads(''.join(template_file.readlines()))
+  #   ready = SA360ReportTemplate().prepare(template=template, values={
+  #     "report": "holiday_2020",
+  #     "timezone": "America/Toronto",
+  #     "email": "davidharcombe@google.com",
+  #     "AgencyId": "20700000001001042",
+  #     "AdvertiserId": "21700000001533241",
+  #     "ConversionMetric": { "value": "AW Conversions", "type": "columnName" },
+  #     "RevenueMetric": "ROAS GA",
+  #     "offset": 0,
+  #     "lookback": 0,
+  #     "notifier": {
+  #       "topic": "post-processor",
+  #       "message": "report2bq_execute_metrics_calculation"
+  #     },
+  #     "agencyName": "Best Buy Canada",
+  #     "advertiserName": "Best Buy Canada Search Corporate",
+  #     "minute": "1"
+  #   })
 
   # Add new reports
-  # scheduler = Scheduler()
-  # with open(FLAGS.file) as reports:
-  #   runners = json.loads(''.join(reports.readlines()))
+  scheduler = Scheduler()
+  with open(FLAGS.file) as reports:
+    runners = json.loads(''.join(reports.readlines()))
 
-  #   for runner in runners:
-  #     id = f"{runner['report']}_{runner['AgencyId']}_{runner['AdvertiserId']}"
-  #     Firestore().update_document(Type.SA360_RPT, f'{id}', runner)
+    for runner in runners:
+      id = f"{runner['report']}_{runner['AgencyId']}_{runner['AdvertiserId']}"
+      # Firestore().delete_document(Type.SA360_RPT, f'{id}')
+      Firestore().update_document(Type.SA360_RPT, f'{id}', runner)
 
-  #     args = {
-  #       'action': 'create',
-  #       'email': runner['email'],
-  #       'project': 'report2bq-zz9-plural-z-alpha',
-  #       'force': False,
-  #       'infer_schema': True,
-  #       'append': False,
-  #       'sa360_id': id,
-  #       'description': f'[CA] Holiday 2020: {runner["agencyName"]}/{runner["advertiserName"]}',
-  #       'dest_dataset': 'holiday_2020_us',
-  #       'minute': runner['minute'],
-  #     }
-  #     scheduler.process(args)
+      # args = {
+      #   'action': 'create',
+      #   'email': runner['email'],
+      #   'project': 'report2bq-zz9-plural-z-alpha',
+      #   'force': False,
+      #   'infer_schema': True,
+      #   'append': False,
+      #   'sa360_id': id,
+      #   'description': f'[US] Holiday 2020: {runner["agencyName"]}/{runner["advertiserName"]}',
+      #   'dest_dataset': 'holiday_2020_us',
+      #   'minute': runner['minute'],
+      # }
+      # scheduler.process(args)
 
 
   # runner = Firestore().get_document(Type.SA360_RPT, 'holiday_2020_20700000000000942_21700000001478610')
