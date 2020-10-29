@@ -26,9 +26,10 @@ up fetchers or runners and a minimal amount of manual actions to be done.
 This is where the Administration module is based.
 
 1. Edit the `app.yaml` file in your favourite text editor.  
-Modify line 5 (`API_KEY: ""`) and copy/paste the API key from the Credentials page into the API KEY between the quotation marks.  
+Modify line 5 (`API_KEY: ""`) and copy/paste the API key from the [Credentials](https://console.cloud.google.com/apis/credentials) page into the API KEY between the quotation marks.
+![](screenshots/app-yaml.png) \
 Save and exit.
-****Add screenshot of API Key
+
 **Create jobs**
 
 1. Deploy the appengine instance:  
@@ -59,6 +60,11 @@ Deployed service [default] to [<YOUR APPENGINE URL>]
 
 1. While this is deploying, we now want to secure the appengine server. So let's go do that.
 
+1. Navigate to [IAM > Identity Aware Proxy 'IAP'](https://console.cloud.google.com/security/iap).
+1. You should see the report2bq app under HTTPS resources, enable the IAP toggle. Click on the row to show
+the panel to add members. Add the user/email list/domain to the role “IAP-Secured Web App users” to control
+the users that can access the site.
+
 1. Navigate to the IAM & Admin > Identity Aware Proxy section in the Google Cloud Console  
 ![](screenshots/1_IAP-enable.png)
 
@@ -69,22 +75,25 @@ Deployed service [default] to [<YOUR APPENGINE URL>]
    
    1. Go to API & Services
 
-   1. *If you have not created an OAuth consent screen set one up (see instructions in [../README.md#Authentication](../README.md#Authentication)), otherwise edit the existing one.* Select OAuth Consent Screen in the menu options.
-       * The authorised domains to include:  
-         * The url of your app engine app
+   1. *If you have not already created an [oAuth Consent Screen](https://console.cloud.google.com/apis/credentials/consent),
+    set one up now (see instructions in [../README.md#Authentication](../README.md#Authentication)), otherwise edit the existing one by clicking "EDIT APP" next to the app name.
+       * Under "Authorized domains",  add the url of your app engine app (Bookmarked from the [IAP](https://console.cloud.google.com/security/iap) page in a previous step.)
 
-2. When active, ensure that IAP on "App Engine app" is switched on. The appengine uses IAP to ensure you can control who has access - and to get the logged in user's details.
+1. Ensure that IAP on "App Engine app" is switched on. The appengine uses IAP to ensure you can control who has access - and to get the logged in user's details.
  
-3. Now lock it down. You do this by:
+1. Now lock it down. You do this by:
 
     - Selecting the `App Engine app` checkbox on the left to open the info panel.
     - Clicking the `Add member` button, and insert the user(s) (`davidharcombe@google.com` for example) or domains (`google.com`) you want to have access.
-    - Selecting the role Cloud IAP > IAP-secured Web App User
+    - Selecting the role "Cloud IAP" > "IAP-secured Web App User".
     - Clicking `Save`  
     ![](screenshots/2_IAP-configure.png)
 
-4. Allow the newly deployed appengine access to complete the OAuth authentication.
-   - Go to the OAuth consent screen at APIs & Services -> Credentials oAuth 2.0 Client IDS "Report2BQ oAuth Client Id"->Edit (pencil icon on the right)
-   - `<YOUR APPENGINE URL>` to the 'Authorized Javascript Origins'.
+1. Allow the newly deployed app engine access to complete the OAuth authentication.
+   - Go back to [APIs & Services -> Credentials](https://console.cloud.google.com/apis/credentials/), and click Edit (pencil icon) to the right of "oAuth 2.0 Client IDs" > ""Report2BQ oAuth Client Id"
+   ![](screenshots/credentials-edit_oauth_client_id.png)
+   - Add `<YOUR APPENGINE URL>` (bookmarked previously) to the 'Authorized Javascript Origins'.
    - Add `<YOUR APPENGINE URL>/oauth-complete` and `<YOUR APPENGINE URL>` to the 'Authorized Redirect URIs'.
    - Save
+
+1. You have now completed setting up the *Report2BQ Authentication and Administration Interface*.

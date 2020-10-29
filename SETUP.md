@@ -129,7 +129,7 @@ The `--description` is not strictly *mandatory*, but it's a really nice thing to
   This is useful if you run a report for (say) yesterday, but want to build up a history.  
   **WARNING:** it will replace NO data. None.
 
-#### Creatng a DV360 or CM `runner` to grab report results
+#### Creating a DV360 or CM `runner` to grab report results
 
 ##### Base command
 
@@ -152,3 +152,9 @@ The `--description` is not strictly *mandatory*, but it's a really nice thing to
   * Append the run to the existing BQ table instead of completely overwriting  
   This is useful if you run a report for (say) yesterday, but want to build up a history.  
   **WARNING:** it will replace NO data. None.
+
+##### _Note on Error Notification Emails..._
+* After setting up report fetchers/runners, you will start to receive
+Error notification emails with the subject "*[REPORT2BQ on `<Project Id>`]: 
+Error in Report Fetcher*". These emails can safely be ignored, unless
+ they occur every hour (the job checker runs hourly).

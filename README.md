@@ -40,41 +40,44 @@ And allow it to update
 
 ####Before we start to install
 
-1. Now navigate to API & Services > Credentials
+1. Navigate to [API & Services > Credentials](https://console.cloud.google.com/apis/credentials)
 
 1. You will need an API key. Click "CREATE CREDENTIALS", and you will see this:  
 ![](screenshots/3a-CreateAPIKey.png)  
-Select "API Key"
-Name: “Report2BQ API Key” 
+Select "API Key", set name to“Report2BQ API Key” \
+Note the API Key's value, you will need it for the next step
 
 ####Install the application
 
 1. Run the installer \
-`./install.sh --project=<PROJECT ID> --dataset=<DATASET NAME> --api-key=<API KEY> --create-service-account --activate-apis --deploy-all --dry-run` \
-Project id comes from the GCP dashboard: \
+`./install.sh --project=<PROJECT ID> --dataset=<DATASET NAME> --api-key=<API 
+KEY> --create-service-account --activate-apis --deploy-all` \
+ * _`<PROJECT ID>` comes from the [GCP dashboard](https://console.cloud.google.com/home/dashboard):_ \
 ![](screenshots/1-project_id.png) \
-`--dry-run` simply shows what the code is _going_ to do, without actually doing anything.  
-`<DATASET NAME>` default to `report2bq` if you don't choose your own.  
-For detailed directions on what the installer can do, please see later or check out the script's own help with
-`./installer.sh --help` \
+ * _`<DATASET NAME>` will default to `report2bq` if you don't choose your own._
+ * _`<API KEY>`  is the value from the API Key you created in the previous step_ \
+ * _`--dry-run` simply shows what the code is _going_ to do, without actually doing
+ anything._  ] \
+For detailed directions on what the installer can do, please see later or check
+ out the script's own help with `./installer.sh --help` \
 **NOTE**: You can safely ignore any messages that say `ERROR: Failed to delete topic` at this point.
-
 1. If you are prompted, type "y" to create an App Engine use the cloud scheduler, and choose a region  that makes
-sense to you.
+sense to you. (***NOTE the region. You will need it in a few steps.)
 
-1. When the installer is finished (this will take a while, possibly as long as half an hour) go to the cloud console
-in your browser, and go to Firestore (From the Cloud Console).
+1. Once the installer has finished (this may take up to half an hour), go to [Firestore](https://console.cloud.google.com/firestore/data).
 
-1. Set Firestore to "Native" mode. This **must** be done, and **cannot** be done programmatically
-![](screenshots/firestore-to-native-mode-0.png)
-![](screenshots/firestore-to-native-mode-2.png)
+1. Set Firestore to "Native" mode. This **must** be done, and **cannot** be done programmatically. \
+![](screenshots/firestore-to-native-mode-0.png)\
+\
+![](screenshots/firestore-to-native-mode-2.png)\
+\
 ![](screenshots/firestore-to-native-mode-1.png)
 
 ####Authentication
 
 1. Create the server's OAuth Id \
-*(Note: You may need to "Configure Consent Screen" first. User type is likely "Internal", App name should be some variation on "`[Solution Name]` - Report2BQ"). User your email address for the email address fields. Don't worry about any non-required fields.)*\
-1.1 Go to the API Credentials page and create new credentials. These should be of type
+*(Note: You may need to "[Configure Consent Screen](https://console.cloud.google.com/apis/credentials/consent)" first. User type is likely "Internal", App name should be some variation on "`[Solution Name]` - Report2BQ"). User your email address for the email address fields. Don't worry about any non-required fields.)*\
+1.1 Go to _[API Credentials](https://console.cloud.google.com/apis/credentials) > +CREATE CREDENTIALS > OAuth client ID_ of type
 'Web Application'. \
 ![](screenshots/4-OAuthClientId.png) \
 Now name it something sensible and memorable like 'Report2BQ oAuth Client Id'. \
@@ -82,18 +85,15 @@ Define the authorized redirect urls to be able to complete the OAuth flow.\
 ![](screenshots/6-RedirectURI.png) \
 Click "+ ADD URI"  and this screen will show up: \
 ![](screenshots/7-OAuthRedirectURI.png) \
-Paste in the `httpsTrigger` URL: `https:\\<PROJECT REGION>-<PROJECT ID>.cloudfunctions.net`,(e.g., `https://us-east1-my-rbq-project.cloudfunctions.net`) and click SAVE.
+Paste in the `httpsTrigger` URL: `https://<PROJECT REGION>-<PROJECT ID>.cloudfunctions.net`,(e.g., `https://us-east1-my-rbq-project.cloudfunctions.net`) and click SAVE.
 
-1. Download the Client ID JSON and save it to the tokens cloud storage bucket \
+1. Download the Client ID JSON from the [Credentials](https://console.cloud.google.com/apis/credentials) page.
+1. Rename it to "client_secrets.json".
+1. Save it [Cloud Storage](https://console.cloud.google.com/storage/browser) in the `<project id>-report2bq-tokens` bucket :\
 ![](screenshots/5-OAuth_client.png) \
-Click on the download button to save the file. Now upload it to the token storage bucket in the
-cloud, renaming it "client_secrets.json" as you go. You can do this through the web, or using the
-CLI `gsutil` command like this: \
+(This can also be done via the CLI `gsutil` command like this: \
 `gsutil cp <DOWNLOADED FILE> gs://<PROJECT ID>-report2bq-tokens/client_secrets.json`
-
-1. Navigate to IAM > Identity Aware Proxy 'IAP'. (Enable it, if needed.)
-
-1. Follow steps on [./appengine/README.md](./appengine/README.md) to install the App Engine project that will allow users to grant permission to Report2BQ to run on their behalf.
-
-1. Once you have set up the App Engine project in the previous step, you can create the runners and fetchers for a given report.\
-*See **[SETUP.md](SETUP.md)** for details on how to do this.*
+)
+1. Follow steps on [./appengine/README.md](./appengine/README.md) to install the *Report2BQ Authentication and Administration Interface*, which allows users to grant permission to Report2BQ to run on their behalf.
+1. You can now create runners and fetchers for a given report.\
+(*See **[SETUP.md](SETUP.md)** for details on how to do this.*)
