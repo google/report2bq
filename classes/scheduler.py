@@ -132,6 +132,12 @@ class Scheduler(Fetcher):
         'append': str(args.get('append')),
       }
 
+      if 'dest_dataset' in args:
+        _attrs['dest_dataset'] = args.get('dest_dataset')
+
+      if 'dest_project' in args:
+        _attrs['dest_project'] = args.get('dest_project')
+
       if args.get('minute'):
         minute = args.get('minute')
       else:

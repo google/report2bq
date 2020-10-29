@@ -388,7 +388,7 @@ if [ ${DEPLOY_MONITOR} -eq 1 ]; then
     --trigger-topic="job-monitor" \
     --service-account=$USER \
     --quiet \
-    --timeout=60s \
+    --timeout=240s \
     --project=${PROJECT} ${_BG}
 
   # Create scheduled job
@@ -483,7 +483,7 @@ if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
     --service-account=$USER \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
-    --timeout=60s \
+    --timeout=240s \
     --project=${PROJECT} ${_BG}
 
   # Create scheduled job

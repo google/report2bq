@@ -129,7 +129,6 @@ class RunMonitor(object):
       logging.error(f'Report {run_config["report_id"]} failed!')
       self.firestore.remove_report_runner(run_config['report_id'])
 
-
   def _check_cm_report(self, job_config: Dict[str, Any], run_config: Dict[str, Any]):
     """Check a running CM report for completion
     
@@ -159,19 +158,13 @@ class RunMonitor(object):
       logging.error('Report {report} failed!'.format(report=job_attributes['report_id']))
       self.firestore.remove_report_runner(job_attributes['report_id'])
 
-
   def _check_sa360_report(self, job_config: Dict[str, Any], run_config: Dict[str, Any]): 
-    sa360 = SA360(email=run_config['email'], project=self.project)
-
     # Merge configs
     job_attributes = job_config['pubsubTarget']['attributes'] if 'pubsubTarget' in job_config else {}
     config = { **run_config, **job_attributes }
-    
-    if sa360.handle_offline_report(run_config=config):
-      self.firestore.remove_report_runner(run_config['report_id'])
-      logging.info(f'Report {run_config["report_id"]} done.')
 
-    else:
-      # SA360 ones can't fail - they won't start if there are errors, so it's just
-      # not ready yet. So just leave it here and try again later.
-      logging.error(f'Report {run_config["report_id"]} not ready.')
+    # Send pubsub to trigger report2bq now
+    topic = 'projects/{project}/topics/report2bq-trigger'.format(project=self.project)
+    self.PS.publish(
+      topic=topic, data=b'RUN',
+      **config)

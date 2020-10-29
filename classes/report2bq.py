@@ -46,7 +46,8 @@ class Report2BQ(object):
     sa360_url=None,
     force: bool=False, append: bool=False, infer_schema: bool=False,
     dest_project: str=None, dest_dataset: str='report2bq',
-    notify_topic: str=None, notify_message: str=None):
+    notify_topic: str=None, notify_message: str=None, 
+    file_id: str=None, **unused):
     self.product = product
 
     self.force = force
@@ -57,6 +58,7 @@ class Report2BQ(object):
     self.report_id = report_id
 
     self.sa360_url = unquote(sa360_url) if sa360_url else None
+    self.file_id = file_id
 
     self.cm_profile = profile
 
@@ -68,8 +70,7 @@ class Report2BQ(object):
     self.notify_topic = notify_topic
     self.notify_message = notify_message
 
-    self.firestore = Firestore(email=email, project=project)    
-
+    self.firestore = Firestore(email=email, project=project)
 
   def handle_report_fetcher(self, fetcher: ReportFetcher):
     # Get Latest Report
@@ -112,7 +113,11 @@ class Report2BQ(object):
 
 
   def handle_sa360(self):
-    sa360 = SA360(project=self.project, email=self.email, infer_schema=self.infer_schema, append=self.append)
+    sa360 = SA360(
+      project=self.project, 
+      email=self.email,
+      infer_schema=self.infer_schema,
+      append=self.append)
     logging.info(self.sa360_url)
     id = re.match(r'^.*rid=([0-9]+).*$', self.sa360_url).group(1)
     report_data = self.firestore.get_report_config(Type.SA360, id)
@@ -139,6 +144,30 @@ class Report2BQ(object):
       
     self.firestore.store_report_config(Type.SA360, id, report_data)
   
+  def handle_sa360_report(self):
+    sa360 = SA360(
+      project=self.project, 
+      email=self.email,
+      infer_schema=self.infer_schema,
+      append=self.append)
+    logging.info(f'Handling SA360 report {self.report_id}')
+
+    # Merge configs
+    run_config = {
+      "email": self.email,
+      "file_id": self.file_id,
+      "project": self.project,
+      "report_id": self.report_id,
+      "type": self.product,
+    }
+    if sa360.handle_offline_report(run_config=run_config):
+      self.firestore.remove_report_runner(self.report_id)
+      logging.info(f'Report {self.report_id} done.')
+
+    else:
+      # SA360 ones can't fail - they won't start if there are errors, so it's just
+      # not ready yet. So just leave it here and try again later.
+      logging.error(f'Report {self.report_id} not ready.')
 
   def run(self):
     logging.info(f'Product: {self.product}')
@@ -148,3 +177,6 @@ class Report2BQ(object):
 
     elif self.product == Type.SA360:
       self.handle_sa360()
+
+    elif self.product == Type.SA360_RPT:
+      self.handle_sa360_report()
