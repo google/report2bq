@@ -18,6 +18,7 @@ __author__ = [
   'davidharcombe@google.com (David Harcombe)'
 ]
 
+from classes.sa360_report_manager import SA360Manager
 from classes.sa360_reports import SA360ReportTemplate
 import json
 import pprint
@@ -67,26 +68,36 @@ def main(unusedargv):
   scheduler = Scheduler()
   with open(FLAGS.file) as reports:
     runners = json.loads(''.join(reports.readlines()))
+    firestore = Firestore()
+
+    sa360_report_definitions = firestore.get_document(Type.SA360_RPT, '_reports')
+    sa360_manager = SA360Manager()
+    sa360_manager.sa360 = SA360(email='davidharcombe@google.com', project="report2bq-zz9-plural-z-alpha")
 
     for runner in runners:
       id = f"{runner['report']}_{runner['AgencyId']}_{runner['AdvertiserId']}"
-      # Firestore().delete_document(Type.SA360_RPT, f'{id}')
-      Firestore().update_document(Type.SA360_RPT, f'{id}', runner)
+      firestore.store_document(Type.SA360_RPT, f'{id}', runner)
 
-      # args = {
-      #   'action': 'create',
-      #   'email': runner['email'],
-      #   'project': 'report2bq-zz9-plural-z-alpha',
-      #   'force': False,
-      #   'infer_schema': True,
-      #   'append': False,
-      #   'sa360_id': id,
-      #   'description': f'[US] Holiday 2020: {runner["agencyName"]}/{runner["advertiserName"]}',
-      #   'dest_dataset': 'holiday_2020_us',
-      #   'minute': runner['minute'],
-      # }
-      # scheduler.process(args)
-
+      if sa360_manager._file_based(
+        project='report2bq-zz9-plural-z-alpha',
+         sa360_report_definitions=sa360_report_definitions, report=runner):
+        print(f'Valid report: {id}')
+        args = {
+          'action': 'create',
+          'email': runner['email'],
+          'project': 'report2bq-zz9-plural-z-alpha',
+          'force': False,
+          'infer_schema': False,
+          'append': False,
+          'sa360_id': id,
+          'description': f'[CA] Holiday 2020: {runner["agencyName"]}/{runner["advertiserName"]}',
+          'dest_dataset': 'holiday_2020_ca',
+          'minute': runner['minute'],
+        }
+        scheduler.process(args)
+      
+      else:
+        print(f'Invalid report: {id}')
 
   # runner = Firestore().get_document(Type.SA360_RPT, 'holiday_2020_20700000000000942_21700000001478610')
   # runners = Firestore().get_all_reports(Type.SA360_RPT)

@@ -399,7 +399,7 @@ if [ ${DEPLOY_MONITOR} -eq 1 ]; then
 
   ${DRY_RUN} gcloud beta scheduler jobs create pubsub \
     "job-monitor" \
-    --schedule="*/5 * * * *" \
+    --schedule="*/2 * * * *" \
     --topic="projects/${PROJECT}/topics/job-monitor" \
     --time-zone="America/Toronto" \
     --message-body="RUN" \
@@ -494,7 +494,7 @@ if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
 
   ${DRY_RUN} gcloud beta scheduler jobs create pubsub \
     "run-monitor" \
-    --schedule="*/5 * * * *" \
+    --schedule="1-59/2 * * * *" \
     --topic="projects/${PROJECT}/topics/run-monitor" \
     --time-zone="America/Toronto" \
     --message-body="RUN" \
@@ -514,6 +514,6 @@ if [ ${DEPLOY_POSTPROCESSOR} -eq 1 ]; then
     --service-account=$USER \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
-    --timeout=60s \
+    --timeout=240s \
     --project=${PROJECT} ${_BG}
 fi

@@ -143,7 +143,7 @@ class SA360Manager(object):
       else:
         self._firestore_based(project, firestore, sa360_report_definitions, sa360_object)
 
-  def _file_based(self, project, sa360_report_definitions, report):
+  def _file_based(self, project, sa360_report_definitions, report) -> bool:
     print(f'Validating {report.get("agencyName", "-")} ({report["AgencyId"]}/{report["AdvertiserId"]}):')
     target_report = sa360_report_definitions[report['report']]
     custom_columns = self.list_custom_columns(project, report['AgencyId'], report['AdvertiserId'])
@@ -156,10 +156,12 @@ class SA360Manager(object):
 
     if not valid:
       print('  Available custom columns for this agency/advertiser pair:')
-      for custom_column in custom_columns:
+      for custom_column in custom_columns: 
         print(f'    "{custom_column}"')
 
-  def _firestore_based(self, project, firestore, sa360_report_definitions, sa360_object): 
+    return valid
+
+  def _firestore_based(self, project, firestore, sa360_report_definitions, sa360_object) -> bool: 
     print(f'Validating {sa360_object}:')
     report = firestore.get_document(Type.SA360_RPT, sa360_object)
     target_report = sa360_report_definitions[report['report']]
@@ -184,6 +186,8 @@ class SA360Manager(object):
       print('  Available custom columns for this agency/advertiser pair:')
       for custom_column in custom_columns:
         print(f'    "{custom_column}"')
+
+    return valid
 
   def list_custom_columns(self, project: str, agency: int, advertiser: int) -> List[str]:
     if saved_columns := self.saved_column_names.get((agency, advertiser)):

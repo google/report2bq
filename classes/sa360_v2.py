@@ -95,10 +95,10 @@ class SA360(object):
       if report['isReportReady']:
         report_config = self.firestore.get_report_config(type=Type.SA360_RPT, id=run_config['report_id'])
 
-        csv_header, csv_types = self.read_header(report)
+        csv_header, _ = self.read_header(report)
         schema = CSVHelpers.create_table_schema(
           csv_header, 
-          csv_types if self.infer_schema else None
+          None
         )
         report_config['schema'] = schema
         report_config['files'] = report['files']

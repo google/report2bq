@@ -98,7 +98,7 @@ class JobMonitor(object):
                   logging.error(job.errors)
 
                 self._handle_finished(job=job)
-                ('notifier' in config) and self.notify(report_type=T, config=config, job=job)
+                ('notifier' in config) and self.notify(report_type=T, config=config, job=job, id=document.id)
                 firestore.mark_import_job_complete(document.id, job)
 
             except Exception as e:
@@ -126,14 +126,15 @@ class JobMonitor(object):
         source_blob.delete()
         logging.info('File {file} removed from {source}.'.format(file=blob_name, source=bucket_name))
 
-  def notify(self, report_type: Type, config: Dict[str, Any], job: LoadJob):
+  def notify(self, report_type: Type, config: Dict[str, Any], job: LoadJob, id: str):
     columns = ';'.join([ field['name'] for field in config['schema'] ])
+
     attributes = {
       'project': job.destination.project,
       'dataset': job.destination.dataset_id,
       'table': job.destination.table_id,
       'rows': str(job.output_rows),
-      'id': config.get('id') or config.get('report_id') or 'Unknown_SA360_REPORT',
+      'id': id,
       'type': report_type.value,
       'columns': columns
     }

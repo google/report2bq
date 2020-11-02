@@ -37,6 +37,8 @@ lxml
 messytables
 oauth2client
 oauthlib
+opentelemetry-api
+opentelemetry-instrumentation
 protobuf
 pyasn1
 pyasn1-modules
