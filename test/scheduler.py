@@ -23,7 +23,7 @@ from absl import app, flags
 from classes.firestore import Firestore
 from classes.report_type import Type
 from classes.sa360_report_runner import SA360ReportRunner
-from classes.sa360_v2 import SA360
+from classes.sa360_dynamic import SA360Dynamic
 from classes.scheduler import Scheduler
 from contextlib import suppress
 

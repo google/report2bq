@@ -29,7 +29,8 @@ from contextlib import suppress
 
 from classes.dbm import DBM
 from classes.dcm import DCM
-from classes.sa360_v2 import SA360
+from classes.sa360_dynamic import SA360Dynamic
+from classes.sa360_web import SA360Web
 from classes.firestore import Firestore
 from classes.report_type import Type
 from classes.scheduler import Scheduler

@@ -19,18 +19,11 @@ __author__ = [
 ]
 
 import collections
-import json
 import logging
-import time
-
-from classes import ReportRunner
-from classes.report_type import Type
-from classes.sa360_v2 import SA360
 
 from contextlib import suppress
 from dataclasses import dataclass
-from io import StringIO
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 
 @dataclass

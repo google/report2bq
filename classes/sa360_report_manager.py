@@ -20,8 +20,11 @@ __author__ = [
 
 from classes.services import Service
 from classes.discovery import DiscoverService
-from classes.sa360_v2 import SA360
+from classes.sa360_dynamic import SA360Dynamic
 from classes.sa360_reports import SA360ReportTemplate
+from classes.sa360_report_validation.sa360_validator_factory import SA360ValidatorFactory
+from classes.sa360_report_validation.campaign import Campaign
+
 import json
 import logging
 import os
@@ -31,7 +34,7 @@ import pprint
 from contextlib import suppress
 from datetime import datetime
 from urllib.parse import unquote
-from typing import List
+from typing import Any, Dict, List, Tuple
 
 from classes.firestore import Firestore
 from classes.report_type import Type
@@ -70,7 +73,7 @@ class SA360Manager(object):
     }.get(kwargs['action'])
     
     if action:
-      self.sa360 = SA360(email, project)
+      self.sa360 = SA360Dynamic(email, project)
       return action(**args)
 
     else:
@@ -127,6 +130,10 @@ class SA360Manager(object):
 
   def validate(self, firestore: Firestore, project: str, _print: bool=False, file=None, **unused):
     sa360_report_definitions = firestore.get_document(Type.SA360_RPT, '_reports')
+    self.validator_factory = SA360ValidatorFactory()
+
+    if not self.sa360_service:
+      self.sa360_service = DiscoverService.get_service(Service.SA360, self.sa360.creds)
 
     if file:
       with open(file) as rpt:
@@ -143,35 +150,49 @@ class SA360Manager(object):
       else:
         self._firestore_based(project, firestore, sa360_report_definitions, sa360_object)
 
-  def _file_based(self, project, sa360_report_definitions, report) -> bool:
+  def _file_based(self, project, sa360_report_definitions, report) -> Tuple[bool, Dict[str, Any]]:
     print(f'Validating {report.get("agencyName", "-")} ({report["AgencyId"]}/{report["AdvertiserId"]}):')
     target_report = sa360_report_definitions[report['report']]
-    custom_columns = self.list_custom_columns(project, report['AgencyId'], report['AdvertiserId'])
-    report_custom_columns = [column['name'] for column in target_report['parameters'] if 'ordinal' in column]
+    validator = self.validator_factory.get_validator(report_type=target_report['report']['reportType'],
+      sa360_service=self.sa360_service, agency=report['AgencyId'], advertiser=report['AdvertiserId'])
+    report_custom_columns = [column['name'] for column in target_report['parameters'] if 'is_list' in column]
     valid = True
     for report_custom_column in report_custom_columns:
       if report[report_custom_column]:
-        valid = valid and report[report_custom_column] in custom_columns
-        print(f'  Checking {report_custom_column}: {report[report_custom_column]}: {valid}')
+        (valid_column, name) = validator.validate(report[report_custom_column])
+        valid = valid and valid_column
+        if not valid_column and name:
+          print(f'  Field {report_custom_column} - {report[report_custom_column]}: {valid_column}, did you mean "{name}"')
+        else:
+          print(f'  Field {report_custom_column} - {report[report_custom_column]}: {valid_column}')
 
     if not valid:
       print('  Available custom columns for this agency/advertiser pair:')
-      for custom_column in custom_columns: 
+      for custom_column in validator.saved_column_names: 
         print(f'    "{custom_column}"')
 
-    return valid
+    if len(set(report_custom_columns)) != len(report_custom_columns):
+      valid = False
+    
+    return (valid, { 'is_valid': f'{valid}' })
 
-  def _firestore_based(self, project, firestore, sa360_report_definitions, sa360_object) -> bool: 
+  def _firestore_based(self, project, firestore, sa360_report_definitions, sa360_object) -> Tuple[bool, Dict[str, Any]]: 
     print(f'Validating {sa360_object}:')
     report = firestore.get_document(Type.SA360_RPT, sa360_object)
     target_report = sa360_report_definitions[report['report']]
-    custom_columns = self.list_custom_columns(project, report['AgencyId'], report['AdvertiserId'])
-    report_custom_columns = [column['name'] for column in target_report['parameters'] if 'ordinal' in column]
+    validator = self.validator_factory.get_validator(report_type=target_report['report']['reportType'],
+      sa360_service=self.sa360_service, agency=report['AgencyId'], advertiser=report['AdvertiserId'])
+    report_custom_columns = [column['name'] for column in target_report['parameters'] if 'is_list' in column]
     valid = True
     for report_custom_column in report_custom_columns:
       if report[report_custom_column]:
-        valid = valid and report[report_custom_column] in custom_columns
-        print(f'  Checking {report_custom_column}: {report[report_custom_column]}: {valid}')
+        (valid_column, name) = validator.validate(report[report_custom_column])
+        valid = valid and valid_column
+        if not valid_column and name:
+          print(f'  Field {report_custom_column} - {report[report_custom_column]}: {valid_column}, did you mean "{name}"')
+        else:
+          print(f'  Field {report_custom_column} - {report[report_custom_column]}: {valid_column}')
+
 
     if 'API_KEY' in os.environ:
       args = {
@@ -184,10 +205,13 @@ class SA360Manager(object):
 
     if not valid:
       print('  Available custom columns for this agency/advertiser pair:')
-      for custom_column in custom_columns:
+      for custom_column in validator.saved_column_names: 
         print(f'    "{custom_column}"')
 
-    return valid
+    if len(set(report_custom_columns)) != len(report_custom_columns):
+      valid = False
+    
+    return (valid, { 'is_valid': f'{valid}' })
 
   def list_custom_columns(self, project: str, agency: int, advertiser: int) -> List[str]:
     if saved_columns := self.saved_column_names.get((agency, advertiser)):

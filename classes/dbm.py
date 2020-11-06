@@ -20,14 +20,10 @@ __author__ = [
 
 # Python Imports
 import datetime
-import httplib2
 import io
 import logging
-import mmap
 import os
 import re
-import sys
-import time
 
 # Class Imports
 from classes import Fetcher, ReportFetcher
@@ -47,7 +43,6 @@ from typing import Dict, Any, List, Tuple
 from urllib.request import urlopen
 
 from googleapiclient.discovery import Resource
-from googleapiclient.errors import HttpError
 
 
 class DBM(ReportFetcher, Fetcher):

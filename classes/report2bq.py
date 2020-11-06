@@ -30,7 +30,8 @@ from classes.fetcher_factory import FetcherFactory
 from classes.csv_helpers import CSVHelpers
 from classes.dbm import DBM
 from classes.dcm import DCM
-from classes.sa360_v2 import SA360
+from classes.sa360_dynamic import SA360Dynamic
+from classes.sa360_web import SA360Web
 from classes.cloud_storage import Cloud_Storage
 from classes.firestore import Firestore
 from classes.report_type import Type
@@ -111,9 +112,8 @@ class Report2BQ(object):
       
     self.firestore.store_report_config(fetcher.report_type, self.report_id, report_data)
 
-
   def handle_sa360(self):
-    sa360 = SA360(
+    sa360 = SA360Web(
       project=self.project, 
       email=self.email,
       infer_schema=self.infer_schema,
@@ -138,14 +138,14 @@ class Report2BQ(object):
         'topic': self.notify_topic,
       }
       if self.notify_message: report_data['notifier']['message'] = self.notify_message
-    sa360.process(
+    sa360.stream_to_gcs(
       bucket='{project}-report2bq-upload'.format(project=self.project),
       report_details=report_data)
       
     self.firestore.store_report_config(Type.SA360, id, report_data)
   
   def handle_sa360_report(self):
-    sa360 = SA360(
+    sa360 = SA360Dynamic(
       project=self.project, 
       email=self.email,
       infer_schema=self.infer_schema,
@@ -160,7 +160,7 @@ class Report2BQ(object):
       "report_id": self.report_id,
       "type": self.product,
     }
-    if sa360.handle_offline_report(run_config=run_config):
+    if sa360.handle_report(run_config=run_config):
       self.firestore.remove_report_runner(self.report_id)
       logging.info(f'Report {self.report_id} done.')
 

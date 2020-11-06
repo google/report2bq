@@ -34,7 +34,7 @@ from classes.gmail import GMail, GMailMessage
 from classes.report2bq import Report2BQ
 from classes.report_type import Type
 from classes.sa360_reports import SA360ReportParameter, SA360ReportTemplate
-from classes.sa360_v2 import SA360
+from classes.sa360_dynamic import SA360Dynamic
 from classes.services import Service
 
 from dataclasses import dataclass
@@ -59,7 +59,7 @@ class SA360ReportRunner(ReportRunner):
 
   def run(self, unattended: bool = True) -> Dict[str, Any]:
     # TODO: Make SA360 object here
-    sa360 = SA360(self.email, self.project)
+    sa360 = SA360Dynamic(self.email, self.project)
 
     if unattended:
       return self._unattended_run(sa360=sa360)
@@ -67,7 +67,7 @@ class SA360ReportRunner(ReportRunner):
       return self._attended_run(sa360=sa360)
 
 
-  def _unattended_run(self, sa360: SA360) -> Dict[str, Any]:
+  def _unattended_run(self, sa360: SA360Dynamic) -> Dict[str, Any]:
     runner = None
     report_config = None
     try:
@@ -130,5 +130,5 @@ Error: {error if error else 'No exception.'}
         credentials=Credentials(email=email, project=os.environ.get('GCP_PROJECT'))
       )
 
-  def _attended_run(self, sa360: SA360) -> None: 
+  def _attended_run(self, sa360: SA360Dynamic) -> None: 
     raise NotImplementedError()

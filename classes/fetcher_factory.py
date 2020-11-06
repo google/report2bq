@@ -21,7 +21,8 @@ __author__ = [
 from classes import ReportFetcher
 from classes.dbm import DBM
 from classes.dcm import DCM
-from classes.sa360_v2 import SA360
+from classes.sa360_web import SA360Web
+from classes.sa360_dynamic import SA360Dynamic
 from classes.report_type import Type
 
 
@@ -37,7 +38,10 @@ class FetcherFactory(object):
       fetcher = DCM(**kwargs)
 
     elif product == Type.SA360:
-      fetcher = SA360(**kwargs)
+      fetcher = SA360Web(**kwargs)
+
+    elif product == Type.SA360_RPT:
+      fetcher = SA360Dynamic(**kwargs)
 
     else:
       raise Exception(f'Cannot create fetcher for {product}')
