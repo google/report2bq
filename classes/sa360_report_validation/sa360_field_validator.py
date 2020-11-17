@@ -75,7 +75,7 @@ class SA360Validator(object):
           item['savedColumnName'] for item in response['items']
         ]
       else:
-        self.saved_column_names = None
+        self.saved_column_names = []
 
 
 def main(unused_argv):

@@ -193,24 +193,41 @@ class SA360Manager(object):
         else:
           print(f'  Field {report_custom_column} - {report[report_custom_column]}: {valid_column}')
 
+    if len(set(report_custom_columns)) != len(report_custom_columns):
+      valid = False
 
     if 'API_KEY' in os.environ:
       args = {
-        'action': 'enable' if valid else 'disable',
+        'action': 'get',
         'email': self.sa360.email,
         'project': project,
         'job_id': f'run-sa360_report-{sa360_object}',
       }
-      self.scheduler.process(args)
+      success, job = self.scheduler.process(args)
 
-    if not valid:
-      print('  Available custom columns for this agency/advertiser pair:')
-      for custom_column in validator.saved_column_names: 
-        print(f'    "{custom_column}"')
+      if success and job['state'] == 'ENABLED':
+        if not valid:
+          self.scheduler.process({
+            'action': 'disable',
+            'email': self.sa360.email,
+            'project': project,
+            'job_id': f'run-sa360_report-{sa360_object}',
+          })
 
-    if len(set(report_custom_columns)) != len(report_custom_columns):
-      valid = False
-    
+      else:
+        if valid:
+          self.scheduler.process({
+            'action': 'enable',
+            'email': self.sa360.email,
+            'project': project,
+            'job_id': f'run-sa360_report-{sa360_object}',
+          })
+
+    # if not valid:
+    #   print('  Available custom columns for this agency/advertiser pair:')
+    #   for custom_column in validator.saved_column_names: 
+    #     print(f'    "{custom_column}"')
+
     return (valid, { 'is_valid': f'{valid}' })
 
   def list_custom_columns(self, project: str, agency: int, advertiser: int) -> List[str]:

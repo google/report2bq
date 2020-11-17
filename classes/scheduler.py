@@ -49,8 +49,6 @@ class Scheduler(Fetcher):
   """
 
   def process(self, args: Dict[str, Any]) -> str:
-    logging.info(f'args: {args}')
-
     _action = args.get('action')
     _project = args.get('project')
     _email = args.get('email')

@@ -32,6 +32,28 @@ class Type(Enum):
   _RUNNING = 'running'
   _ADMIN = 'administration'
   
+  @classmethod  
+  def _missing_(cls, value):
+    """Backward compatilbility for old enums.
+
+    If the old product names are still in use in some Firestore or other confguration
+    systems (this is possible post migration from the older versions), replace them with
+    the new values seamlessly.
+
+    Args:
+        value (str): enum string value requested
+
+    Returns:
+        Type: the corrected type
+
+    Raises:
+        ValueError if it was simply an incorrect enum rather than dv360/dbm or dcm/cm confusion
+    """
+    if value == 'dbm':
+      return cls.DV360
+    elif value == 'dcm':
+      return cls.CM
+
   def runner(self, report_id: str):
     return {
       Type._JOBS: None,
