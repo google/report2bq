@@ -46,8 +46,15 @@ class SA360Validator(object):
     return (False, None)
 
   def validate_custom_column(self, name: str) -> Tuple[bool, str]:
+    if not name:
+      return (False, '--- Blank column name ---')
+
     if not self.saved_column_names:
       self.list_custom_columns()
+
+    if not self.saved_column_names:
+      return (False, '--- No custom columns found --')
+
     if name in self.saved_column_names:
       return (True, name)
 
@@ -85,6 +92,7 @@ def main(unused_argv):
   print(c.validate({'value': 'adWordsConversionS', 'type': 'columnName'}))
   print(c.validate({'value': 'foo', 'type': 'columnName'}))
   print(c.validate({'value': 'foo', 'type': 'savedColumnName'}))
+  print(c.validate({'value': '', 'type': 'savedColumnName'}))
   print(c.validate('foo'))
 
 

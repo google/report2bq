@@ -16,6 +16,7 @@ limitations under the License.
 
 __author__ = ['davidharcombe@google.com (David Harcombe)']
 
+from classes.sa360_report_validation.sa360_field_validator import SA360Validator
 from classes.sa360_report_validation.visit import Visit
 from classes.sa360_report_validation.product_target import ProductTarget
 from classes.sa360_report_validation.product_lead_and_cross_sell import ProductLeadAndCrossSell
@@ -69,7 +70,7 @@ class SA360ValidatorFactory(object):
   }
 
   def get_validator(self, report_type: str, sa360_service: Resource,
-                    agency: int, advertiser: int):
+                    agency: int, advertiser: int) -> SA360Validator:
 
     validator = self.validators.get(report_type)
     if validator:
