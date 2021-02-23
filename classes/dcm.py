@@ -43,11 +43,12 @@ from classes.csv_helpers import CSVHelpers
 from classes.decorators import retry
 from classes.discovery import DiscoverService
 from classes.firestore import Firestore
-from classes.gcs_streamer import GCSObjectStreamUpload
 from classes.report_list import Report_List
 from classes.services import Service
 from classes.report_type import Type
-from classes.threaded_streamer import ThreadedGCSObjectStreamUpload
+from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
+
+from google.cloud import pubsub
 
 
 class DCM(ReportFetcher, Fetcher):
@@ -64,7 +65,8 @@ class DCM(ReportFetcher, Fetcher):
 
 
   def service(self) -> Resource:
-    return DiscoverService.get_service(Service.CM, Credentials(email=self.email, project=self.project)) 
+    return DiscoverService.get_service(
+      Service.CM, Credentials(email=self.email, project=self.project))
 
 
   def get_user_profiles(self):
@@ -105,7 +107,8 @@ class DCM(ReportFetcher, Fetcher):
     fields = {
       'sortField': 'LAST_MODIFIED_TIME',
       'sortOrder': 'DESCENDING',
-      'fields': 'items(ownerProfileId,fileName,format,id,lastModifiedTime,name,schedule,type)',
+      'fields': 'items(ownerProfileId,fileName,format,id,lastModifiedTime,'
+                'name,schedule,type)',
     }
 
     for profile in profiles:
@@ -117,7 +120,7 @@ class DCM(ReportFetcher, Fetcher):
       )
       if 'items' in result:
         reports = [*reports, *result['items']]
-    
+
     return reports
 
 
@@ -161,8 +164,10 @@ class DCM(ReportFetcher, Fetcher):
       method=self.service().reports().get,
       **{
         'profileId': self.profile,
-        'reportId': report_id, 
-        'fields': 'ownerProfileId,fileName,format,id,lastModifiedTime,name,schedule,type',
+        'reportId': report_id,
+        'fields':
+          'ownerProfileId,fileName,format,id,lastModifiedTime,'
+          'name,schedule,type',
       }
     )
 
@@ -234,7 +239,10 @@ class DCM(ReportFetcher, Fetcher):
     return report
 
 
-  def normalize_report_details(self, report_object: Dict[str, Any], report_id: str):
+  def normalize_report_details(
+    self,
+    report_object: Dict[str, Any],
+    report_id: str):
     """
     Normalize api results into flattened data structure
     Args:
@@ -244,7 +252,8 @@ class DCM(ReportFetcher, Fetcher):
     """
 
     # Check if report has ever completed a run
-    if ('report_file' in report_object) and (report_object['report_file'] is not None):
+    if ('report_file' in report_object) and (
+      report_object['report_file'] is not None):
       # Exists
       gcs_path = report_object['report_file']['urls']['apiUrl']
       latest_runtime = report_object['report_file']['lastModifiedTime']
@@ -288,7 +297,8 @@ class DCM(ReportFetcher, Fetcher):
 
 
   def fetch_report_config(self, report_object: Dict[str, Any], report_id: str):
-    report_data = self.normalize_report_details(report_object=report_object, report_id=report_id)
+    report_data = self.normalize_report_details(
+      report_object=report_object, report_id=report_id)
     keys_to_update = [
       'email',
       'dest_dataset',
@@ -348,7 +358,8 @@ class DCM(ReportFetcher, Fetcher):
   def read_data_chunk(self, report_data: dict, chunk: int=16384) -> bytes:
     report_id = report_data['id']
     file_id = report_data['report_file']['id']
-    request = self.service().files().get_media(reportId=report_id, fileId=file_id)
+    request = self.service().files().get_media(
+      reportId=report_id, fileId=file_id)
 
     # Create a media downloader instance.
     out_file = io.BytesIO()
@@ -371,11 +382,11 @@ class DCM(ReportFetcher, Fetcher):
       bytes_io.seek(csv_start)
 
     return CSVHelpers.get_column_types(io.BytesIO(bytes_io.read()))
-    
-    
+
+
   def stream_to_gcs(self, bucket: str, report_data: dict):
     """Multi-threaded stream to GCS
-    
+
     Arguments:
         bucket {str} -- GCS Bucket
         report_data {dict} -- Report definition
@@ -391,15 +402,18 @@ class DCM(ReportFetcher, Fetcher):
     chunk_size = 16 * 1024 * 1024
     out_file = io.BytesIO()
 
-    download_request = self.service().files().get_media(reportId=report_id, fileId=file_id)
-    downloader = http.MediaIoBaseDownload(out_file, download_request, chunksize=chunk_size)
+    download_request = self.service().files().get_media(
+      reportId=report_id, fileId=file_id)
+    downloader = http.MediaIoBaseDownload(
+      out_file, download_request, chunksize=chunk_size)
 
     # Execute the get request and download the file.
-    streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(), 
-                                             bucket_name=bucket,
-                                             blob_name='{id}.csv'.format(id=report_id), 
-                                             chunk_size=chunk_size, 
-                                             queue=queue)
+    streamer = ThreadedGCSObjectStreamUpload(
+      client=Cloud_Storage.client(),
+      bucket_name=bucket,
+      blob_name='{id}.csv'.format(id=report_id),
+      chunk_size=chunk_size,
+      queue=queue)
     streamer.start()
 
     download_finished = False
@@ -423,11 +437,15 @@ class DCM(ReportFetcher, Fetcher):
       else:
         out_file.seek(0)
 
-      logging.info('Downloader status {percent:3.2%}, chunk {chunk} ({progress} of {size})'.format(
-        percent=(status.resumable_progress/status.total_size), progress=status.resumable_progress,
-        size=status.total_size, chunk=chunk_id)
+      logging.info(
+        'Downloader status {percent:3.2%}, chunk {chunk} ({progress:,} '
+        'of {size:,})'.format(
+          percent=(status.resumable_progress/status.total_size),
+          progress=status.resumable_progress,
+          size=status.total_size,
+          chunk=chunk_id)
       )
-      
+
       chunk = out_file.read(chunk_size)
       # chunk = out_file.getvalue()
       queue.put((chunk_id, chunk))
@@ -441,7 +459,8 @@ class DCM(ReportFetcher, Fetcher):
 
   @retry(Exception, tries=3, delay=15, backoff=2)
   def run_report(self, report_id: int, synchronous: bool=False):
-    request = self.service().reports().run(reportId=report_id, profileId=self.profile, synchronous=synchronous)
+    request = self.service().reports().run(
+      reportId=report_id, profileId=self.profile, synchronous=synchronous)
     result = request.execute()
 
     return result
@@ -449,7 +468,8 @@ class DCM(ReportFetcher, Fetcher):
 
   @retry(Exception, tries=3, delay=15, backoff=2)
   def report_state(self, report_id: int, file_id: int):
-    request = self.service().reports().files().get(reportId=report_id, fileId=file_id, profileId=self.profile)
+    request = self.service().reports().files().get(
+      reportId=report_id, fileId=file_id, profileId=self.profile)
     result = request.execute()
 
     return result
@@ -457,7 +477,7 @@ class DCM(ReportFetcher, Fetcher):
 
   def check_running_report(self, config: Dict[str, Any]):
     """Check a running CM report for completion
-    
+
     Arguments:
         report {Dict[str, Any]} -- The report data structure from Firestore
     """
@@ -465,18 +485,21 @@ class DCM(ReportFetcher, Fetcher):
     response = self.report_state(report_id=config['id'], file_id=config['report_file']['id'])
     status = response['status'] if response and  'status' in response else 'UNKNOWN'
 
-    logging.info('Report {report} status: {status}'.format(report=config['id'], status=status))
-    firestore = Firestore(email=email, project=project)
+    logging.info('Report {report} status: {status}'.format(
+      report=config['id'], status=status))
+    firestore = Firestore(email=self.email, project=self.project)
     if status == 'REPORT_AVAILABLE':
       # Remove job from running
       firestore.remove_report_runner(config['id'])
 
       # Send pubsub to trigger report2bq now
-      topic = 'projects/{project}/topics/report2bq-trigger'.format(project=self.project)
-      pubsub = pubsub.PublisherClient()
-      pubsub.publish(
-        topic=topic, data=b'RUN', cm_id=config['id'], 
-        profile=config['profile_id'], email=config['email'], append=str(append), project=self.project
+      topic = 'projects/{project}/topics/report2bq-trigger'.format(
+        project=self.project)
+      ps = pubsub.PublisherClient()
+      ps.publish(
+        topic=topic, data=b'RUN', cm_id=config['id'],
+        profile=config['profile_id'], email=config['email'],
+        append=str(append), project=self.project
       )
 
     elif status == 'FAILED' or status =='CANCELLED':

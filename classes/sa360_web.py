@@ -35,7 +35,7 @@ from classes.csv_helpers import CSVHelpers
 from classes.decorators import timeit, measure_memory
 from classes.firestore import Firestore
 from classes.report_type import Type
-from classes.threaded_streamer import ThreadedGCSObjectStreamUpload
+from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
 
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import storage

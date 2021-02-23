@@ -34,7 +34,7 @@ from classes.decorators import measure_memory, retry
 from classes.discovery import DiscoverService
 from classes.report_type import Type
 from classes.services import Service
-from classes.threaded_streamer import ThreadedGCSObjectStreamUpload
+from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
 
 # Other imports
 from contextlib import closing
@@ -61,11 +61,11 @@ class DBM(ReportFetcher, Fetcher):
 
     # # Get authorized http transport
     # self.credentials = Credentials(email=email, project=project)
-    # self.dbm_service = DiscoverService.get_service(Service.DV360, Credentials(email=email, project=project)) 
+    # self.dbm_service = DiscoverService.get_service(Service.DV360, Credentials(email=email, project=project))
 
 
   def service(self) -> Resource:
-    return DiscoverService.get_service(Service.DV360, Credentials(email=self.email, project=self.project)) 
+    return DiscoverService.get_service(Service.DV360, Credentials(email=self.email, project=self.project))
 
 
   def get_reports(self) -> List[Dict[str, Any]]:
@@ -197,7 +197,7 @@ class DBM(ReportFetcher, Fetcher):
     result = {}
     request = self.service().queries().runquery(queryId=report_id)
     result = request.execute()
-    
+
     return result
 
 
@@ -209,8 +209,8 @@ class DBM(ReportFetcher, Fetcher):
     if results:
       ordered = sorted(results['reports'], key=lambda k: int(k['metadata']['reportDataStartTimeMs']))
       return ordered[-1]['metadata']['status']['state']
-    
-    else:    
+
+    else:
       return 'UNKNOWN'
 
 
@@ -228,7 +228,7 @@ class DBM(ReportFetcher, Fetcher):
   @measure_memory
   def stream_to_gcs(self, bucket: str, report_details: Dict[str, Any]) -> None:
     """Multi-threaded stream to GCS
-    
+
     Arguments:
         bucket {str} -- GCS Bucket
         report_details {dict} -- Report definition
@@ -242,10 +242,10 @@ class DBM(ReportFetcher, Fetcher):
     chunk_size = self.chunk_multiplier * 1024 * 1024
     out_file = io.BytesIO()
 
-    streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(), 
+    streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(),
                                              bucket_name=bucket,
-                                             blob_name='{id}.csv'.format(id=report_id), 
-                                             chunk_size=chunk_size, 
+                                             blob_name='{id}.csv'.format(id=report_id),
+                                             chunk_size=chunk_size,
                                              queue=queue)
     streamer.start()
 

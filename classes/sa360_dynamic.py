@@ -38,7 +38,7 @@ from classes.discovery import DiscoverService
 from classes.firestore import Firestore
 from classes.report_type import Type
 from classes.services import Service
-from classes.threaded_streamer import ThreadedGCSObjectStreamUpload
+from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
 
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import storage
@@ -135,7 +135,7 @@ class SA360Dynamic(ReportFetcher):
   def stream_to_gcs(self, report_details: Dict[str, Any],
                     run_config: Dict[str, Any]) -> None:
     """Multi-threaded stream to GCS
-    
+
     Arguments:
         bucket {str} -- GCS Bucket
         report_details {dict} -- Report definition
