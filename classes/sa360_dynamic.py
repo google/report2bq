@@ -154,7 +154,7 @@ class SA360Dynamic(ReportFetcher):
                                              bucket_name=self.bucket,
                                              blob_name=f'{report_id}.csv',
                                              chunk_size=chunk_size,
-                                             queue=queue)
+                                             streamer_queue=queue)
     streamer.start()
 
     r = urllib.request.Request(report_details['files'][0]['url'])
@@ -168,7 +168,7 @@ class SA360Dynamic(ReportFetcher):
       while _downloaded < _report_size:
         chunk = _report.read(chunk_size)
         _downloaded += len(chunk)
-        queue.put((chunk_id, chunk))
+        queue.put(chunk)
         chunk_id += 1
 
     queue.join()

@@ -413,7 +413,7 @@ class DCM(ReportFetcher, Fetcher):
       bucket_name=bucket,
       blob_name='{id}.csv'.format(id=report_id),
       chunk_size=chunk_size,
-      queue=queue)
+      streamer_queue=queue)
     streamer.start()
 
     download_finished = False
@@ -448,7 +448,7 @@ class DCM(ReportFetcher, Fetcher):
 
       chunk = out_file.read(chunk_size)
       # chunk = out_file.getvalue()
-      queue.put((chunk_id, chunk))
+      queue.put(chunk)
       chunk_id += 1
       out_file.seek(0)
       out_file.truncate(0)

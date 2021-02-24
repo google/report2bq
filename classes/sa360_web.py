@@ -89,7 +89,7 @@ class SA360Web(ReportFetcher):
       bucket_name=bucket,
       blob_name='{id}.csv'.format(id=report_details['id']),
       chunk_size=chunk_size,
-      queue=queue)
+      streamer_queue=queue)
     streamer.daemon = True
     streamer.start()
 
@@ -153,7 +153,7 @@ class SA360Web(ReportFetcher):
         [writer.writerow(row) for row in report_data]
 
         output_buffer.seek(0)
-        queue.put((chunk_id, output_buffer.getvalue().encode('utf-8')))
+        queue.put(output_buffer.getvalue().encode('utf-8'))
         chunk_id += 1
         chunk = BytesIO()
         output_buffer.seek(0)

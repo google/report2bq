@@ -246,7 +246,7 @@ class DBM(ReportFetcher, Fetcher):
                                              bucket_name=bucket,
                                              blob_name='{id}.csv'.format(id=report_id),
                                              chunk_size=chunk_size,
-                                             queue=queue)
+                                             streamer_queue=queue)
     streamer.start()
 
     with closing(urlopen(report_details['current_path'])) as _report:
@@ -268,7 +268,7 @@ class DBM(ReportFetcher, Fetcher):
           # if we don't find it, there's no footer.
           if blank_line_pos == -1:
             logging.error('No footer delimiter found. Writing entire final chunk as is.')
-            queue.put((chunk_id, chunk))
+            queue.put(chunk)
 
           else:
             # read the footer
@@ -287,7 +287,7 @@ class DBM(ReportFetcher, Fetcher):
             # break
 
         else:
-          queue.put((chunk_id, chunk))
+          queue.put(chunk)
 
         chunk_id += 1
 
