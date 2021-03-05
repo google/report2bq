@@ -173,7 +173,6 @@ class DCM(ReportFetcher, Fetcher):
 
     return result
 
-
   def extract_report_from_report_list(self, reports, report_id: int):
     """
     Pulls a report objects from api report list return
@@ -196,7 +195,6 @@ class DCM(ReportFetcher, Fetcher):
     # None found, return empty object
     return {}
 
-
   def get_latest_report_file(self, report_id: int):
     """
     Fetches most recent available dcm report file
@@ -206,16 +204,6 @@ class DCM(ReportFetcher, Fetcher):
     Returns:
       Available report file details
     """
-
-    # List reports
-    # reports = self.get_reports()
-
-    # Extract report details
-    # report = self.extract_report_from_report_list(
-    #     reports=reports,
-    #     report_id=report_id
-    # )
-
     report = self.get_report_definition(report_id)
 
     # Get latest file

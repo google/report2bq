@@ -74,12 +74,12 @@ Options:
                   Force the report to redefine the schema by re-reading the CSV header. Use with care.
                   This is incompatible with 'append' since a schema change will cause a drop of the
                   original table. Should really not be placed in an hourly fetcher.
-    --dry-run     Don't do anything, just print the commands you would otherwise run. Useful 
+    --dry-run     Don't do anything, just print the commands you would otherwise run. Useful
                   for testing.
     --append      Append to the existing table instead of overwriting
     --timer       Set the specific minute at which the job will run. Random if not specified.
-    --hour        Set the specific hour at which the job will run. 
-                  For a DV360/CM fetcher, this is '*', or 'every hour' at 'timer' minute and 
+    --hour        Set the specific hour at which the job will run.
+                  For a DV360/CM fetcher, this is '*', or 'every hour' at 'timer' minute and
                   cannot be changed
                   For ADH this defaults to 2
                   For SA360 this defaults to 3
@@ -98,6 +98,24 @@ Options:
 EOF
 }
 
+function set_hour {
+  # Check for a valid hour in the ${HOUR} variable from the command line.
+  # If there isn't one, use the default value supplied in $1. If $1 is not
+  # supplied, default to '*'.
+  if [[ $HOUR =~ ^[0-9]+$ ]]; then
+    if !(($HOUR >= 0 && $HOUR <= 23)); then
+      HOUR=$1
+    fi
+  else
+    if [[ $1 =~ ^[0-9]+$ ]]; then
+      HOUR=$1
+    else
+      HOUR="*"
+    fi
+    return
+  fi
+}
+
 # Switch definitions
 PROJECT=                            # Project id
 FORCE=                              # Force an install overwrite of objects
@@ -114,14 +132,14 @@ DEST_DATASET=                       # Destination dataset
 TIMEZONE=                           # Timezone
 INFER_SCHEMA=                       # Guess the report's schema
 SA360_ID=                           # ID of the SA360 report to schedule
-TOPIC=                              # Notifier topic for post import processing 
+TOPIC=                              # Notifier topic for post import processing
 MESSAGE=                            # Notifier message
 
 # Command line parameter parser
 QUIT=0
 UNKNOWN=
 while [[ $1 == -* ]] ; do
-  case $1 in 
+  case $1 in
     # Common to SA360, DV360, ADH and CM
     --project*)
       IFS="=" read _cmd PROJECT <<< "$1" && [ -z ${PROJECT} ] && shift && PROJECT=$1
@@ -172,7 +190,7 @@ while [[ $1 == -* ]] ; do
       IFS="=" read _cmd SA360_ID <<< "$1" && [ -z ${SA360_ID} ] && shift && SA360_ID=$1
       ;;
 
-    # Optional  
+    # Optional
     --force)
       FORCE="force=True"
       ;;
@@ -188,11 +206,11 @@ while [[ $1 == -* ]] ; do
     --append)
       APPEND="append=True"
       ;;
-    --timer*)  
+    --timer*)
       # Random if not set
       IFS="=" read _cmd TIMER <<< "$1" && [ -z ${TIMER} ] && shift && TIMER=$1
       ;;
-    --hour*)  
+    --hour*)
       # '*' if not set
       IFS="=" read _cmd HOUR <<< "$1" && [ -z ${HOUR} ] && shift && HOUR=$1
       ;;
@@ -272,7 +290,7 @@ else
   fi
 fi
 
-if [ "x${ADH_CUSTOMER}" != "x" ]; then 
+if [ "x${ADH_CUSTOMER}" != "x" ]; then
   FETCHER="run-adh-${ADH_CUSTOMER}-${ADH_QUERY}"
   TRIGGER="report-runner"
   parameters=(
@@ -283,15 +301,8 @@ if [ "x${ADH_CUSTOMER}" != "x" ]; then
     "days=${DAYS}"
     "type=adh"
   )
-  case ${HOUR} in
-    "")
-      HOUR=2
-      ;;
-    *)
-      HOUR="*"
-      ;;
-  esac
-elif [ "x${SA360_URL}" != "x" ]; then 
+  set_hour 2
+elif [ "x${SA360_URL}" != "x" ]; then
   # SA360
   id_regex='^.*rid=([0-9]+).*$'
   [[ ${SA360_URL} =~ $id_regex ]]
@@ -303,26 +314,12 @@ elif [ "x${SA360_URL}" != "x" ]; then
     "sa360_url=${SA360_URL}"
     "type=sa360"
   )
-  case ${HOUR} in
-    "")
-      HOUR=3
-      ;;
-    *)
-      HOUR="*"
-      ;;
-  esac
+  set_hour 3
 elif [ ! -z ${SA360_ID} ]; then
 # SA360 dynamic report
   TRIGGER="report-runner"
   NAME="run"
-  case ${HOUR} in
-    "")
-      HOUR="*"
-      ;;
-    # *)
-    #   HOUR="*"
-    #   ;;
-  esac
+  set_hour "*"
   FETCHER="${NAME}-sa360_report-${SA360_ID}"
   parameters=(
     ${parameters[@]}
@@ -335,14 +332,7 @@ elif [ "x${PROFILE}" == "x" ]; then
   if [[ ${IS_RUNNER} -eq 1 ]]; then
     TRIGGER="report-runner"
     NAME="run"
-    case ${HOUR} in
-      "")
-        HOUR=1
-        ;;
-      *)
-        HOUR="*"
-        ;;
-    esac
+    set_hour 1
   else
     TRIGGER="report2bq-trigger"
     NAME="fetch"
@@ -364,14 +354,7 @@ else
   if [[ ${IS_RUNNER} -eq 1 ]]; then
     TRIGGER="report-runner"
     NAME="run"
-    case ${HOUR} in
-      "")
-        HOUR=1
-        ;;
-      *)
-        HOUR="*"
-        ;;
-    esac
+    set_hour 1
   else
     TRIGGER="report2bq-trigger"
     NAME="fetch"

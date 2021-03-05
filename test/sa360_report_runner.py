@@ -84,7 +84,7 @@ def main(unusedargv):
       (valid, validity) = sa360_manager._file_based(
         project='report2bq-zz9-plural-z-alpha',
         sa360_report_definitions=sa360_report_definitions, report=runner)
-      runner.update(validity)
+      # runner.update(validity)
       firestore.store_document(Type.SA360_RPT, f'{id}', runner)
 
       if valid:
@@ -110,8 +110,8 @@ def main(unusedargv):
           'infer_schema': False,
           'append': False,
           'sa360_id': id,
-          'description': f'[US] Holiday 2020: {runner["agencyName"]}/{runner["advertiserName"]}',
-          'dest_dataset': 'holiday_2020_us',
+          'description': f'[US] SA360 Hourly Depleted: {runner["agencyName"]}/{runner["advertiserName"]}',
+          'dest_dataset': 'sa360_hourly_depleted_us',
           'minute': runner['minute'],
         }
         try:

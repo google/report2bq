@@ -28,31 +28,34 @@ class GCSStreamingUploader(object):
   """Parent class with common code for single- and multi-threaded streamers."""
   streamer_type = 'Undefined'
 
-  def __enter__(self):
-    """Enter the runtime context related to this object.
-
-    The with statement will bind this method’s return value to the target(s)
-    specified in the as clause of the statement, if any.
-
-    Returns:
-        GCSStreamingUploader: The streamer.
-    """
-    self.start()
-    return self
-
-  def __exit__(self, exc_type, *_):
-    """Exit the runtime context related to this object.
-
-    The parameters describe the exception that caused the context to be exited.
-    If the context was exited without an exception, all three arguments will be
-    None. We don't care about anything other than the exc_type here so the
-    possible args are ignored with the `*_` clause.
+  def __init__(self,
+               client: storage.Client,
+               bucket_name: str,
+               blob_name: str,
+               chunk_size: int = 256 * 1024):
+    """Initialise a single-threaded streamer.
 
     Args:
-        exc_type (Exception): The exception, if any, causing the exit.
+        client (storage.Client): The GCS client.
+        bucket_name (str): The name of the bucket to write to.
+        blob_name (str): The name of the blob (file) to create.
+        chunk_size (int, optional): Size of buffer to write in a block.
+            This defaults to 256*1024, or 256k (designed for restricted memory
+            situations like a Cloud Function).
     """
-    if exc_type is None:
-      self.stop()
+    self._client = client
+    self._bucket = self._client.bucket(bucket_name)
+    self._blob = self._bucket.blob(blob_name)
+
+    self._buffer = b''
+    self._buffer_size = 0
+    self._chunk_size = chunk_size
+    self._read = 0
+
+    self._bytes_written = 0
+
+    self._transport = AuthorizedSession(credentials=self._client._credentials)
+    self._request = None  # type: requests.ResumableUpload
 
   def begin(self):
     """Begin the streaming process.
@@ -96,7 +99,10 @@ class GCSStreamingUploader(object):
     del data
     while self._buffer_size >= self._chunk_size:
       try:
-        self._request.transmit_next_chunk(self._transport)
+        logging.info('%s writing chunk', self.streamer_type)
+        self._request.transmit_next_chunk(
+          transport=self._transport,
+          timeout=180)
         logging.info('%s written %s bytes', self.streamer_type,
                      f'{self._request.bytes_uploaded:,}')
         self._bytes_written += self._request.bytes_uploaded
@@ -171,17 +177,11 @@ class GCSObjectStreamUpload(GCSStreamingUploader):
             This defaults to 256*1024, or 256k (designed for restricted memory
             situations like a Cloud Function).
     """
-    self._client = client
-    self._bucket = self._client.bucket(bucket_name)
-    self._blob = self._bucket.blob(blob_name)
-
-    self._buffer = b''
-    self._buffer_size = 0
-    self._chunk_size = chunk_size
-    self._read = 0
-
-    self._transport = AuthorizedSession(credentials=self._client._credentials)
-    self._request = None  # type: requests.ResumableUpload
+    super().__init__(
+        client=client,
+        bucket_name=bucket_name,
+        blob_name=blob_name,
+        chunk_size=chunk_size)
     self.streamer_type = 'GCS Streamer'
     logging.info('%s initialized', self.streamer_type)
 
@@ -216,12 +216,10 @@ class ThreadedGCSObjectStreamUpload(GCSStreamingUploader, threading.Thread):
           chunk_size=chunk_size,
           streamer_queue=streamer_queue)
       streamer.start()
-      chunk_id = 0
 
       with open('source.txt') as source:
         chunk = source.read(chunk_size)
-        queue.put((chunk_id, chunk))
-        chunk_id += 1
+        queue.put(chunk)
 
       streamer_queue.join()
       streamer.stop()
@@ -246,21 +244,13 @@ class ThreadedGCSObjectStreamUpload(GCSStreamingUploader, threading.Thread):
             This defaults to 256*1024, or 256k (designed for restricted memory
             situations like a Cloud Function).
     """
+    super().__init__(
+        client=client,
+        bucket_name=bucket_name,
+        blob_name=blob_name,
+        chunk_size=chunk_size)
     threading.Thread.__init__(self)
-    self._client = client
-    self._bucket = self._client.bucket(bucket_name)
-    self._blob = self._bucket.blob(blob_name)
-
-    self._buffer = b''
-    self._buffer_size = 0
-    self._chunk_size = chunk_size
-    self._read = 0
-    self._bytes_written = 0
     self._queue = streamer_queue
-
-    self._transport = AuthorizedSession(credentials=self._client._credentials)
-    self._request = None  # type: requests.ResumableUpload
-
     self._stop = threading.Event()
     self.streamer_type = 'Threaded GCS Streamer'
     logging.info('%s initialized', self.streamer_type)
@@ -271,9 +261,12 @@ class ThreadedGCSObjectStreamUpload(GCSStreamingUploader, threading.Thread):
     Returns:
         bool: Is the thread stopped.
     """
-    return self._stop.isSet()
+    return self._stop.is_set()
 
-  def run(self):
+  def start(self):
+    threading.Thread.start(self)
+
+  def run(self) -> None:
     """Thread start method to run the streamer."""
     logging.info('Threaded GCS Streamer starting')
     self.begin()
@@ -287,7 +280,7 @@ class ThreadedGCSObjectStreamUpload(GCSStreamingUploader, threading.Thread):
         continue
 
       try:
-        logging.info('%s Grabbing chunk (%s bytes)', self.streamer_type,
+        logging.info('%s Grabbing chunk of %s bytes', self.streamer_type,
                      f'{len(chunk):,}')
         self.write(chunk)
 

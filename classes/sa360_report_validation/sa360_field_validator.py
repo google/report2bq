@@ -47,7 +47,7 @@ class SA360Validator(object):
 
   def validate_custom_column(self, name: str) -> Tuple[bool, str]:
     if not name:
-      return (False, '--- Blank column name ---')
+      return (True, '--- Blank column name ---')
 
     if not self.saved_column_names:
       self.list_custom_columns()

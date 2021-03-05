@@ -79,7 +79,7 @@ class SA360Dynamic(ReportFetcher):
     return DiscoverService.get_service(Service.SA360, self.creds)
 
   def handle_report(self, run_config: Dict[str, Any]) -> bool:
-    sa360_service = self.service
+    sa360_service = self.service()
     request = sa360_service.reports().get(reportId=run_config['file_id'])
 
     try:

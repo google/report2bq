@@ -114,15 +114,21 @@ class DBM(ReportFetcher, Fetcher):
     Returns:
       Report object
     """
-    results = self.fetch(
+    all_results = self.fetch(
       self.service().reports().listreports,
       **{ 'queryId': report_id }
     )
-
-    report = {}
-    if results:
-      if 'reports' in results:
-        ordered = sorted(results['reports'], key=lambda k: int(k['metadata']['status']['finishTimeMs']))
+    if all_results:
+      if 'reports' in all_results:
+        # filter out any still running reports or ones with no 'finishTimeMs'
+        results = list(filter(
+          lambda item: 'finishTimeMs' in item.get(
+            'metadata', {}).get('status', {}),
+          all_results))
+        report = {}
+        ordered = sorted(
+          results['reports'],
+          key=lambda k: int(k['metadata']['status']['finishTimeMs']))
         report = ordered[-1]
       else:
         logging.info('No reports - has this report run successfully yet?')
@@ -130,7 +136,8 @@ class DBM(ReportFetcher, Fetcher):
     return report
 
 
-  def normalize_report_details(self, report_object: Dict[str, Any], report_id: str):
+  def normalize_report_details(
+    self, report_object: Dict[str, Any], report_id: str):
     """
     Normalize api results into flattened data structure
     Args:
@@ -253,6 +260,7 @@ class DBM(ReportFetcher, Fetcher):
       _downloaded = 0
       chunk_id = 1
       _report_size = int(_report.headers['content-length'])
+      logging.info(f'Report is %s bytes', _report_size)
       while _downloaded < _report_size:
         chunk = _report.read(chunk_size)
         _downloaded += len(chunk)
@@ -283,7 +291,7 @@ class DBM(ReportFetcher, Fetcher):
             else:
               last.truncate(total_block_start)
 
-            queue.put((chunk_id, last.getvalue()))
+            queue.put(last.getvalue())
             # break
 
         else:
