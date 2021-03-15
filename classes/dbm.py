@@ -124,10 +124,10 @@ class DBM(ReportFetcher, Fetcher):
         results = list(filter(
           lambda item: 'finishTimeMs' in item.get(
             'metadata', {}).get('status', {}),
-          all_results))
+          all_results['reports']))
         report = {}
         ordered = sorted(
-          results['reports'],
+          results,
           key=lambda k: int(k['metadata']['status']['finishTimeMs']))
         report = ordered[-1]
       else:

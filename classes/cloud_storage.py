@@ -30,14 +30,14 @@ from google.cloud.storage import Bucket
 
 class Cloud_Storage(object):
   """Cloud Storage helper
-  
+
   Handles the GCS operations for Report2BQ
 
   """
 
   def __init__(self, in_cloud=True, email: str=None, project: str=None):
     """constructor
-    
+
     Keyword Arguments:
         in_cloud {bool} --  (default: {True})
         email {str} -- email address for the token (default: {None})
@@ -46,7 +46,7 @@ class Cloud_Storage(object):
     self.in_cloud = in_cloud
     self.email = email
     self.project = project
-    
+
     # credentials = Credentials(email=email, project=project, in_cloud=in_cloud)
     # self.client = storage.Client(credentials=credentials.get_credentials())
 
@@ -63,7 +63,7 @@ class Cloud_Storage(object):
     that there is essentially no limit on the maximum size of a DV360 report we can handle.
 
     The destination file name is the report's id.
-    
+
     Arguments:
         bucket_name {str} -- destination bucket name
         report {Dict[str, Any]} -- report definition
@@ -87,13 +87,41 @@ class Cloud_Storage(object):
 
 
   @staticmethod
+  def rename(bucket: str, source: str, destination: str, credentials=None):
+    """Rename a file.
+
+    This is a copy/delete action as GCS has no actual rename option, however as
+    it is all within GCS it is BLAZING fast, to the extent that there is
+    essentially no limit on the maximum size of file we can rename.
+
+    Arguments:
+        bucket {str} -- destination bucket name
+        source {str} -- current name
+        destination {str} -- new name
+        credentials {Credentials} -- authentication, if needed
+    """
+    client = storage.Client(
+      credentials=(credentials.get_credentials() if credentials else None))
+
+    source_bucket = Bucket(client, name=bucket)
+    source_blob = source_bucket.blob(blob_name=source)
+
+    destination_bucket = client.get_bucket(bucket)
+    source_bucket.copy_blob(source_blob,
+                            destination_bucket, destination)
+    source_blob.delete()
+
+    logging.info(f'Renamed file %s as %s in %s.', bucket, source, destination)
+
+
+  @staticmethod
   def fetch_file(bucket: str, file: str, credentials=None) -> str:
     """fetch a file from GCS
-    
+
     Arguments:
       bucket {str} -- bucket name
       file {str} -- file name
-    
+
     Returns:
       {str} -- file content
     """
@@ -152,13 +180,13 @@ class Cloud_Storage(object):
 
     Find and return just the blob. We'll use this in DV360 to be able to stream the file in pieces
     so we can drop out the footer.
-    
+
     Arguments:
         report {dict} -- [description]
-    
+
     Keyword Arguments:
         credentials {credentiala} -- [description] (default: {None})
-    
+
     Returns:
         str -- [description]
     """

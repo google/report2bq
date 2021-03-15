@@ -18,6 +18,8 @@ __author__ = [
   'davidharcombe@google.com (David Harcombe)'
 ]
 
+from googleapiclient import discovery
+from classes.gcs_streaming import GCSObjectStreamUpload
 from dataclasses_json.undefined import Undefined
 from classes.services import Service
 from classes.discovery import DiscoverService
@@ -30,6 +32,7 @@ import csv
 import dataclasses
 import dataclasses_json
 import enum
+import io
 import json
 import logging
 import os
@@ -45,6 +48,8 @@ from typing import Any, Dict, List, Tuple
 from classes.firestore import Firestore
 from classes.report_type import Type
 from classes.scheduler import Scheduler
+from classes.cloud_storage import Cloud_Storage
+from classes.credentials import Credentials
 
 
 class Validity(enum.Enum):
@@ -78,18 +83,26 @@ class SA360Manager(object):
 
   def manage(self, **kwargs):
     project = kwargs['project']
-    email = kwargs['email']
+    email = kwargs.get('email')
     firestore = Firestore(project=project, email=email)
-    if api_key := kwargs['api_key']: os.environ['API_KEY'] = api_key
+    if kwargs.get('api_key') is not None:
+      os.environ['API_KEY'] = kwargs['API_KEY']
 
     if 'API_KEY' in os.environ: self.scheduler = Scheduler()
 
+    if 'name' in kwargs:
+      report_name = kwargs['name']
+    elif 'file' in kwargs:
+      report_name = kwargs['file'].split('/')[-1].split('.')[0]
+    else:
+      report_name = None
+
     args = {
-      'report': kwargs.get('name', kwargs.get('file').split('/')[-1].split('.')[0] if kwargs.get('file') else None),
+      'report': report_name,
       'file': kwargs.get('file'),
       'firestore': firestore,
-      'project': kwargs['project'],
-      'email': kwargs['email'],
+      'project': project,
+      'email': email,
       **kwargs,
     }
 
@@ -99,10 +112,11 @@ class SA360Manager(object):
       'add': self.add,
       'delete': self.delete,
       'validate': self.validate,
+      'install': self.install,
     }.get(kwargs['action'])
 
     if action:
-      self.sa360 = SA360Dynamic(email, project)
+      # self.sa360 = SA360Dynamic(email, project)
       return action(**args)
 
     else:
@@ -112,90 +126,137 @@ class SA360Manager(object):
     sa360_objects = firestore.list_documents(Type.SA360_RPT)
     reports = firestore.list_documents(Type.SA360_RPT, '_reports')
     if _print:
-      print(f'SA360 Dynamic Reports defined for project {project}')
-      print()
+      logging.info(f'SA360 Dynamic Reports defined for project {project}')
       for report in reports:
-        print(f'  {report}')
+        logging.info(f'  {report}')
         for sa360_object in sa360_objects:
           if sa360_object.startswith(report):
-            print(f'    {sa360_object}')
+            logging.info(f'    {sa360_object}')
 
     return reports
 
   def show(self, firestore: Firestore, report: str, _print: bool=False, **unused):
     definition = firestore.get_document(Type.SA360_RPT, '_reports').get(report)
     if _print:
-      print(f'SA360 Dynamic Report "{report}"')
-      print()
+      logging.info(f'SA360 Dynamic Report "{report}"')
       pprint.pprint(definition, indent=2, compact=False)
 
     return definition
 
-  def add(self, firestore: Firestore, report: str, file: str, **unused):
-    with open(file) as definition:
-      cfg = json.loads(''.join(definition.readlines()))
-      Firestore().update_document(Type.SA360_RPT, '_reports', { report: cfg })
+  def add(
+    self, firestore: Firestore, report: str, file: str, gcs_stored: bool=False,
+    project: str = None, email: str = None, **unused):
+    if gcs_stored:
+      content = Cloud_Storage(
+        project=project, email=email).fetch_file(
+          bucket=f'{project}-report2bq-sa360-manager', file=file)
+      cfg = json.loads(content)
 
-  def delete(self, firestore: Firestore, project: str, report: str, email: str, **unused):
+    else:
+      with open(file) as definition:
+        cfg = json.loads(''.join(definition.readlines()))
+
+    firestore.update_document(Type.SA360_RPT, '_reports', { report: cfg })
+
+  def delete(
+    self, firestore: Firestore, project: str, report: str, email: str,
+    **unused):
     firestore.delete_document(Type.SA360_RPT, '_reports', report)
-    scheduler = Scheduler()
-    args = {
-      'action': 'list',
-      'email': email,
-      'project': project,
-      'html': False,
-    }
-
-    # Disable all runners for the now deleted report
-    runners = list(runner['name'].split('/')[-1] for runner in scheduler.process(args) if report in runner['name'])
-    for runner in runners:
+    if self.scheduler:
       args = {
-        'action': 'disable',
-        'email': None,
+        'action': 'list',
+        'email': email,
         'project': project,
-        'job_id': runner,
+        'html': False,
       }
-      scheduler.process(args)
 
-  def validate(self, firestore: Firestore, project: str, _print: bool=False, file=None, **unused):
-    sa360_report_definitions = firestore.get_document(Type.SA360_RPT, '_reports')
-    self.validator_factory = SA360ValidatorFactory()
-    _results = []
+      # Disable all runners for the now deleted report
+      runners = list(
+        runner['name'].split('/')[-1] for runner in self.scheduler.process(args) if report in runner['name'])
+      for runner in runners:
+        args = {
+          'action': 'disable',
+          'email': None,
+          'project': project,
+          'job_id': runner,
+        }
+        self.scheduler.process(args)
 
-    if not self.sa360_service:
-      self.sa360_service = DiscoverService.get_service(Service.SA360, self.sa360.creds)
+  def validate(
+    self, firestore: Firestore, project: str, email: str,
+    file: str=None, gcs_stored: bool=False, **unused) -> None:
+    sa360_report_definitions = \
+      firestore.get_document(Type.SA360_RPT, '_reports')
+    validation_results = []
 
-    sa360_objects = self._get_sa360_objects(firestore, file)
+    sa360_objects = \
+      self._get_sa360_objects(
+        firestore=firestore, file=file, gcs_stored=gcs_stored, project=project,
+        email=email)
+
     for sa360_object in sa360_objects:
       if sa360_object == '_reports': continue
+      creds = Credentials(project=project, email=sa360_object['email'])
+      sa360_service = DiscoverService.get_service(Service.SA360, creds)
 
-      if file:
-        (valid, validation) = self._file_based(project, sa360_report_definitions, sa360_object)
-        _results.append(validation)
-        if _results:
-          with open('validation.csv', 'w') as csv_file:
-            writer = csv.DictWriter(
-              csv_file, fieldnames=Validation.keys(), quoting=csv.QUOTE_ALL)
-            writer.writeheader()
-            writer.writerows([r.to_dict() for r in _results])
+      (valid, validation) = \
+        self._file_based(sa360_report_definitions, sa360_object, sa360_service)
+      validation_results.append(validation)
+
+    if validation_results:
+      csv_output = f'{file}-validation.csv'
+      if gcs_stored:
+        csv_bytes = io.StringIO()
+        writer = csv.DictWriter(
+          csv_bytes, fieldnames=Validation.keys(), quoting=csv.QUOTE_ALL)
+        writer.writeheader()
+        writer.writerows([r.to_dict() for r in validation_results])
+        Cloud_Storage(project=project, email=email).write_file(
+          bucket=f'{project}-report2bq-sa360-manager',
+          file=csv_output,
+          data=csv_bytes.getvalue())
 
       else:
-        self._firestore_based(project, firestore, sa360_report_definitions, sa360_object)
+        with open(csv_output, 'w') as csv_file:
+          writer = csv.DictWriter(
+            csv_file, fieldnames=Validation.keys(), quoting=csv.QUOTE_ALL)
+          writer.writeheader()
+          writer.writerows([r.to_dict() for r in validation_results])
 
-  def _get_sa360_objects(self, firestore, file):
+  def _get_sa360_objects(
+    self, firestore: Firestore, file: str, project: str, email: str,
+    gcs_stored: bool=False) -> List[Dict[str, Any]]:
     if file:
-      with open(file) as rpt:
-        sa360_objects = json.loads(''.join(rpt.readlines()))
+      if gcs_stored:
+        content = Cloud_Storage(
+          project=project, email=email).fetch_file(
+            bucket=f'{project}-report2bq-sa360-manager', file=file)
+        sa360_objects = json.loads(content)
+      else:
+        with open(file) as rpt:
+          sa360_objects = json.loads(''.join(rpt.readlines()))
+
     else:
       sa360_objects = firestore.list_documents(Type.SA360_RPT)
+
     return sa360_objects
 
-  def _file_based(self, project, sa360_report_definitions, report) -> Tuple[bool, Dict[str, Any]]:
-    print(f'Validating {report.get("agencyName", "-")} ({report["AgencyId"]}/{report["AdvertiserId"]}) on report {report["report"]}:')
+  def _file_based(
+    self, sa360_report_definitions: Dict[str, Any],
+    report: Dict[str, Any],
+    sa360_service: discovery.Resource) -> Tuple[bool, Dict[str, Any]]:
+    logging.info(
+      'Validating %s (%s/%s) on report %s', report.get("agencyName", "-"),
+      report["AgencyId"], report["AdvertiserId"], report["report"])
+
     target_report = sa360_report_definitions[report['report']]
-    validator = self.validator_factory.get_validator(report_type=target_report['report']['reportType'],
-      sa360_service=self.sa360_service, agency=report['AgencyId'], advertiser=report['AdvertiserId'])
-    report_custom_columns = [column['name'] for column in target_report['parameters'] if 'is_list' in column]
+    validator = \
+      SA360ValidatorFactory().get_validator(
+        report_type=target_report['report']['reportType'],
+        sa360_service=sa360_service,
+        agency=report['AgencyId'], advertiser=report['AdvertiserId'])
+    report_custom_columns = \
+      [column['name'] for column in target_report['parameters'] if 'is_list' in column]
     valid = True
     validation = Validation(report['AgencyId'], report['AdvertiserId'])
 
@@ -212,92 +273,122 @@ class SA360Manager(object):
         setattr(
           validation, stringcase.camelcase(report_custom_column), validity)
         if not valid_column and name:
-          print(
+          logging.info(
             f'  Field {report_custom_column} - {report[report_custom_column]}: '
             f'{valid_column}, did you mean "{name}"')
         else:
-          print(
+          logging.info(
             f'  Field {report_custom_column} - {report[report_custom_column]}: '
             f'{valid_column}')
 
-    # if not valid:
-    #   print('  Available custom columns for this agency/advertiser pair:')
-    #   for custom_column in validator.saved_column_names:
-    #     print(f'    "{custom_column}"')
-
     if len(set(report_custom_columns)) != len(report_custom_columns):
       valid = False
 
-    return (valid, validation) #{ 'is_valid': f'{valid}' })
+    return (valid, validation)
 
-  def _firestore_based(self, project, firestore, sa360_report_definitions, sa360_object) -> Tuple[bool, Dict[str, Any]]:
-    print(f'Validating {sa360_object}:')
-    report = firestore.get_document(Type.SA360_RPT, sa360_object)
-    target_report = sa360_report_definitions[report['report']]
-    validator = self.validator_factory.get_validator(report_type=target_report['report']['reportType'],
-      sa360_service=self.sa360_service, agency=report['AgencyId'], advertiser=report['AdvertiserId'])
-    report_custom_columns = [column['name'] for column in target_report['parameters'] if 'is_list' in column]
-    valid = True
-    for report_custom_column in report_custom_columns:
-      if report[report_custom_column]:
-        (valid_column, name) = validator.validate(report[report_custom_column])
-        valid = valid and valid_column
-        if not valid_column and name:
-          print(f'  Field {report_custom_column} - {report[report_custom_column]}: {valid_column}, did you mean "{name}"')
-        else:
-          print(f'  Field {report_custom_column} - {report[report_custom_column]}: {valid_column}')
+  def install(self, firestore: Firestore, project: str, email: str,
+    file: str=None, gcs_stored: bool=False, **unused) -> None:
+    scheduler = Scheduler()
+    results = []
 
-    if len(set(report_custom_columns)) != len(report_custom_columns):
-      valid = False
+    runners = self._get_sa360_objects(firestore, file, project, email, gcs_stored)
+    sa360_report_definitions = firestore.get_document(Type.SA360_RPT, '_reports')
 
-    if 'API_KEY' in os.environ:
-      args = {
-        'action': 'get',
-        'email': self.sa360.email,
-        'project': project,
-        'job_id': f'run-sa360_report-{sa360_object}',
-      }
-      success, job = self.scheduler.process(args)
+    for runner in runners:
+      id = f"{runner['report']}_{runner['AgencyId']}_{runner['AdvertiserId']}"
 
-      if success and job['state'] == 'ENABLED':
-        if not valid:
-          self.scheduler.process({
-            'action': 'disable',
-            'email': self.sa360.email,
-            'project': project,
-            'job_id': f'run-sa360_report-{sa360_object}',
-          })
+      creds = Credentials(project=project, email=runner['email'])
+      sa360_service = DiscoverService.get_service(Service.SA360, creds)
+      (valid, validity) = self._file_based(
+        sa360_report_definitions=sa360_report_definitions,
+        report=runner, sa360_service=sa360_service)
+
+      if valid:
+        logging.info('Valid report: %s', id)
+
+        old_runner = firestore.get_document(type=Type.SA360_RPT, id=id)
+        if old_runner:
+          for k in runner.keys():
+            if k == 'minute': continue
+            if k in old_runner and old_runner[k] != runner[k]:
+              break
+          results.append(f'{id} - Identical report present. No action taken.')
+          continue
+
+        firestore.store_document(Type.SA360_RPT, f'{id}', runner)
+        job_id = f"run-{Type.SA360_RPT}-{id}"
+
+        args = {
+          'action': 'get',
+          'email': runner['email'],
+          'project': f'{project}',
+          'job_id': job_id,
+        }
+
+        try:
+          present, job = scheduler.process(args)
+
+        except Exception as e:
+          logging.error(e)
+          results.append(f'{id} - Check if already defined failed: {e}')
+          continue
+
+        if present:
+          args = {
+            'action': 'delete',
+            'email': runner['email'],
+            'project': f'{project}',
+            'job_id': job_id,
+          }
+          try:
+            scheduler.process(args)
+
+          except Exception as e:
+            logging.error(e)
+            results.append(f'{id} - Already present but delete failed: {e}')
+            continue
+
+        args = {
+          'action': 'create',
+          'email': runner['email'],
+          'project': f'{project}',
+          'force': False,
+          'infer_schema': False,
+          'append': False,
+          'sa360_id': id,
+          'description':
+            runner['description'] if 'description' in runner else (
+              f'{runner["title"] if "title" in runner else runner["report"]}: '
+              f'{runner["agencyName"]}/{runner["advertiserName"]}'),
+          'dest_dataset': f'{runner["dest_dataset"]}',
+          'minute': runner['minute'],
+        }
+        try:
+          scheduler.process(args)
+          results.append(f'{id} - Valid and installed.')
+
+
+        except Exception as e:
+          logging.error(e)
+          results.append(f'{id} - Failed to create: {e}')
 
       else:
-        if valid:
-          self.scheduler.process({
-            'action': 'enable',
-            'email': self.sa360.email,
-            'project': project,
-            'job_id': f'run-sa360_report-{sa360_object}',
-          })
+        logging.info('Invalid report: %s', id)
+        results.append(f'{id} - Validation failed: {validity}')
 
-    # if not valid:
-    #   print('  Available custom columns for this agency/advertiser pair:')
-    #   for custom_column in validator.saved_column_names:
-    #     print(f'    "{custom_column}"')
+    if results:
+      output_name = f'{file}.results'
+      if gcs_stored:
+        output = io.StringIO()
+        for result in results:
+          print(f'{result}', file=output)
 
-    return (valid, { 'is_valid': f'{valid}' })
+        Cloud_Storage(project=project, email=email).write_file(
+          bucket=f'{project}-report2bq-sa360-manager',
+          file=output_name,
+          data=output.getvalue())
 
-  def list_custom_columns(self, project: str, agency: int, advertiser: int) -> List[str]:
-    if saved_columns := self.saved_column_names.get((agency, advertiser)):
-      return saved_columns
-
-    if not self.sa360_service:
-      self.sa360_service = DiscoverService.get_service(Service.SA360, self.sa360.creds)
-
-    request = self.sa360_service.savedColumns().list(agencyId=agency, advertiserId=advertiser)
-    response = request.execute()
-
-    if 'items' in response:
-      saved_columns = [item['savedColumnName'] for item in response['items']]
-      self.saved_column_names[(agency, advertiser)] = saved_columns
-    else:
-      saved_columns = ['--- No custom columns found ---']
-
-    return saved_columns
+      else:
+        with open(output_name, 'w') as outfile:
+          for result in results:
+            print(result, file=outfile)

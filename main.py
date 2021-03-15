@@ -28,21 +28,24 @@ from typing import Dict, Any
 from urllib.parse import unquote_plus as unquote
 
 from classes.adh import ADH
+from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials
 from classes.dbm_report_runner import DBMReportRunner
 from classes.dcm_report_runner import DCMReportRunner
 from classes.decorators import measure_memory
+from classes.firestore import Firestore
 from classes.gmail import GMail, GMailMessage
 from classes.postprocessor import PostProcessor
 from classes.report2bq import Report2BQ
 from classes.report_type import Type
+from classes.sa360_report_manager import SA360Manager
 from classes.sa360_report_runner import SA360ReportRunner
 from classes.scheduler import Scheduler
 
 from cloud_functions.job_monitor import JobMonitor
 from cloud_functions.run_monitor import RunMonitor
-from cloud_functions.oauth import OAuth
 from cloud_functions.report_loader import ReportLoader
+
 
 
 @measure_memory
@@ -57,7 +60,7 @@ def report_fetch(event: Dict[str, Any], context=None):
   This is the processor that determines which type of report is to be fetched and in turn
   invokes the Report2BQ process. It scans through the parameters sent from the Cloud Scheduler
   task as part of the PubSub message. These are stored in the 'event' object.
-  
+
   Arguments:
       event {Dict[str, Any]} -- data sent from the PubSub message
       context {Dict[str, Any]} -- context data. unused
@@ -104,7 +107,6 @@ def report_fetch(event: Dict[str, Any], context=None):
       return
 
 
-
 def job_monitor(event: Dict[str, Any], context=None):
   """Run the process watching running Big Query import jobs
 
@@ -127,7 +129,7 @@ def run_monitor(event: Dict[str, Any], context=None):
   list of jobs for running DV360/CM processes. If one is discovered to have completed, the Report2BQ
   process is invoked in the normal manner (via a PubSub message to the trigger queue).
 
-  This process is not 100% necessary; if a report is defined with a "fetcher", then the fetcher will 
+  This process is not 100% necessary; if a report is defined with a "fetcher", then the fetcher will
   run as usual every hour and will pick up the change anyway. On the other hand, it allows for a user
   to schedule a quick report to run (say) every 30 minutes, and not create a "fetcher" since this process
   takes the "fetcher"'s place.
@@ -146,10 +148,10 @@ def run_monitor(event: Dict[str, Any], context=None):
 def report_runner(event: Dict[str, Any], context=None):
   """Run a DV360, CM, SA360 or ADH report on demand
 
-  This allows a user to issue the API-based run report directive to start unscheduled, unschedulable (ie 
+  This allows a user to issue the API-based run report directive to start unscheduled, unschedulable (ie
   today-based) or simply control the run time of DV360/CM and ADH reports. A job kicked off using this process
   will be monitored by the "run-monitor", or can simply be left if a "fetcher" is enabled.
-  
+
   Arguments:
       event {Dict[str, Any]} -- data sent from the PubSub message
       context {Dict[str, Any]} -- context data. unused
@@ -259,16 +261,75 @@ def post_processor(event: Dict[str, Any], context=None):
 
 def email_error(email: str, product: str, event: Dict[str, Any], error: Exception):
   message = GMailMessage(
-    to=[email], 
+    to=[email],
     subject=f'Error in {product or "Report2BQ"}',
     body=f'''
 Error: {error if error else 'No exception.'}
 
 Event data: {event}
-''', 
+''',
     project=os.environ.get('GCP_PROJECT'))
 
   GMail().send_message(
     message=message,
     credentials=Credentials(email=email, project=os.environ.get('GCP_PROJECT'))
   )
+
+
+def sa360_report_manager(event: Dict[str, Any], context=None) -> None:
+    """Process a file added to the sa360_report_manager bucket.
+
+    Arguments:
+        event {Dict[str, Any]} -- data sent from the PubSub message
+        context {Dict[str, Any]} -- context data. unused
+    """
+    logging.info(event)
+    project = os.environ.get('GCP_PROJECT')
+
+    bucket_name = event['bucket']
+    file_name = event['name']
+    *n, e = file_name.split('/')[-1].split('.')
+    (name, extension) = ('.'.join(n).lower(), e.lower())
+
+    logging.info('Processing file %s', file_name)
+
+    args = {
+      'add': {
+        'report': name,
+        'project': project,
+        'file': file_name,
+        'action': 'add',
+        'gcs_stored': True,
+      },
+      'validate': {
+          'report': name,
+          'project': project,
+          'file': file_name,
+          'action': 'validate',
+          'gcs_stored': True,
+        },
+      'install': {
+          'report': name,
+          'project': project,
+          'file': file_name,
+          'action': 'install',
+          'gcs_stored': True,
+        },
+      'delete': {
+          'report': name,
+          'project': project,
+          'action': 'delete',
+        }
+      }.get(extension)
+
+    if args:
+      SA360Manager().manage(**args)
+      Cloud_Storage.rename(
+        bucket=bucket_name,
+        source=file_name, destination=f'{file_name}.processed')
+
+    else:
+      # Ignore it
+      logging.warn('File added that will not be processed: %s' % file_name)
+      return
+

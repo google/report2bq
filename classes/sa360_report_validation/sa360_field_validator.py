@@ -16,20 +16,20 @@ limitations under the License.
 
 __author__ = ['davidharcombe@google.com (David Harcombe)']
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 from absl import app
 from googleapiclient.discovery import Resource
+from typing import List
 
 
 class SA360Validator(object):
-  saved_column_names = None
+  fields = []
 
   def __init__(self,
                sa360_service: Resource = None,
                agency: int = None,
                advertiser: int = None) -> None:
-    self.fields = []
     self.sa360_service = sa360_service
     self.agency = agency
     self.advertiser = advertiser
@@ -49,16 +49,15 @@ class SA360Validator(object):
     if not name:
       return (True, '--- Blank column name ---')
 
-    if not self.saved_column_names:
-      self.list_custom_columns()
+    saved_column_names = self.list_custom_columns()
 
-    if not self.saved_column_names:
+    if not saved_column_names:
       return (False, '--- No custom columns found --')
 
-    if name in self.saved_column_names:
+    if name in saved_column_names:
       return (True, name)
 
-    did_you_mean = next((x for i, x in enumerate(self.saved_column_names)
+    did_you_mean = next((x for i, x in enumerate(saved_column_names)
                          if x.casefold() == name.casefold()), None)
     return (False, did_you_mean)
 
@@ -71,18 +70,21 @@ class SA360Validator(object):
       None)
     return (False, did_you_mean)
 
-  def list_custom_columns(self) -> None:
+  def list_custom_columns(self) -> List[str]:
+    saved_column_names = []
     if self.sa360_service:
       request = self.sa360_service.savedColumns().list(
         agencyId=self.agency, advertiserId=self.advertiser)
       response = request.execute()
 
       if 'items' in response:
-        self.saved_column_names = [
+        saved_column_names = [
           item['savedColumnName'] for item in response['items']
         ]
       else:
-        self.saved_column_names = []
+        saved_column_names = []
+
+    return saved_column_names
 
 
 def main(unused_argv):

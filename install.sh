@@ -40,10 +40,10 @@ Deployment directives:
   --activate-apis   Activate all missing but required Cloud APIs
   --create-service-account
                     Create the service account and client secrets
-  
+
   EITHER:
     --deploy-all      (Re)Deploy all portions
-  
+
   OR ONE OR MORE OF:
     --deploy-bigquery (Re)Deploy Big Query dataset
     --deploy-fetcher  (Re)Deploy fetcher
@@ -57,8 +57,10 @@ Deployment directives:
     --deploy-trigger  (Re)Deploy triggers
     --deploy-job-manager
                       (Re)Deploy the job manager for listing creating and deleting scheduled jobs
+    --deploy-sa360-mamaner
+                      (Re)Deploy the report manager for dynamic SA360 reports
 
-  --no-topics       Just deploy the functions; good if you have deployed once and are just 
+  --no-topics       Just deploy the functions; good if you have deployed once and are just
                     updating the cloud functions
   --background      Run the Cloud Functions deployments in the background.
                     WARNING: IF YOU DO THIS, BE SURE TO CHECK THE FUNCTION OUTPUT FILES FOR A
@@ -67,7 +69,7 @@ Deployment directives:
 General switches:
   --administrator   EMail address of the administrator for error messages
   --store-api-key   Store the API key in the GCS tokens bucket for use later
-  --dry-run         Don't do anything, just print the commands you would otherwise run. Useful 
+  --dry-run         Don't do anything, just print the commands you would otherwise run. Useful
                     for testing.
   --usage           Show this text
 EOF
@@ -95,6 +97,7 @@ DEPLOY_RUN_MONITOR=0
 DEPLOY_STORAGE=0
 DEPLOY_TRIGGER=0
 DEPLOY_POSTPROCESSOR=0
+DEPLOY_SA360_MANAGER=0
 DEPLOY_TOPICS=1
 STORE_API_KEY=0
 USERNAME=0
@@ -102,7 +105,7 @@ ADMIN=
 
 # Command line parser
 while [[ $1 == -* ]] ; do
-  case $1 in 
+  case $1 in
     --project*)
       IFS="=" read _cmd PROJECT <<< "$1" && [ -z ${PROJECT} ] && shift && PROJECT=$1
       ;;
@@ -126,10 +129,11 @@ while [[ $1 == -* ]] ; do
       DEPLOY_STORAGE=1
       DEPLOY_TRIGGER=1
       DEPLOY_POSTPROCESSOR=1
+      DEPLOY_SA360_MANAGER=1
       ;;
     --deploy-bigquery)
       DEPLOY_BQ=1
-      ;;  
+      ;;
     --deploy-fetcher)
       DEPLOY_FETCHER=1
       ;;
@@ -156,6 +160,9 @@ while [[ $1 == -* ]] ; do
       ;;
     --deploy-postprocessor)
       DEPLOY_POSTPROCESSOR=1
+      ;;
+    --deploy-sa360-manager)
+      DEPLOY_SA360_MANAGER=1
       ;;
     --activate-apis)
       ACTIVATE_APIS=1
@@ -378,7 +385,7 @@ if [ ${DEPLOY_MONITOR} -eq 1 ]; then
     _BG=" & > report2bq-monitor.deploy 2>&1"
   fi
 
-  # Deploy cloud function 
+  # Deploy cloud function
   echo "job-monitor"
   ${DRY_RUN} gcloud functions deploy "job-monitor" \
     --entry-point=job_monitor \
@@ -511,6 +518,24 @@ if [ ${DEPLOY_POSTPROCESSOR} -eq 1 ]; then
     --runtime python37 \
     --memory=2048MB \
     --trigger-topic="postprocessor" \
+    --service-account=$USER \
+    --set-env-vars=${ENVIRONMENT} \
+    --quiet \
+    --timeout=240s \
+    --project=${PROJECT} ${_BG}
+fi
+
+if [ ${DEPLOY_SA360_MANAGER} -eq 1 ]; then
+  # Deploy cloud function
+  echo "sa360 manager"
+  ${DRY_RUN} gcloud functions deploy "sa360-manager" \
+    --service-account=$USER \
+    --entry-point=sa360_report_manager \
+    --source=${SOURCE} \
+    --runtime python37 \
+    --memory=2048MB \
+    --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-sa360-manager" \
+    --trigger-event="google.storage.object.finalize" \
     --service-account=$USER \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
