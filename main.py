@@ -292,44 +292,20 @@ def sa360_report_manager(event: Dict[str, Any], context=None) -> None:
     (name, extension) = ('.'.join(n).lower(), e.lower())
 
     logging.info('Processing file %s', file_name)
-
-    args = {
-      'add': {
+    try:
+      args = {
         'report': name,
         'project': project,
         'file': file_name,
-        'action': 'add',
         'gcs_stored': True,
-      },
-      'validate': {
-          'report': name,
-          'project': project,
-          'file': file_name,
-          'action': 'validate',
-          'gcs_stored': True,
-        },
-      'install': {
-          'report': name,
-          'project': project,
-          'file': file_name,
-          'action': 'install',
-          'gcs_stored': True,
-        },
-      'delete': {
-          'report': name,
-          'project': project,
-          'action': 'delete',
-        }
-      }.get(extension)
-
-    if args:
+        'action': extension,
+      }
       SA360Manager().manage(**args)
       Cloud_Storage.rename(
         bucket=bucket_name,
         source=file_name, destination=f'{file_name}.processed')
 
-    else:
-      # Ignore it
-      logging.warn('File added that will not be processed: %s' % file_name)
+    except NotImplementedError:
+      logging.debug(
+        'Extension command %s is not a valid action. Ignoring.', extension)
       return
-

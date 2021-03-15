@@ -116,27 +116,43 @@ class SA360Manager(object):
     }.get(kwargs['action'])
 
     if action:
-      # self.sa360 = SA360Dynamic(email, project)
       return action(**args)
 
     else:
       raise NotImplementedError()
 
-  def list_all(self, firestore: Firestore, project: str, _print: bool=False, **unused):
+  def list_all(
+    self, firestore: Firestore, project: str, _print: bool=False,
+    gcs_stored: bool=False, **unused):
     sa360_objects = firestore.list_documents(Type.SA360_RPT)
     reports = firestore.list_documents(Type.SA360_RPT, '_reports')
+    results = []
+    results.append(f'SA360 Dynamic Reports defined for project {project}')
+    for report in reports:
+      results.append(f'  {report}')
+      for sa360_object in sa360_objects:
+        if sa360_object.startswith(report):
+          results.append(f'    {sa360_object}')
+      self._output_results(
+        results=results, project=project, email=None, file='report_list',
+        gcs_stored=gcs_stored)
+
     if _print:
-      logging.info(f'SA360 Dynamic Reports defined for project {project}')
-      for report in reports:
-        logging.info(f'  {report}')
-        for sa360_object in sa360_objects:
-          if sa360_object.startswith(report):
-            logging.info(f'    {sa360_object}')
+      for result in results:
+        logging.info(result)
 
     return reports
 
-  def show(self, firestore: Firestore, report: str, _print: bool=False, **unused):
+  def show(
+    self, firestore: Firestore, project: str, report: str, _print: bool=False,
+    gcs_stored: bool=False, **unused):
     definition = firestore.get_document(Type.SA360_RPT, '_reports').get(report)
+    results = [ l for l in json.dumps(definition, indent=2).splitlines() ]
+
+    self._output_results(
+      results=results, project=project, email=None, file=report,
+      gcs_stored=gcs_stored)
+
     if _print:
       logging.info(f'SA360 Dynamic Report "{report}"')
       pprint.pprint(definition, indent=2, compact=False)
@@ -377,18 +393,24 @@ class SA360Manager(object):
         results.append(f'{id} - Validation failed: {validity}')
 
     if results:
-      output_name = f'{file}.results'
-      if gcs_stored:
-        output = io.StringIO()
+      self._output_results(
+        results=results, project=project, email=email, gcs_stored=gcs_stored)
+
+  def _output_results(
+    self, results: List[str], project: str, email: str, file: str=None,
+    gcs_stored: bool=False) -> None:
+    output_name = f'{file}.results'
+    if gcs_stored:
+      output = io.StringIO()
+      for result in results:
+        print(f'{result}', file=output)
+
+      Cloud_Storage(project=project, email=email).write_file(
+        bucket=f'{project}-report2bq-sa360-manager',
+        file=output_name,
+        data=output.getvalue())
+
+    else:
+      with open(output_name, 'w') as outfile:
         for result in results:
-          print(f'{result}', file=output)
-
-        Cloud_Storage(project=project, email=email).write_file(
-          bucket=f'{project}-report2bq-sa360-manager',
-          file=output_name,
-          data=output.getvalue())
-
-      else:
-        with open(output_name, 'w') as outfile:
-          for result in results:
-            print(result, file=outfile)
+          print(result, file=outfile)
