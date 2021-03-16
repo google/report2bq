@@ -251,7 +251,7 @@ fi
 
 if [ ${DEPLOY_STORAGE} -eq 1 ]; then
   # Create buckets
-  for bucket in report2bq-tokens report2bq-upload report2bq report2bq-postprocessor; do
+  for bucket in report2bq report2bq-tokens report2bq-upload report2bq-postprocessor report2bq-sa360-manager; do
     gsutil ls -p ${PROJECT} gs://${PROJECT}-${bucket} > /dev/null 2>&1
     RETVAL=$?
     if (( ${RETVAL} != "0" )); then

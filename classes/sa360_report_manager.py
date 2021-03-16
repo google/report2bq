@@ -399,18 +399,20 @@ class SA360Manager(object):
   def _output_results(
     self, results: List[str], project: str, email: str, file: str=None,
     gcs_stored: bool=False) -> None:
+    def _send():
+      for result in results:
+        print(result, file=outfile)
+
     output_name = f'{file}.results'
     if gcs_stored:
-      output = io.StringIO()
-      for result in results:
-        print(f'{result}', file=output)
+      outfile = io.StringIO()
+      _send()
 
       Cloud_Storage(project=project, email=email).write_file(
         bucket=f'{project}-report2bq-sa360-manager',
         file=output_name,
-        data=output.getvalue())
+        data=outfile.getvalue())
 
     else:
       with open(output_name, 'w') as outfile:
-        for result in results:
-          print(result, file=outfile)
+        _send()

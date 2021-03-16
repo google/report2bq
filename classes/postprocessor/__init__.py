@@ -19,61 +19,59 @@ __author__ = [
 ]
 
 # Python logging
-import logging
 import os
 import sys
 
-from contextlib import suppress
-from importlib.abc import Loader, MetaPathFinder
-from importlib.machinery import ModuleSpec
-from importlib.util import spec_from_file_location
-from typing import Any, Dict, Mapping
+from importlib import abc
+from importlib import types
+from importlib import machinery
+from typing import Any, Dict, Mapping, Optional
 
 from classes.cloud_storage import Cloud_Storage
 from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
-from google.cloud.bigquery.table import RowIterator
+from google.cloud.bigquery import table
 
 
-class PostProcessorFinder(MetaPathFinder):
+class PostProcessorFinder(abc.MetaPathFinder):
   """Check class type
 
   This class checks to see if the class being loaded is a subclass of
   'PostProcessor'. If it isn't, it won't be loaded.
   """
-  
-  def find_spec(self, fullname, path, target=None):
+
+  def find_spec(self, fullname: str, path: str, target: Optional[str] = None) -> machinery.ModuleSpec:
     """
-    Locate the file in GCS. The "spec" should then be 
+    Locate the file in GCS. The "spec" should then be
     fullname = fullname
     path = location in GCS, should be hardwired in config
     """
-    if 'postprocessor' not in fullname: 
+    if 'postprocessor' not in fullname:
       return None                     # we don't handle this this
 
     else:
-      return ModuleSpec(fullname, PostProcessorLoader())
+      return machinery.ModuleSpec(fullname, PostProcessorLoader())
 
 
-class PostProcessorLoader(Loader):
+class PostProcessorLoader(abc.Loader):
   """Load a PostProcessor
 
-  Load an arbitrary PostProcessor subclass into the Python class library 
+  Load an arbitrary PostProcessor subclass into the Python class library
   dynamically. The location to check is hardwired here for security
   reasons.
   """
 
-  def create_module(self, spec):
+  def create_module(self, spec: machinery.ModuleSpec):
     return None # use default module creation semantics
 
-  def exec_module(self, module):
+  def exec_module(self, module: types.ModuleType):
     try:
       # Fetch the code here as string:
       # GCS? BQ? Firestore? All good options
       filename = module.__name__.split('.')[-1]
       code = Cloud_Storage.fetch_file(
         bucket=(f'{os.environ.get("GCP_PROJECT")}'
-          '-report2bq-postprocessor'), 
+          '-report2bq-postprocessor'),
         file=f'{filename}.py'
       )
       exec(code, vars(module))
@@ -109,11 +107,11 @@ class PostProcessor(object):
     try:
       client.get_table(f'{project}.{dataset}.{table}')
       return True
-      
+
     except NotFound:
       return False
 
-  def execute_and_wait(self, query: str) -> RowIterator:
+  def execute_and_wait(self, query: str) -> table.RowIterator:
     """Execute the sql in the 'query' and wait for the result.
 
     Commonly needed helper function
@@ -129,7 +127,7 @@ class PostProcessor(object):
     result = job.result()
     return result
 
-  def run(self, context=None, 
+  def run(self, context=None,
     **attributes: Mapping[str, str]) -> Dict[str, Any]:
     """Run the user's PostProcessor code
 
