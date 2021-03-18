@@ -28,6 +28,7 @@ from html.parser import unescape
 from io import BytesIO, StringIO, SEEK_END
 from typing import Dict, List, Any, Tuple
 from urllib.parse import unquote
+from classes import credentials
 
 from classes.credentials import Credentials
 from classes.cloud_storage import Cloud_Storage
@@ -86,6 +87,8 @@ class SA360Web(ReportFetcher):
     chunk_size = self.chunk_multiplier * 1024 * 1024
     streamer = ThreadedGCSObjectStreamUpload(
       client=Cloud_Storage.client(credentials=self.creds),
+      creds=credentials.Credentials(
+        email=self.email, project=self.project).get_credentials(),
       bucket_name=bucket,
       blob_name='{id}.csv'.format(id=report_details['id']),
       chunk_size=chunk_size,

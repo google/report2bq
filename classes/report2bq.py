@@ -36,26 +36,26 @@ from classes.cloud_storage import Cloud_Storage
 from classes.firestore import Firestore
 from classes.report_type import Type
 
-from typing import Any, Mapping
+from typing import Any, Dict, List, Mapping, Optional
 from urllib.parse import unquote
 
 
 class Report2BQ(object):
-  def __init__(self, product: Type, email=None, project=None, 
+  def __init__(self, product: Type, email=None, project=None,
     report_id=None,
     profile=None,
     sa360_url=None,
     force: bool=False, append: bool=False, infer_schema: bool=False,
     dest_project: str=None, dest_dataset: str='report2bq',
-    notify_topic: str=None, notify_message: str=None, 
-    file_id: str=None, **unused):
+    notify_topic: str=None, notify_message: str=None,
+    file_id: str=None, partition: bool=False, **unused):
     self.product = product
 
     self.force = force
     self.email = email
     self.append = append
     self.infer_schema = infer_schema
-    
+
     self.report_id = report_id
 
     self.sa360_url = unquote(sa360_url) if sa360_url else None
@@ -70,23 +70,35 @@ class Report2BQ(object):
 
     self.notify_topic = notify_topic
     self.notify_message = notify_message
+    self.partition = partition
 
     self.firestore = Firestore(email=email, project=project)
 
   def handle_report_fetcher(self, fetcher: ReportFetcher):
+    def _schema(field):
+      if self.partition and field['type'] not in ['DATE', 'DATETIME']:
+        field['type'] = 'STRING'
+      return field
+
     # Get Latest Report
     report_object = fetcher.get_latest_report_file(self.report_id)
 
     # Normalize Report Details
-    report_data = fetcher.fetch_report_config(report_object=report_object, report_id=self.report_id)
-    last_report = self.firestore.get_report_config(fetcher.report_type, self.report_id)
+    report_data = \
+      fetcher.fetch_report_config(
+        report_object=report_object, report_id=self.report_id)
+    last_report = \
+      self.firestore.get_report_config(fetcher.report_type, self.report_id)
 
     if last_report:
-      if report_data['last_updated'] == last_report['last_updated'] and not self.force:
+      if report_data['last_updated'] == \
+        last_report['last_updated'] and not self.force:
         logging.info('No change: ignoring.')
         return
-    
-    report_data = fetcher.normalize_report_details(report_object=report_object, report_id=self.report_id)
+
+    report_data = \
+      fetcher.normalize_report_details(
+        report_object=report_object, report_id=self.report_id)
 
     report_data['email'] = self.email
     report_data['append'] = self.append
@@ -97,24 +109,30 @@ class Report2BQ(object):
       report_data['notifier'] = {
         'topic': self.notify_topic,
       }
-      if self.notify_message: report_data['notifier']['message'] = self.notify_message
-      
+      if self.notify_message:
+        report_data['notifier']['message'] = self.notify_message
+
     if report_object:
       csv_header, csv_types = fetcher.read_header(report_data)
       if csv_header:
-        schema = CSVHelpers.create_table_schema(
-          csv_header, 
-          csv_types if self.infer_schema else None
-        )
+        schema = map(_schema, CSVHelpers.create_table_schema(csv_header, csv_types))
+        report_data['schema'] = list(schema)
+        if self.partition:
+          partition_column = \
+            next(F['name'] \
+              for F in report_data['schema'] if F['type'] in ['DATE', 'DATETIME'])
+          if partition_column:
+            report_data['partition'] = self.partition
+            report_data['partition_column'] = partition_column
 
-        report_data['schema'] = schema
         fetcher.stream_to_gcs(f'{self.project}-report2bq-upload', report_data)
-      
-    self.firestore.store_report_config(fetcher.report_type, self.report_id, report_data)
+
+    self.firestore.store_report_config(
+      fetcher.report_type, self.report_id, report_data)
 
   def handle_sa360(self):
     sa360 = SA360Web(
-      project=self.project, 
+      project=self.project,
       email=self.email,
       infer_schema=self.infer_schema,
       append=self.append)
@@ -141,12 +159,12 @@ class Report2BQ(object):
     sa360.stream_to_gcs(
       bucket='{project}-report2bq-upload'.format(project=self.project),
       report_details=report_data)
-      
+
     self.firestore.store_report_config(Type.SA360, id, report_data)
-  
+
   def handle_sa360_report(self):
     sa360 = SA360Dynamic(
-      project=self.project, 
+      project=self.project,
       email=self.email,
       infer_schema=self.infer_schema,
       append=self.append)

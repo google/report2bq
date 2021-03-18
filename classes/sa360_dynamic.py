@@ -29,6 +29,7 @@ from html.parser import unescape
 from io import BytesIO, StringIO, SEEK_END
 from typing import Dict, List, Any, Tuple
 from urllib.parse import unquote
+from classes import credentials
 
 from classes.credentials import Credentials
 from classes.cloud_storage import Cloud_Storage
@@ -150,11 +151,15 @@ class SA360Dynamic(ReportFetcher):
     chunk_size = self.chunk_multiplier * 1024 * 1024
     out_file = BytesIO()
 
-    streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(),
-                                             bucket_name=self.bucket,
-                                             blob_name=f'{report_id}.csv',
-                                             chunk_size=chunk_size,
-                                             streamer_queue=queue)
+    streamer = \
+      ThreadedGCSObjectStreamUpload(
+        client=Cloud_Storage.client(),
+        creds=credentials.Credentials(
+          email=self.email, project=self.project).get_credentials(),
+        bucket_name=self.bucket,
+        blob_name=f'{report_id}.csv',
+        chunk_size=chunk_size,
+        streamer_queue=queue)
     streamer.start()
 
     r = urllib.request.Request(report_details['files'][0]['url'])

@@ -54,7 +54,7 @@ class JobMonitor(object):
 
   def process(self, data: Dict[str, Any], context):
     """Check all the running jobs
-    
+
     Arguments:
       event {Dict[str, Any]} -- data sent from the PubSub message
       context {Dict[str, Any]} -- context data. unused
@@ -66,7 +66,7 @@ class JobMonitor(object):
       for T in [t for t in Type if not t.name.startswith('_')]:
         config = firestore.get_report_config(T, document.id)
 
-        if config: 
+        if config:
           if config.get('dest_project'):
             # authenticate against supplied project with supplied key
             project = config.get('dest_project') or os.environ.get('GCP_PROJECT')
@@ -86,7 +86,7 @@ class JobMonitor(object):
 
           else:
             bq = bigquery.Client()
-            
+
           api_repr = document.get().to_dict()
           if api_repr:
             try:
@@ -97,20 +97,21 @@ class JobMonitor(object):
                 if job.error_result:
                   logging.error(job.errors)
 
-                self._handle_finished(job=job)
-                ('notifier' in config) and self.notify(report_type=T, config=config, job=job, id=document.id)
-                firestore.mark_import_job_complete(document.id, job)
+                self._handle_finished(job=job, config=config)
+                ('notifier' in config) and self.notify(
+                  report_type=T, config=config, job=job, id=document.id)
+                firestore.mark_import_job_complete(document.id, job,)
 
             except Exception as e:
               logging.error(f"""Error loading job {document.id} for monitoring.""")
 
           break
 
-  def _handle_finished(self, job: LoadJob):
+  def _handle_finished(self, job: LoadJob, config: Dict[str, Any]):
     """Deal with completed jobs
 
     When we find a completed job, delete the source CSV from GCS.
-    
+
     Arguments:
         job {LoadJob} -- Big Query import job
     """
@@ -123,6 +124,9 @@ class JobMonitor(object):
       source_bucket = storage.Client().get_bucket(bucket_name)
       source_blob = source_bucket.blob(blob_name)
       with suppress(Exception):
+        if config.get('development'):
+          return
+
         source_blob.delete()
         logging.info('File {file} removed from {source}.'.format(file=blob_name, source=bucket_name))
 

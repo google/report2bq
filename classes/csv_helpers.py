@@ -20,21 +20,15 @@ __author__ = [
 
 import io
 import logging
+import messytables
 import re
 
-from messytables import CSVTableSet
-from messytables.types import StringType, IntegerType, FloatType, \
-        DecimalType, DateType, DateUtilType, BoolType
-from messytables import type_guess
-from messytables import types_processor
-from messytables import headers_guess
-from messytables import headers_processor
-from messytables import offset_processor
-from typing import Dict, List, Tuple, Type
+from messytables import types as mt_types
+from typing import Dict, List, Tuple
 
 class CSVHelpers(object):
-  """CSV file helpers  
-  
+  """CSV file helpers
+
   """
   @staticmethod
   def get_column_types(data: io.BytesIO) -> Tuple[List[str], List[str]]:
@@ -45,20 +39,20 @@ class CSVHelpers(object):
 
     This is still a WIP due to the parlous state of the DV360/CM CSV data formats in
     general
-    
+
     Arguments:
         data {io.BytesIO} -- sample of the CSV file
 
     Returns:
         (List[str], List[str]) -- tuple of list of header names and list of column types
     """
-    table_set = CSVTableSet(data)
+    table_set = messytables.CSVTableSet(data)
     row_set = table_set.tables[0]
-    offset, headers = headers_guess(row_set.sample)
+    offset, headers = messytables.headers_guess(row_set.sample)
     logging.info(headers)
-    row_set.register_processor(headers_processor(headers))
-    row_set.register_processor(offset_processor(offset + 1))
-    types = type_guess(row_set.sample, strict=True)
+    row_set.register_processor(messytables.headers_processor(headers))
+    row_set.register_processor(messytables.offset_processor(offset + 1))
+    types = messytables.type_guess(row_set.sample, strict=True)
     logging.info(types)
 
     return (headers, types)
@@ -70,10 +64,10 @@ class CSVHelpers(object):
 
     Sanitize the header names (or any other string) to convert all non-alphanumerics to
     a simple '_' character. This matches what BQ expects.
-    
+
     Arguments:
         original {str} -- original string
-    
+
     Returns:
         str -- sanitized string
     """
@@ -88,24 +82,23 @@ class CSVHelpers(object):
     for defining the import CSV.
 
     TODO: Also accept the column types and create the schema that way
-    
+
     Keyword Arguments:
         header {list} -- header column names (default: {None})
-    
+
     Returns:
         Dict[str, str] -- json format schema
     """
     def _sql_field(T):
-      if isinstance(T, StringType): R = 'STRING'
-      elif isinstance(T, DecimalType): R = 'FLOAT'
-      elif isinstance(T, IntegerType): R = 'INTEGER'
-      elif isinstance(T, DateType): 
+      R = None
+      if isinstance(T, mt_types.StringType): R = 'STRING'
+      elif isinstance(T, mt_types.DecimalType): R = 'FLOAT'
+      elif isinstance(T, mt_types.IntegerType): R = 'INTEGER'
+      elif isinstance(T, mt_types.DateType):
         if T.format == '%Y-%m-%d %HH:%MM:%SS': R = 'DATETIME'
         elif T.format == '%Y-%m-%d': R = 'DATE'
-        else: R = 'STRING'
-      else: R = 'STRING'
 
-      return R
+      return R or 'STRING'
 
     field_template = {
         "name": "",
@@ -116,7 +109,6 @@ class CSVHelpers(object):
 
     master = dict(zip(header, types or (['STRING'] * len(header))))
 
-    # cols = re.sub('[^a-zA-Z0-9,]', '_', header).split(',')
     for col in header:
       new_field = field_template.copy()
       new_field['name'] = CSVHelpers.sanitize_string(col)

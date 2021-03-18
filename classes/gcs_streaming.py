@@ -13,15 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Stream data to a file in Cloud Storage."""
+from __future__ import annotations
 
 import logging
 import queue
 import threading
+from typing import Optional
 
+from google.auth import credentials
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import storage
 from google.resumable_media import common
 from google.resumable_media import requests
+# from gps_building_blocks.cloud.utils import cloud_auth
 
 
 class GCSStreamingUploader(object):
@@ -29,22 +33,29 @@ class GCSStreamingUploader(object):
   streamer_type = 'Undefined'
 
   def __init__(self,
-               client: storage.Client,
                bucket_name: str,
                blob_name: str,
-               chunk_size: int = 256 * 1024):
+               client: Optional[storage.Client] = None,
+               creds: Optional[credentials.Credentials] = None,
+               chunk_size: Optional[int] = 256 * 1024) -> GCSStreamingUploader:
     """Initialise a single-threaded streamer.
 
     Args:
-        client (storage.Client): The GCS client.
         bucket_name (str): The name of the bucket to write to.
         blob_name (str): The name of the blob (file) to create.
-        chunk_size (int, optional): Size of buffer to write in a block.
-            This defaults to 256*1024, or 256k (designed for restricted memory
-            situations like a Cloud Function).
+        client (storage.Client): The GCS client. None will create a new client
+          with the supplied credentials.
+        creds (credentials.Credentials): The GCP credentials to use. None
+          implies the default project credentials.
+        chunk_size (int, optional): Size of buffer to write in a block. This
+          defaults to 256*1024, or 256k (designed for restricted memory
+          situations like a Cloud Function).
     """
-    self._client = client
-    self._bucket = self._client.bucket(bucket_name)
+    self._credentials = creds # if creds else cloud_auth.get_default_credentials()
+    self._client = \
+      client if client else storage.Client(credentials=self._credentials)
+    self._client = storage.Client(credentials=self._credentials)
+    self._bucket = self._client.get_bucket(bucket_name)
     self._blob = self._bucket.blob(blob_name)
 
     self._buffer = b''
@@ -53,8 +64,6 @@ class GCSStreamingUploader(object):
     self._read = 0
 
     self._bytes_written = 0
-
-    self._transport = AuthorizedSession(credentials=self._client._credentials)
     self._request = None  # type: requests.ResumableUpload
 
   def begin(self):
@@ -63,6 +72,7 @@ class GCSStreamingUploader(object):
     This method opens the resumable request and creates the destination blob
     ready for use.
     """
+    self._transport = AuthorizedSession(credentials=self._credentials)
     url = (f'https://www.googleapis.com/upload/storage/v1/b/'
            f'{self._bucket.name}/o?uploadType=resumable')
     self._request = requests.ResumableUpload(
@@ -101,8 +111,7 @@ class GCSStreamingUploader(object):
       try:
         logging.info('%s writing chunk', self.streamer_type)
         self._request.transmit_next_chunk(
-          transport=self._transport,
-          timeout=180)
+            transport=self._transport, timeout=180)
         logging.info('%s written %s bytes', self.streamer_type,
                      f'{self._request.bytes_uploaded:,}')
         self._bytes_written += self._request.bytes_uploaded
@@ -163,25 +172,29 @@ class GCSObjectStreamUpload(GCSStreamingUploader):
   """
 
   def __init__(self,
-               client: storage.Client,
                bucket_name: str,
                blob_name: str,
-               chunk_size: int = 256 * 1024):
+               client: Optional[storage.Client] = None,
+               creds: Optional[credentials.Credentials] = None,
+               chunk_size: Optional[int] = 256 * 1024):
     """Initialise a single-threaded streamer.
 
     Args:
-        client (storage.Client): The GCS client.
         bucket_name (str): The name of the bucket to write to.
         blob_name (str): The name of the blob (file) to create.
-        chunk_size (int, optional): Size of buffer to write in a block.
-            This defaults to 256*1024, or 256k (designed for restricted memory
-            situations like a Cloud Function).
+        client (storage.Client): The GCS client. None will create a new client
+          with the supplied credentials.
+        creds (credentials.Credentials): The GCP credentials to use. None
+          implies the default project credentials.
+        chunk_size (int, optional): Size of buffer to write in a block. This
+          defaults to 256*1024, or 256k (designed for restricted memory
+          situations like a Cloud Function).
     """
-    super().__init__(
-        client=client,
-        bucket_name=bucket_name,
-        blob_name=blob_name,
-        chunk_size=chunk_size)
+    super().__init__(client=client,
+                     creds=creds,
+                     bucket_name=bucket_name,
+                     blob_name=blob_name,
+                     chunk_size=chunk_size)
     self.streamer_type = 'GCS Streamer'
     logging.info('%s initialized', self.streamer_type)
 
@@ -225,30 +238,32 @@ class ThreadedGCSObjectStreamUpload(GCSStreamingUploader, threading.Thread):
       streamer.stop()
   """
 
-  def __init__(
-      self,
-      client: storage.Client,
-      bucket_name: str,
-      blob_name: str,
-      streamer_queue: queue.Queue,
-      chunk_size: int = 256 * 1024,
-  ):
+  def __init__(self,
+               bucket_name: str,
+               blob_name: str,
+               streamer_queue: queue.Queue,
+               client: Optional[storage.Client] = None,
+               creds: Optional[credentials.Credentials] = None,
+               chunk_size: Optional[int] = 256 * 1024):
     """Initialise a new ThreadedGCSStreamer.
 
     Args:
-        client (storage.Client): The GCS client.
         bucket_name (str): The name of the bucket to write to.
         blob_name (str): The name of the blob (file) to create.
         streamer_queue (queue.Queue): The queue holding the bytes to write.
-        chunk_size (int, optional): Size of buffer to write in a block.
-            This defaults to 256*1024, or 256k (designed for restricted memory
-            situations like a Cloud Function).
+        client (storage.Client): The GCS client. None will create a new client
+          with the supplied credentials.
+        creds (credentials.Credentials): The GCP credentials to use. None
+          implies the default project credentials.
+        chunk_size (int, optional): Size of buffer to write in a block. This
+          defaults to 256*1024, or 256k (designed for restricted memory
+          situations like a Cloud Function).
     """
-    super().__init__(
-        client=client,
-        bucket_name=bucket_name,
-        blob_name=blob_name,
-        chunk_size=chunk_size)
+    super().__init__(client=client,
+                     creds=creds,
+                     bucket_name=bucket_name,
+                     blob_name=blob_name,
+                     chunk_size=chunk_size)
     threading.Thread.__init__(self)
     self._queue = streamer_queue
     self._stop = threading.Event()

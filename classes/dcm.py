@@ -37,8 +37,8 @@ from queue import Queue, Empty
 
 # Class Imports
 from classes import Fetcher, ReportFetcher
+from classes import credentials
 from classes.cloud_storage import Cloud_Storage
-from classes.credentials import Credentials
 from classes.csv_helpers import CSVHelpers
 from classes.decorators import retry
 from classes.discovery import DiscoverService
@@ -66,7 +66,8 @@ class DCM(ReportFetcher, Fetcher):
 
   def service(self) -> Resource:
     return DiscoverService.get_service(
-      Service.CM, Credentials(email=self.email, project=self.project))
+      Service.CM,
+      credentials.Credentials(email=self.email, project=self.project))
 
 
   def get_user_profiles(self):
@@ -397,6 +398,8 @@ class DCM(ReportFetcher, Fetcher):
 
     # Execute the get request and download the file.
     streamer = ThreadedGCSObjectStreamUpload(
+      creds=credentials.Credentials(
+        email=self.email, project=self.project).get_credentials(),
       client=Cloud_Storage.client(),
       bucket_name=bucket,
       blob_name='{id}.csv'.format(id=report_id),

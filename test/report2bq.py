@@ -34,8 +34,8 @@ from classes.report_type import Type
 from main import report_fetch, report_runner
 
 logging.basicConfig(
-  filename=f'report2bq-test-harness-{datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.log', 
-  format='%(asctime)s %(message)s', 
+  filename=f'report2bq-test-harness-{datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.log',
+  format='%(asctime)s %(message)s',
   datefmt='%Y-%m-%d %I:%M:%S %p',
   level=logging.DEBUG
 )
@@ -116,21 +116,26 @@ flags.DEFINE_string('notify_topic',
                      None,
                      'Post load job completion topic to notify')
 
+flags.DEFINE_boolean('partition',
+                     False,
+                     'Create a partitioned table in BQ.')
+flags.DEFINE_boolean('development', False, 'Leave the files in GCS.')
+
 
 # Stub main()
 def main(unused_argv):
   attributes = {
     'list_reports': FLAGS.list,
-    'dv360': FLAGS.dv360, 
+    'dv360': FLAGS.dv360,
     'cm': FLAGS.cm,
-    'force': FLAGS.force, 
+    'force': FLAGS.force,
     'dv360_id': FLAGS.dv360_id,
-    'cm_id': FLAGS.cm_id, 
+    'cm_id': FLAGS.cm_id,
     'report_id': FLAGS.report_id,
-    'profile': FLAGS.profile, 
-    'account_id': FLAGS.account, 
+    'profile': FLAGS.profile,
+    'account_id': FLAGS.account,
     'email': FLAGS.email,
-    'in_cloud': True, 
+    'in_cloud': True,
     'append': FLAGS.append,
     'project': FLAGS.project,
     'sa360_url': unquote(FLAGS.sa360_url) if FLAGS.sa360_url else None,
@@ -142,13 +147,15 @@ def main(unused_argv):
     'type': FLAGS.product,
     'notify_topic': FLAGS.notify_topic,
     'notify_message': FLAGS.notify_message,
+    'partition': FLAGS.partition,
+    'development': FLAGS.development,
   }
 
   if Type(FLAGS.product) == Type.SA360_RPT:
     f = report_runner
   else:
     f = report_fetch
-  
+
   f({'attributes': attributes}, None)
 
 

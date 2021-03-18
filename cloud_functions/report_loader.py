@@ -45,13 +45,13 @@ from classes.report_type import Type
 
 class ReportLoader(object):
   """Run the report loading process
-  
+
   This performs the CSV import into BQ. It is triggered by a finalize/create on a
   monitored GCS bucket, and will ONLY process CSVs. All other files written to that
   bucket will result in an error in the logs. The file must named the same as the report
   id that is stored in Firestore - this is how the process knows which table/schema to use.
 
-  Once started, the BQ Import Job (of type google.cloud.bigquery.LoadJob) is stored in 
+  Once started, the BQ Import Job (of type google.cloud.bigquery.LoadJob) is stored in
   Firestore, under the 'jobs' key. This is then monitored for completion by JobMonitor.
   """
   CS = storage.Client()     # uses default service account credentials
@@ -62,7 +62,7 @@ class ReportLoader(object):
     """Process an added file
 
     This is the entry point for the Cloud Function to create the BQ import job.
-    
+
     Arguments:
         event {Dict[str, Any]} -- data sent from the PubSub message
         context {Dict[str, Any]} -- context data. unused
@@ -90,10 +90,10 @@ class ReportLoader(object):
 
     Load the stored report configuration from Firestore and return the report type
     and config as a tuple
-    
+
     Arguments:
         id {int} -- Report Id, aka CSV file name
-    
+
     Returns:
         (Type, Dict[str, Any]) -- Tuple containing the report type as an Enum, and the
         report configuration.
@@ -110,7 +110,7 @@ class ReportLoader(object):
     """Handle the CSV file
 
     Work out which type of job it is and send it to the appropriate uploader
-    
+
     Arguments:
         bucket_name {str} -- name of the source bucket
         file_name {str} -- name of the CSV file
@@ -150,12 +150,12 @@ class ReportLoader(object):
     These functions are identical, but need not be (used not to be) to reflect the fact that at
     some point, each product's CSVs could be subtly different, or that on product or another may
     switch from CSV to (say) json.
-    
+
     Arguments:
         bucket_name {str} -- GCS bucket name
         file_name {str} -- CSV file name
         config {Dict[str, Any]} -- report config
-    
+
     Returns:
         bigquery.LoadJob
     """
@@ -168,12 +168,12 @@ class ReportLoader(object):
     These functions are identical, but need not be (used not to be) to reflect the fact that at
     some point, each product's CSVs could be subtly different, or that on product or another may
     switch from CSV to (say) json.
-    
+
     Arguments:
         bucket_name {str} -- GCS bucket name
         file_name {str} -- CSV file name
         config {Dict[str, Any]} -- report config
-    
+
     Returns:
         bigquery.LoadJob
     """
@@ -186,12 +186,12 @@ class ReportLoader(object):
     These functions are identical, but need not be (used not to be) to reflect the fact that at
     some point, each product's CSVs could be subtly different, or that on product or another may
     switch from CSV to (say) json.
-    
+
     Arguments:
         bucket_name {str} -- GCS bucket name
         file_name {str} -- CSV file name
         config {Dict[str, Any]} -- report config
-    
+
     Returns:
         bigquery.LoadJob
     """
@@ -207,7 +207,7 @@ class ReportLoader(object):
         bucket_name {str} -- GCS bucket name
         file_name {str} -- CSV file name
         config {Dict[str, Any]} -- report config
-    
+
     Returns:
         bigquery.LoadJob
     """
@@ -258,7 +258,7 @@ class ReportLoader(object):
         config_schema = '\n'.join([ f'{field.name}, {field.field_type}' for field in schema])
         target_schema = '\n'.join([ f'{field.name}, {field.field_type}' for field in bq.get_table(table_ref).schema])
         self._email_error(
-          email=config['email'], 
+          email=config['email'],
           message=f'''
 Mismatched schema for {project}.{dataset}.{table_name}, trying anyway
 
@@ -272,7 +272,7 @@ Table has schema:
         logging.error(f"Mismatched schema for {project}.{dataset}.{table_name}, trying anyway")
 
       import_type = bigquery.WriteDisposition.WRITE_APPEND
-      
+
     else:
       import_type = bigquery.WriteDisposition.WRITE_TRUNCATE
 
@@ -286,7 +286,14 @@ Table has schema:
     job_config.max_bad_records = 10
     # Allow for DV360/CM (SA360 won't) to pass jagged rows, which they do
     job_config.allow_jagged_rows = True
-    
+
+    # Partitioning
+    if config['partition']:
+      job_config.time_partitioning = \
+        bigquery.TimePartitioning(
+          type_=bigquery.TimePartitioningType.DAY,
+          field=config['partition_column'])
+
     uri = f'gs://{bucket_name}/{file_name}'
     load_job = bq.load_table_from_uri(
         uri, table_ref, job_config=job_config
@@ -319,14 +326,14 @@ Table has schema:
 
     if _to or _cc:
       message = GMailMessage(
-        to=_to, 
+        to=_to,
         cc=_cc,
         subject=f'Error in report_loader',
         body=f'''
 {message}
 
 Error: {error if error else 'No exception.'}
-''', 
+''',
         project=os.environ.get('GCP_PROJECT'))
 
       GMail().send_message(

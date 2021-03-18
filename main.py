@@ -24,7 +24,7 @@ import os
 
 from flask import Request
 from importlib import import_module, invalidate_caches
-from typing import Dict, Any
+from typing import Any, Dict, List, Optional
 from urllib.parse import unquote_plus as unquote
 
 from classes.adh import ADH
@@ -84,6 +84,7 @@ def report_fetch(event: Dict[str, Any], context=None):
         'dest_dataset': attributes.get('dest_dataset', 'report2bq'),
         'notify_topic': attributes.get('notify_topic', None),
         'notify_message': attributes.get('notify_message', None),
+        'partition': attributes.get('partition', False)
       }
       kwargs.update(attributes)
 

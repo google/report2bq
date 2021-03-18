@@ -27,6 +27,7 @@ import re
 
 # Class Imports
 from classes import Fetcher, ReportFetcher
+from classes import credentials
 from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials
 from classes.csv_helpers import CSVHelpers
@@ -38,7 +39,7 @@ from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
 
 # Other imports
 from contextlib import closing
-from queue import Queue, Empty
+from queue import Queue
 from typing import Dict, Any, List, Tuple
 from urllib.request import urlopen
 
@@ -249,11 +250,15 @@ class DBM(ReportFetcher, Fetcher):
     chunk_size = self.chunk_multiplier * 1024 * 1024
     out_file = io.BytesIO()
 
-    streamer = ThreadedGCSObjectStreamUpload(client=Cloud_Storage.client(),
-                                             bucket_name=bucket,
-                                             blob_name='{id}.csv'.format(id=report_id),
-                                             chunk_size=chunk_size,
-                                             streamer_queue=queue)
+    streamer = \
+      ThreadedGCSObjectStreamUpload(
+        client=Cloud_Storage.client(),
+        creds=credentials.Credentials(
+          email=self.email, project=self.project).get_credentials(),
+        bucket_name=bucket,
+        blob_name='{id}.csv'.format(id=report_id),
+        chunk_size=chunk_size,
+        streamer_queue=queue)
     streamer.start()
 
     with closing(urlopen(report_details['current_path'])) as _report:
