@@ -26,6 +26,7 @@ import re
 
 # Class Imports
 from classes import ReportFetcher
+from classes import csv_helpers
 from classes.fetcher_factory import FetcherFactory
 from classes.csv_helpers import CSVHelpers
 from classes.dbm import DBM
@@ -115,15 +116,8 @@ class Report2BQ(object):
     if report_object:
       csv_header, csv_types = fetcher.read_header(report_data)
       if csv_header:
-        schema = map(_schema, CSVHelpers.create_table_schema(csv_header, csv_types))
-        report_data['schema'] = list(schema)
-        if self.partition:
-          partition_column = \
-            next(F['name'] \
-              for F in report_data['schema'] if F['type'] in ['DATE', 'DATETIME'])
-          if partition_column:
-            report_data['partition'] = self.partition
-            report_data['partition_column'] = partition_column
+        self._handle_partitioning(
+          report_data=report_data, csv_header=csv_header, csv_types=csv_types)
 
         fetcher.stream_to_gcs(f'{self.project}-report2bq-upload', report_data)
 
@@ -156,9 +150,12 @@ class Report2BQ(object):
         'topic': self.notify_topic,
       }
       if self.notify_message: report_data['notifier']['message'] = self.notify_message
-    sa360.stream_to_gcs(
+    csv_header, csv_types = sa360.stream_to_gcs(
       bucket='{project}-report2bq-upload'.format(project=self.project),
       report_details=report_data)
+
+    self._handle_partitioning(
+      report_data=report_data, csv_header=csv_header, csv_types=csv_types)
 
     self.firestore.store_report_config(Type.SA360, id, report_data)
 
@@ -186,6 +183,33 @@ class Report2BQ(object):
       # SA360 ones can't fail - they won't start if there are errors, so it's just
       # not ready yet. So just leave it here and try again later.
       logging.error(f'Report {self.report_id} not ready.')
+
+  def _handle_partitioning(
+    self, report_data: Dict[str, Any], csv_header: List[str],
+    csv_types: List[str]) -> None:
+    def _field_fix(field: Dict[str, str]) -> Dict[str, str]:
+      if self.partition and field['type'] in ['DATE', 'DATETIME']:
+        return field
+      elif not self.infer_schema:
+        field['type'] = 'STRING'
+      return field
+
+    schema = list(
+      map(_field_fix, CSVHelpers.create_table_schema(csv_header, csv_types)))
+    report_data['schema'] = schema
+    if self.partition:
+      msg = [ f'{F["name"]} - {F["type"]}' for F in schema ]
+      date_columns = \
+        [F['name'] for F in schema if F['type'] in ['DATE', 'DATETIME']]
+      if date_columns:
+        report_data['partition'] = self.partition
+        report_data['partition_column'] = date_columns[0]
+      else:
+        logging.info(
+          'Partitioning requested, but no DATE[TIME] columns '
+          'found in the schema: '
+          f'{", ".join(msg)}')
+        report_data['partition'] = False
 
   def run(self):
     logging.info(f'Product: {self.product}')

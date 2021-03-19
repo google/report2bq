@@ -85,7 +85,7 @@ class ReportLoader(object):
       logging.warn('File added that will not be processed: %s' % file_name)
 
 
-  def _get_report_config(self, id: str) -> (Type, Dict[str, Any]):
+  def _get_report_config(self, id: str) -> Tuple[Type, Dict[str, Any]]:
     """Fetch the report configuration
 
     Load the stored report configuration from Firestore and return the report type
@@ -288,7 +288,7 @@ Table has schema:
     job_config.allow_jagged_rows = True
 
     # Partitioning
-    if config['partition']:
+    if config.get('partition'):
       job_config.time_partitioning = \
         bigquery.TimePartitioning(
           type_=bigquery.TimePartitioningType.DAY,

@@ -72,7 +72,8 @@ class SA360Web(ReportFetcher):
     self.bucket = f'{self.project}-report2bq-upload'
 
   @measure_memory
-  def stream_to_gcs(self, bucket: str, report_details: Dict[str, Any]) -> None:
+  def stream_to_gcs(self, bucket: str, report_details: Dict[str, Any]) \
+    -> Tuple[List[str], List[str]]:
     report_url = report_details['url']
     remainder = b''
     queue = Queue()
@@ -102,8 +103,10 @@ class SA360Web(ReportFetcher):
       _stream = conn.iter_content(chunk_size=html_chunk_size)
       source_size = 0
 
+      first = True
       done = False
       fieldnames = None
+      fieldtypes = None
 
       while not done:
         chunk = BytesIO()
@@ -118,7 +121,7 @@ class SA360Web(ReportFetcher):
 
         chunk.seek(0)
 
-        if chunk_id == 0:
+        if first:
           fieldnames, chunk = self.find_fieldnames(buffer=chunk)
 
         # find last </tr> on any section but the last, chop off the last portion and store
@@ -150,14 +153,20 @@ class SA360Web(ReportFetcher):
           report_data.append(dict(zip(fieldnames, row)))
 
         writer = csv.DictWriter(output_buffer, fieldnames=fieldnames)
-        if chunk_id == 0:
+        if first:
           writer.writeheader()
 
         [writer.writerow(row) for row in report_data]
 
         output_buffer.seek(0)
+
+        if first:
+          _, fieldtypes = \
+            CSVHelpers.get_column_types(BytesIO(output_buffer.getvalue().encode('utf-8')))
+
         queue.put(output_buffer.getvalue().encode('utf-8'))
         chunk_id += 1
+        first = False
         chunk = BytesIO()
         output_buffer.seek(0)
         output_buffer.truncate(0)
@@ -165,7 +174,10 @@ class SA360Web(ReportFetcher):
       logging.info(f'SA360 report length: {source_size:,} bytes')
       queue.join()
       streamer.stop()
-      report_details['schema'] = CSVHelpers.create_table_schema(fieldnames)
+      report_details['schema'] = \
+        CSVHelpers.create_table_schema(fieldnames, fieldtypes)
+
+      return fieldnames, fieldtypes
 
     except Exception as e:
       logging.error(e)
