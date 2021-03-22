@@ -88,6 +88,9 @@ Options:
                   not present. If you type it manually, the value of this field must be a time zone
                   name from the TZ database (http://en.wikipedia.org/wiki/Tz_database)
     --description Plain text description for the scheduler list
+    --partition   Store the table in Big Query as a date-partitioned table. This means you MUST
+                  have in your schema at least one DATE or DATETIME column. The FIRST ONE in the
+                  schema will be the one used to partition the data.
     --infer-schema
                   [BETA] Guess the column types based on a sample of the report's first slice.
     --topic       [BETA] Topic to send a PubSub message to on completion of import job
@@ -134,6 +137,7 @@ INFER_SCHEMA=                       # Guess the report's schema
 SA360_ID=                           # ID of the SA360 report to schedule
 TOPIC=                              # Notifier topic for post import processing
 MESSAGE=                            # Notifier message
+PARTITION=                          # Create a BQ Partitioned table
 
 # Command line parameter parser
 QUIT=0
@@ -205,6 +209,9 @@ while [[ $1 == -* ]] ; do
       ;;
     --append)
       APPEND="append=True"
+      ;;
+    --partition)
+      PARTITION="partition=True"
       ;;
     --timer*)
       # Random if not set
@@ -313,6 +320,8 @@ elif [ "x${SA360_URL}" != "x" ]; then
     ${parameters[@]}
     "sa360_url=${SA360_URL}"
     "type=sa360"
+    "${PARTITION}"
+    "${INFER_SCHEMA}"
   )
   set_hour 3
 elif [ ! -z ${SA360_ID} ]; then
@@ -339,7 +348,8 @@ elif [ "x${PROFILE}" == "x" ]; then
     HOUR="*"
     parameters=(
       ${parameters[@]}
-      ${INFER_SCHEMA}
+      "${PARTITION}"
+      "${INFER_SCHEMA}"
     )
   fi
 
@@ -361,7 +371,8 @@ else
     HOUR="*"
     parameters=(
       ${parameters[@]}
-      ${INFER_SCHEMA}
+      "${PARTITION}"
+      "${INFER_SCHEMA}"
     )
   fi
 

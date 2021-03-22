@@ -37,7 +37,9 @@ import json
 import logging
 import os
 import pprint
+import random
 import stringcase
+import uuid
 
 # Class Imports
 from contextlib import suppress
@@ -174,10 +176,31 @@ class SA360Manager(object):
 
     firestore.update_document(Type.SA360_RPT, '_reports', { report: cfg })
 
+  def _read_file(self, file: str, gcs_stored: bool, project: str) -> str:
+    if gcs_stored:
+      logging.info(file)
+      email = str(Cloud_Storage().fetch_file(
+          bucket=f'{project}-report2bq-sa360-manager', file=file),
+        encoding='utf-8').strip()
+
+    else:
+      with open(file, 'r') as _command_file:
+        email = _command_file.readline().strip()
+
+    if not email:
+      logging.error('No email found, cannot access scheduler.')
+
+    return email
+
   def delete(
     self, firestore: Firestore, project: str, report: str, email: str,
-    **unused):
+    gcs_stored: bool=False, file: str=None, **unused):
     firestore.delete_document(Type.SA360_RPT, '_reports', report)
+
+    if email := \
+      self._read_file(file=file, gcs_stored=gcs_stored, project=project):
+      return
+
     if self.scheduler:
       args = {
         'action': 'list',
@@ -192,7 +215,7 @@ class SA360Manager(object):
       for runner in runners:
         args = {
           'action': 'disable',
-          'email': None,
+          'email': email,
           'project': project,
           'job_id': runner,
         }
@@ -306,6 +329,8 @@ class SA360Manager(object):
     file: str=None, gcs_stored: bool=False, **unused) -> None:
     scheduler = Scheduler()
     results = []
+    random.seed(uuid.uuid4())
+
 
     runners = self._get_sa360_objects(firestore, file, project, email, gcs_stored)
     sa360_report_definitions = firestore.get_document(Type.SA360_RPT, '_reports')
@@ -369,16 +394,18 @@ class SA360Manager(object):
           'email': runner['email'],
           'project': f'{project}',
           'force': False,
-          'infer_schema': False,
-          'append': False,
+          'infer_schema': runner.get('infer_schema', False),
+          'append': runner.get('append', False),
           'sa360_id': id,
           'description':
             runner['description'] if 'description' in runner else (
               f'{runner["title"] if "title" in runner else runner["report"]}: '
               f'{runner["agencyName"]}/{runner["advertiserName"]}'),
-          'dest_dataset': f'{runner["dest_dataset"]}',
-          'minute': runner['minute'],
+          'dest_dataset': runner.get('dest_dataset', 'report2bq'),
+          'minute': runner.get('minute', random.randrange(0, 59)),
+          'hour': runner.get('hour', '*')
         }
+
         try:
           scheduler.process(args)
           results.append(f'{id} - Valid and installed.')
@@ -394,7 +421,8 @@ class SA360Manager(object):
 
     if results:
       self._output_results(
-        results=results, project=project, email=email, gcs_stored=gcs_stored)
+        results=results, project=project, email=email, gcs_stored=gcs_stored,
+        file=file)
 
   def _output_results(
     self, results: List[str], project: str, email: str, file: str=None,

@@ -284,7 +284,7 @@ if [ ${DEPLOY_CODE} -eq 1 ]; then
   [ -e report2bq.zip ] && rm -f report2bq.zip >/dev/null 2>&1
 
   # Create the zip
-  ${DRY_RUN} zip report2bq.zip -r main.py requirements.txt README.md LICENSE CONTRIBUTING.md classes/ cloud_functions/ screenshots/ -x __pycache__ -x *.pyc
+  ${DRY_RUN} zip report2bq.zip -r main.py requirements.txt classes/ cloud_functions/ -x __pycache__ -x *.pyc
 
   # Copy it up
   ${DRY_RUN} gsutil cp report2bq.zip gs://${PROJECT}-report2bq > /dev/null 2>&1
@@ -375,6 +375,7 @@ fi
 _ENV_VARS=(
   "DATASET=${DATASET}"
   "API_KEY=${API_KEY}"
+  "GCP_PROJECT=${PROJECT}"
   ${_ADMIN}
 )
 ENVIRONMENT=$(join "," ${_ENV_VARS[@]})
@@ -425,7 +426,7 @@ if [ ${DEPLOY_FETCHER} -eq 1 ]; then
     --entry-point=report_fetch \
     --source=${SOURCE} \
     --runtime python37 \
-    --memory=2048MB \
+    --memory=4096MB \
     --trigger-topic="report2bq-trigger" \
     --service-account=$USER \
     --set-env-vars=${ENVIRONMENT} \
@@ -532,8 +533,8 @@ if [ ${DEPLOY_SA360_MANAGER} -eq 1 ]; then
     --service-account=$USER \
     --entry-point=sa360_report_manager \
     --source=${SOURCE} \
-    --runtime python37 \
-    --memory=2048MB \
+    --runtime python38 \
+    --memory=4096MB \
     --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-sa360-manager" \
     --trigger-event="google.storage.object.finalize" \
     --service-account=$USER \

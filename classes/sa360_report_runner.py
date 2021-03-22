@@ -71,7 +71,7 @@ class SA360ReportRunner(ReportRunner):
     runner = None
     report_config = None
     try:
-    
+
       report_config = self.firestore.get_document(type=Type.SA360_RPT, id=self.report_id)
       if not report_config:
         raise NotImplementedError(f'No such runner: {self.report_id}')
@@ -79,8 +79,12 @@ class SA360ReportRunner(ReportRunner):
       _tz = pytz.timezone(report_config.get('timezone') or self.timezone or 'America/Toronto')
       _today = datetime.now(_tz)
 
-      report_config['StartDate'] = (_today - timedelta(days=(report_config.get('offset') or 0))).strftime('%Y-%m-%d')
-      report_config['EndDate'] = (_today - timedelta(days=(report_config.get('lookback') or 0))).strftime('%Y-%m-%d')
+      report_config['StartDate'] = \
+        (_today - timedelta(
+          days=(report_config.get('offset', 0)))).strftime('%Y-%m-%d')
+      report_config['EndDate'] = \
+        (_today - timedelta(
+          days=(report_config.get('lookback', 0)))).strftime('%Y-%m-%d')
 
       template = self.firestore.get_document(Type.SA360_RPT, '_reports').get(report_config['report'])
       request_body = SA360ReportTemplate().prepare(template=template, values=report_config)
@@ -113,7 +117,7 @@ class SA360ReportRunner(ReportRunner):
 
     if _to or _cc:
       message = GMailMessage(
-        to=_to, 
+        to=_to,
         cc=_cc,
         subject=message,
         body=f'''
@@ -122,7 +126,7 @@ class SA360ReportRunner(ReportRunner):
 Config: {report_config if report_config else 'Config unknown.'}
 
 Error: {error if error else 'No exception.'}
-''', 
+''',
         project=os.environ.get('GCP_PROJECT'))
 
       GMail().send_message(
@@ -130,5 +134,5 @@ Error: {error if error else 'No exception.'}
         credentials=Credentials(email=email, project=os.environ.get('GCP_PROJECT'))
       )
 
-  def _attended_run(self, sa360: SA360Dynamic) -> None: 
+  def _attended_run(self, sa360: SA360Dynamic) -> None:
     raise NotImplementedError()
