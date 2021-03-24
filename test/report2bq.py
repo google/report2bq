@@ -120,6 +120,7 @@ flags.DEFINE_boolean('partition',
                      False,
                      'Create a partitioned table in BQ.')
 flags.DEFINE_boolean('development', False, 'Leave the files in GCS.')
+flags.DEFINE_boolean('runner', False, 'Runner, not fetcher')
 
 
 # Stub main()
@@ -143,18 +144,26 @@ def main(unused_argv):
     'dest_project': FLAGS.dest_project,
     'dest_dataset': FLAGS.dest_dataset,
     'infer_schema': FLAGS.infer_schema,
-    'product': Type(FLAGS.product),
-    'type': FLAGS.product,
+    # 'product': Type(FLAGS.product),
+    # 'type': FLAGS.product,
     'notify_topic': FLAGS.notify_topic,
     'notify_message': FLAGS.notify_message,
     'partition': FLAGS.partition,
     'development': FLAGS.development,
   }
+  if FLAGS.product:
+    attributes['type'] = Type(attributes['product'])
+  elif attributes.get('sa360_url'):
+    attributes['type'] = Type.SA360
+  elif attributes.get('profile'):
+    attributes['type'] = Type.CM
+  else:
+    attributes['type'] = Type.DV360
 
   if Type(FLAGS.product) == Type.SA360_RPT:
     f = report_runner
   else:
-    f = report_fetch
+    f = report_fetch if not FLAGS.runner else report_runner
 
   f({'attributes': attributes}, None)
 

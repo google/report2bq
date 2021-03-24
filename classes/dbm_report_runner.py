@@ -35,7 +35,7 @@ class DBMReportRunner(ReportRunner):
   report_type = Type.DV360
 
   def __init__(self, dbm_id: str=None,
-               email: str=None, project: str=None):
+               email: str=None, project: str=None, **unused):
     self.email = email
     self.dbm_id = dbm_id
     self.project = project
@@ -66,7 +66,7 @@ class DBMReportRunner(ReportRunner):
 
       elif status == 'DONE':
         report2bq = Report2BQ(
-          dv360=True, dv360_id=self.dbm_id, email=self.email, 
+          dv360=True, dv360_id=self.dbm_id, email=self.email,
           project=self.project
         )
         report2bq.handle_report_fetcher(fetcher=dbm, report_id=self.dbm_id)
@@ -75,7 +75,7 @@ class DBMReportRunner(ReportRunner):
       else:
         logging.error(f'DV360 Report {self.dbm_id} failed to run: {status}')
         break
-    
+
 
   def _unattended_run(self, dbm: DBM) -> None:
     response = dbm.run_report(self.dbm_id)
@@ -88,4 +88,4 @@ class DBMReportRunner(ReportRunner):
       }
       self.firestore.store_report_runner(runner)
 
-      
+

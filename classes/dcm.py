@@ -134,13 +134,17 @@ class DCM(ReportFetcher, Fetcher):
       List of latest DCM report files details
     """
 
-    # Fetch report files for specified report
+    # Fetch some report files for specified report.
+    # A report CANNOT import if another is running. Since you cannot filter
+    # the list to just completed reports, I've upped the fetch to 5 (since
+    # only one can be running) which should be sufficient to find a single
+    # successfully completed report.
     files = self.fetch(
       method=self.service().reports().files().list,
       **{
         'profileId': self.profile,
         'reportId': report_id,
-        'maxResults': '1',
+        'maxResults': '5',
         'sortField': 'LAST_MODIFIED_TIME',
         # 'fields': items(lastModifiedTime,reportId,status,urls/apiUrl)',
         'sortOrder': 'DESCENDING'

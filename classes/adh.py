@@ -23,7 +23,7 @@ import logging
 import pytz
 import re
 
-from datetime import datetime 
+from datetime import datetime
 from datetime import timedelta
 
 from typing import Dict, List, Any
@@ -48,15 +48,15 @@ class ADH(object):
 
   TODO (davidharcombe@) ADH Query Parameters
   """
-  
-  def __init__(self, 
+
+  def __init__(self,
     email: str, project: str, adh_customer: str,
     adh_query: str, api_key: str, days: int,
-    dest_project: str=None, dest_dataset: str=None):
+    dest_project: str=None, dest_dataset: str=None, **unused):
     """Constructor
 
     Setus up the ADH helper
-    
+
     Arguments:
         email {str} -- authenticated user email (for the token)
         project {str} -- GCP project
@@ -83,7 +83,7 @@ class ADH(object):
 
   def run(self, unattended: bool=True):
     """Run the ADH query
-    
+
     Execute the ADH query, storing the run job result in Firestore. The data itself will be written
     to Big Query by ADH.
     Remember that ADH queries have many, many constraints so use this wisely: DON'T set up
@@ -110,7 +110,7 @@ class ADH(object):
         type=Type.ADH,
         report_data=report,
         id=self.adh_query)
-    
+
       result = self.run_query(report)
       report['last_run'] = result
       self.firestore.store_report_config(
@@ -125,7 +125,7 @@ class ADH(object):
     """Create the ADH Service
 
     Use the discovery API to create the ADH service
-    
+
     Returns:
         Resource -- ADH service
     """
@@ -137,19 +137,19 @@ class ADH(object):
     """Sanitize Strings
 
     Convert any non alphanumeric into an '_' as per BQ requirements
-    
+
     Arguments:
-        original {str} -- 
-    
+        original {str} --
+
     Returns:
-        str -- 
+        str --
     """
     return re.sub('[^a-zA-Z0-9,]', '_', original)
 
-    
+
   def fetch_query_details(self) -> Dict[str, Any]:
     """Get the Query details
-    
+
     Returns:
         Dict[str, Any] -- [description]
     """
@@ -165,10 +165,10 @@ class ADH(object):
 
   def run_query(self, query_details: Dict[str, Any]) -> Dict[str, Any]:
     """Run the ADH query
-    
+
     Arguments:
         query_details {Dict[str, Any]} -- the details of the query job
-    
+
     Returns:
         Dict[str, Any] -- result of the query run directive
     """
@@ -191,7 +191,7 @@ class ADH(object):
         }
       },
       "destTable": '{project}.{dataset}.{table_name}'.format(
-        project=query_details['dest_project'] if 'dest_project' in query_details else self.project, 
+        project=query_details['dest_project'] if 'dest_project' in query_details else self.project,
         dataset=query_details['dest_dataset'] if 'dest_dataset' in query_details else 'adh_results',
         table_name=query_details['table_name']
       ),

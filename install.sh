@@ -284,7 +284,15 @@ if [ ${DEPLOY_CODE} -eq 1 ]; then
   [ -e report2bq.zip ] && rm -f report2bq.zip >/dev/null 2>&1
 
   # Create the zip
-  ${DRY_RUN} zip report2bq.zip -r main.py requirements.txt classes/ cloud_functions/ -x __pycache__ -x *.pyc
+  ${DRY_RUN}              \
+    zip report2bq.zip     \
+      -r main.py          \
+      requirements.txt    \
+      classes/            \
+      cloud_functions/    \
+      -x *_test.py        \
+      -x __pycache__      \
+      -x *.pyc
 
   # Copy it up
   ${DRY_RUN} gsutil cp report2bq.zip gs://${PROJECT}-report2bq > /dev/null 2>&1
@@ -391,7 +399,7 @@ if [ ${DEPLOY_MONITOR} -eq 1 ]; then
   ${DRY_RUN} gcloud functions deploy "job-monitor" \
     --entry-point=job_monitor \
     --source=${SOURCE} \
-    --runtime python37 \
+    --runtime python38 \
     --memory=1024MB \
     --trigger-topic="job-monitor" \
     --service-account=$USER \
@@ -425,7 +433,7 @@ if [ ${DEPLOY_FETCHER} -eq 1 ]; then
   ${DRY_RUN} gcloud functions deploy "report2bq-fetcher" \
     --entry-point=report_fetch \
     --source=${SOURCE} \
-    --runtime python37 \
+    --runtime=python38 \
     --memory=4096MB \
     --trigger-topic="report2bq-trigger" \
     --service-account=$USER \
@@ -446,7 +454,7 @@ if [ ${DEPLOY_LOADER} -eq 1 ]; then
   ${DRY_RUN} gcloud functions deploy "report2bq-loader" \
     --entry-point=report_upload \
     --source=${SOURCE} \
-    --runtime python37 \
+    --runtime=python38 \
     --memory=2048MB \
     --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-upload" \
     --trigger-event="google.storage.object.finalize" \
@@ -468,7 +476,7 @@ if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
   ${DRY_RUN} gcloud functions deploy "report-runner" \
     --entry-point=report_runner \
     --source=${SOURCE} \
-    --runtime python37 \
+    --runtime python38 \
     --memory=2048MB \
     --trigger-topic="report-runner" \
     --service-account=$USER \
@@ -485,7 +493,7 @@ if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
     --service-account=$USER \
     --entry-point=run_monitor \
     --source=${SOURCE} \
-    --runtime python37 \
+    --runtime python38 \
     --memory=1024MB \
     --trigger-topic="run-monitor" \
     --service-account=$USER \
@@ -516,7 +524,7 @@ if [ ${DEPLOY_POSTPROCESSOR} -eq 1 ]; then
     --service-account=$USER \
     --entry-point=post_processor \
     --source=${SOURCE} \
-    --runtime python37 \
+    --runtime python38 \
     --memory=2048MB \
     --trigger-topic="postprocessor" \
     --service-account=$USER \

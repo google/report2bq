@@ -222,3 +222,6 @@ class Report2BQ(object):
 
     elif self.product == Type.SA360_RPT:
       self.handle_sa360_report()
+
+    else:
+      raise NotImplementedError('Unknown report type requested')

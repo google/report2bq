@@ -48,7 +48,9 @@ from typing import Any, Dict, List
 class SA360ReportRunner(ReportRunner):
   report_type = Type.SA360_RPT
 
-  def __init__(self, report_id: str, email: str, project: str=None, timezone: str=None):
+  def __init__(
+    self, report_id: str, email: str, project: str=None, timezone: str=None,
+    **unused):
     self.email = email
     self.report_id = report_id
     self.project = project

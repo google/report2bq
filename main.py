@@ -65,6 +65,7 @@ def report_fetch(event: Dict[str, Any], context=None):
       event {Dict[str, Any]} -- data sent from the PubSub message
       context {Dict[str, Any]} -- context data. unused
   """
+  logging.info(f'Running fetcher: {event}')
   if 'attributes' in event:
     attributes = event['attributes']
 
@@ -88,10 +89,7 @@ def report_fetch(event: Dict[str, Any], context=None):
       }
       kwargs.update(attributes)
 
-      if 'type' in attributes:
-        if attributes['type'] == 'dbm': kwargs['product'] = Type.DV360
-        elif attributes['type'] == 'dcm': kwargs['product'] = Type.CM
-        else: kwargs['product'] = Type(attributes['type'])
+      if 'type' in attributes: kwargs['product'] = Type(attributes['type'])
       elif kwargs.get('sa360_url'): kwargs['product'] = Type.SA360
       elif kwargs.get('profile'): kwargs['product'] = Type.CM
       else: kwargs['product'] = Type.DV360
@@ -101,7 +99,7 @@ def report_fetch(event: Dict[str, Any], context=None):
       report2bq.run()
 
     except Exception as e:
-      if 'email' in attributes:
+      if email := attributes.get('email'):
         email_error(email=attributes['email'], product='Report Fetcher', event=event, error=e)
 
       logging.fatal(f'Error: {e}')
@@ -159,85 +157,53 @@ def report_runner(event: Dict[str, Any], context=None):
   """
   email = None
 
-  if 'attributes' in event:
-    attributes = event['attributes']
-    try:
-      logging.info(attributes)
-      if 'type' in attributes:
-        if Type(attributes['type']) == Type.DV360:
-          dv360_id = attributes.get('dv360_id') or attributes.get('report_id')
-          email = attributes['email']
-          project = attributes['project'] or os.environ.get('GCP_PROJECT')
 
-          runner = DBMReportRunner(
-            dbm_id=dv360_id,
-            email=email,
-            project=project
-          )
+  if attributes := event.get('attributes'):
+    T = Type(attributes.get('type'))
+    _base_args = {
+      'email': attributes.get('email'),
+      'project': attributes.get('project', os.environ.get('GCP_PROJECT')),
+    }
+    if _command := {
+      Type.DV360: {
+        'runner': DBMReportRunner,
+        'args': {
+          'dv360_id': attributes.get('dv360_id') or attributes.get('report_id'),
+        }
+      },
+      Type.CM: {
+        'runner': DCMReportRunner,
+        'args': {
+          'cm_id': attributes.get('cm_id') or attributes.get('report_id'),
+          'profile': attributes.get('profile', None),
+          **_base_args,
+        }
+      },
+      Type.SA360_RPT: {
+        'runner': SA360ReportRunner,
+        'args': {
+          'report_id': attributes.get('report_id'),
+          'timezone': attributes.get("timezone", None),
+          **_base_args,
+        }
+      },
+      Type.ADH: {
+        'runner': ADH,
+        'args': {
+          'adh_customer': lambda: attributes['adh_customer'],
+          'adh_query': lambda: attributes['adh_query'],
+          'api_key': lambda: attributes['api_key'],
+          'days': attributes.get('days', 60),
+          'dest_project': attributes.get('dest_project', None),
+          'dest_dataset': attributes.get('dest_dataset', None),
+          **_base_args,
+        }
+      },
+    }.get(T):
+      _command['runner'](**_command['args']).run(unattended=True)
 
-        elif Type(attributes['type']) == Type.CM:
-          cm_id = attributes.get('cm_id') or attributes.get('report_id')
-          profile = attributes.get('profile', None)
-          email = attributes['email']
-          project = attributes['project'] or os.environ.get('GCP_PROJECT')
-
-          runner = DCMReportRunner(
-            cm_id=cm_id,
-            profile=profile,
-            email=email,
-            project=project
-          )
-
-        elif Type(attributes['type']) == Type.SA360_RPT:
-          report_id = attributes['report_id']
-          email = attributes['email']
-          project = attributes['project'] or os.environ.get('GCP_PROJECT')
-          timezone = attributes.get("timezone", None)
-          runner = SA360ReportRunner(
-            report_id=report_id,
-            email=email,
-            project=project,
-            timezone=timezone
-          )
-
-
-        elif Type(attributes['type']) == Type.ADH:
-          adh_customer = attributes['adh_customer']
-          adh_query = attributes['adh_query']
-          api_key = attributes['api_key']
-          email = attributes['email']
-          project = attributes['project'] or os.environ.get('GCP_PROJECT')
-          days = attributes.get('days') if 'days' in attributes else 60
-          dest_project = attributes.get('dest_project') if 'dest_project' in attributes else None
-          dest_dataset = attributes.get('dest_dataset') if 'dest_dataset' in attributes else None
-
-          # Always run this as async: forcing to be certain
-          runner = ADH(
-            email=email,
-            project=project,
-            adh_customer=adh_customer,
-            adh_query=adh_query,
-            api_key=api_key,
-            days=days,
-            dest_project=dest_project,
-            dest_dataset=dest_dataset
-          )
-
-        else:
-          logging.error('Invalid report type specified: {type}'.format(type=attributes['type']))
-          return
-
-        runner.run(unattended=True)
-
-      else:
-        logging.error('No report type specified.')
-
-    except Exception as e:
-      if email:
-        email_error(email=email, product="report_runner", event=event, error=e)
-
-      logging.fatal(f'Error: {e}\Event Data supplied: {event}')
-      return
+    else:
+      logging.error('No or unknown report type specified.')
 
 
 def post_processor(event: Dict[str, Any], context=None):
@@ -247,18 +213,14 @@ def post_processor(event: Dict[str, Any], context=None):
     logging.info(f'Loading and running "{postprocessor}"')
     PostProcessor.install_postprocessor()
 
+    if attributes := event.get('attributes'):
+      _import = f'import classes.postprocessor.{postprocessor}'
+      exec(_import)
+      Processor = getattr(import_module(f'classes.postprocessor.{postprocessor}'), 'Processor')
+      Processor().run(context=context, **attributes)
+
   else:
     logging.fatal('No postprocessor specified')
-    return
-
-  if 'attributes' in event:
-    attributes = event['attributes']
-    _import = f'import classes.postprocessor.{postprocessor}'
-    exec(_import)
-    Processor = getattr(import_module(f'classes.postprocessor.{postprocessor}'), 'Processor')
-
-    Processor().run(context=context, **attributes)
-
 
 def email_error(email: str, product: str, event: Dict[str, Any], error: Exception):
   message = GMailMessage(

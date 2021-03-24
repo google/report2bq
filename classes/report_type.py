@@ -31,8 +31,11 @@ class Type(Enum):
   _JOBS = 'jobs'
   _RUNNING = 'running'
   _ADMIN = 'administration'
-  
-  @classmethod  
+
+  # Missing value
+  _UNKNOWN = 'unknown'
+
+  @classmethod
   def _missing_(cls, value):
     """Backward compatilbility for old enums.
 
@@ -53,6 +56,8 @@ class Type(Enum):
       return cls.DV360
     elif value == 'dcm':
       return cls.CM
+    else:
+      return cls._UNKNOWN
 
   def runner(self, report_id: str):
     return {

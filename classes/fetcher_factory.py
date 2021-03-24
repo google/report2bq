@@ -29,21 +29,12 @@ from classes.report_type import Type
 class FetcherFactory(object):
   @staticmethod
   def create_fetcher(product: Type, **kwargs) -> ReportFetcher:
-    fetcher = None
+    if fetcher := {
+      Type.DV360: DBM,
+      Type.CM: DCM,
+      Type.SA360: SA360Web,
+      Type.SA360_RPT: SA360Dynamic,
+    }.get(product):
+      return fetcher(**kwargs)
 
-    if product == Type.DV360:
-      fetcher = DBM(**kwargs)
-
-    elif product == Type.CM:
-      fetcher = DCM(**kwargs)
-
-    elif product == Type.SA360:
-      fetcher = SA360Web(**kwargs)
-
-    elif product == Type.SA360_RPT:
-      fetcher = SA360Dynamic(**kwargs)
-
-    else:
-      raise Exception(f'Cannot create fetcher for {product}')
-
-    return fetcher
+    raise Exception(f'Cannot create fetcher for {product}')
