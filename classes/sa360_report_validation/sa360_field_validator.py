@@ -49,26 +49,22 @@ class SA360Validator(object):
     if not name:
       return (True, '--- Blank column name ---')
 
-    saved_column_names = self.list_custom_columns()
-
-    if not saved_column_names:
-      return (False, '--- No custom columns found --')
+    if not (saved_column_names := self.list_custom_columns()):
+      return (False, '--- No custom columns found ---')
 
     if name in saved_column_names:
       return (True, name)
 
-    did_you_mean = next((x for i, x in enumerate(saved_column_names)
-                         if x.casefold() == name.casefold()), None)
-    return (False, did_you_mean)
+    return (False, self._find_bad_case(name, saved_column_names))
 
   def validate_standard_column(self, name: str) -> Tuple[bool, str]:
+    if not name:
+      return (True, '--- Blank column name ---')
+
     if name in self.fields:
       return (True, name)
 
-    did_you_mean = next(
-      (x for i, x in enumerate(self.fields) if x.casefold() == name.casefold()),
-      None)
-    return (False, did_you_mean)
+    return (False, self._find_bad_case(name, self.fields))
 
   def list_custom_columns(self) -> List[str]:
     saved_column_names = []
@@ -86,17 +82,6 @@ class SA360Validator(object):
 
     return saved_column_names
 
-
-def main(unused_argv):
-  from classes.sa360_report_validation.campaign import Campaign
-  c = Campaign()
-  print(c.validate({'value': 'adWordsConversions', 'type': 'columnName'}))
-  print(c.validate({'value': 'adWordsConversionS', 'type': 'columnName'}))
-  print(c.validate({'value': 'foo', 'type': 'columnName'}))
-  print(c.validate({'value': 'foo', 'type': 'savedColumnName'}))
-  print(c.validate({'value': '', 'type': 'savedColumnName'}))
-  print(c.validate('foo'))
-
-
-if __name__ == '__main__':
-  app.run(main)
+  def _find_bad_case(self, name: str, columns: List[str]) -> str:
+    return next((x for i, x in enumerate(columns)
+                 if x.casefold() == name.casefold()), None)
