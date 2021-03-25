@@ -22,11 +22,9 @@ from contextlib import suppress
 import json
 import logging
 import os
-import pprint
 import re
 
-from absl import app
-from typing import Any, Dict, Mapping
+from typing import Any, Dict
 from classes.cloud_storage import Cloud_Storage
 from classes.firestore import Firestore
 from classes.report_type import Type
@@ -41,14 +39,11 @@ from google.cloud.bigquery import LoadJob
 class JobMonitor(object):
   """The process watching running Big Query import jobs
 
-  This process is triggered by a Cloud Scheduler job every 5 minutes to watch a queue (held in Firestore)
-  for running BigQuery csv import jobs started as a result of the Report2BQ process. Upon successful
-  completion, it deletes the file from Cloud Storage. If this job is not run, the last file will remain in
-  GCS.
-
-  Arguments:
-      event {Dict[str, Any]} -- data sent from the PubSub message
-      context {Dict[str, Any]} -- context data. unused
+  This process is triggered by a Cloud Scheduler job every 5 minutes to watch
+  a queue (held in Firestore) for running BigQuery csv import jobs started as a
+  result of the Report2BQ process. Upon successful completion, it deletes the
+  file from Cloud Storage. If this job is not run, the last file will remain
+  in GCS.
   """
 
 
@@ -59,27 +54,30 @@ class JobMonitor(object):
       event {Dict[str, Any]} -- data sent from the PubSub message
       context {Dict[str, Any]} -- context data. unused
     """
-    firestore = Firestore(in_cloud=True, email=None, project=None)
+    firestore = Firestore()
     documents = firestore.get_all_jobs()
 
     for document in documents:
-      for T in [t for t in Type if not t.name.startswith('_')]:
-        config = firestore.get_report_config(T, document.id)
-
-        if config:
+      if (job_type := Type(document.get('type'))) != Type._UNKNOWN:
+        if config := firestore.get_report_config(job_type, document.id):
           if config.get('dest_project'):
             # authenticate against supplied project with supplied key
-            project = config.get('dest_project') or os.environ.get('GCP_PROJECT')
+            project = \
+              config.get('dest_project') or os.environ.get('GCP_PROJECT')
             client_key = json.loads(Cloud_Storage.fetch_file(
-              bucket=f"{os.environ.get('GCP_PROJECT') or 'galvanic-card-234919'}-report2bq-tokens",
+              bucket=f"{project}-report2bq-tokens",
               file=f"{config['email']}_user_token.json"
             ))
             server_key = json.loads(Cloud_Storage.fetch_file(
-              bucket=f"{os.environ.get('GCP_PROJECT') or 'galvanic-card-234919'}-report2bq-tokens",
+              bucket=f"{project}-report2bq-tokens",
               file='client_secrets.json'
             ))
-            client_key['client_id'] = (server_key.get('web') or server_key.get('installed')).get('client_id')
-            client_key['client_secret'] = (server_key.get('web') or server_key.get('installed')).get('client_secret')
+            client_key['client_id'] = \
+              (server_key.get('web') or \
+                server_key.get('installed')).get('client_id')
+            client_key['client_secret'] = \
+              (server_key.get('web') or \
+                server_key.get('installed')).get('client_secret')
             logging.info(client_key)
             creds = Credentials.from_authorized_user_info(client_key)
             bq = bigquery.Client(project=project, credentials=creds)
@@ -99,11 +97,12 @@ class JobMonitor(object):
 
                 self._handle_finished(job=job, config=config)
                 ('notifier' in config) and self.notify(
-                  report_type=T, config=config, job=job, id=document.id)
+                  report_type=job_type, config=config, job=job, id=document.id)
                 firestore.mark_import_job_complete(document.id, job,)
 
             except Exception as e:
-              logging.error(f"""Error loading job {document.id} for monitoring.""")
+              logging.error(
+                'Error loading job %s for monitoring.', document.id)
 
           break
 
@@ -128,9 +127,12 @@ class JobMonitor(object):
           return
 
         source_blob.delete()
-        logging.info('File {file} removed from {source}.'.format(file=blob_name, source=bucket_name))
+        logging.info('File %s removed from %s.', blob_name, bucket_name)
 
-  def notify(self, report_type: Type, config: Dict[str, Any], job: LoadJob, id: str):
+  def notify(self,
+             report_type: Type,
+             config: Dict[str, Any],
+             job: LoadJob, id: str):
     columns = ';'.join([ field['name'] for field in config['schema'] ])
 
     attributes = {
@@ -145,12 +147,15 @@ class JobMonitor(object):
 
     client = pubsub.PublisherClient()
     try:
+      project = config.get('dest_project') or os.environ.get('GCP_PROJECT')
       client.publish(
-        f"projects/{config.get('dest_project') or os.environ.get('GCP_PROJECT')}/topics/{config['notifier']['topic']}",
+        f"projects/{project}/topics/{config['notifier']['topic']}",
         f"{config['notifier'].get('message', 'RUN')}".encode('utf-8'),
         **attributes
       )
-      logging.info(f"Notifying {config['notifier']['topic']} of completed job {attributes['id']}.")
+      logging.info('Notifying %s of completed job %s.',
+                   config['notifier']['topic'], attributes['id'])
 
     except Exception as e:
-      logging.error(f"Failed to notify {config['notifier']['topic']} of completed job {attributes['id']}.")
+      logging.error('Failed to notify %s of completed job %s.',
+                    config['notifier']['topic'], attributes['id'])

@@ -62,9 +62,6 @@ Deployment directives:
 
   --no-topics       Just deploy the functions; good if you have deployed once and are just
                     updating the cloud functions
-  --background      Run the Cloud Functions deployments in the background.
-                    WARNING: IF YOU DO THIS, BE SURE TO CHECK THE FUNCTION OUTPUT FILES FOR A
-                             SUCCESSFUL COMPLETION.
 
 General switches:
   --administrator   EMail address of the administrator for error messages
@@ -77,6 +74,16 @@ EOF
 
 function join { local IFS="$1"; shift; echo "$*"; }
 
+function cleanup {
+  gcloud functions list --project ${PROJECT} | grep "^$1" > /dev/null
+  if [ $? = 0 ]; then
+    echo " ... clean up old version"
+    ${DRY_RUN} gcloud functions delete "$1" \
+      --project=${PROJECT} \
+      --quiet
+  fi
+}
+
 # Switch definitions
 PROJECT=
 USER=
@@ -84,7 +91,6 @@ DATASET="report2bq"
 API_KEY=
 
 ACTIVATE_APIS=0
-BACKGROUND=0
 CREATE_SERVICE_ACCOUNT=0
 DEPLOY_BQ=0
 DEPLOY_CODE=1
@@ -169,9 +175,6 @@ while [[ $1 == -* ]] ; do
       ;;
     --create-service-account)
       CREATE_SERVICE_ACCOUNT=1
-      ;;
-    --background)
-      BACKGROUND=1
       ;;
     --store-api-key)
       STORE_API_KEY=1
@@ -390,13 +393,11 @@ ENVIRONMENT=$(join "," ${_ENV_VARS[@]})
 
 # Deploy job monitor
 if [ ${DEPLOY_MONITOR} -eq 1 ]; then
-  if [ ${BACKGROUND} -eq 1 ]; then
-    _BG=" & > report2bq-monitor.deploy 2>&1"
-  fi
-
   # Deploy cloud function
   echo "job-monitor"
-  ${DRY_RUN} gcloud functions deploy "job-monitor" \
+  cleanup job-monitor
+
+  ${DRY_RUN} gcloud functions deploy "report2bq-job-monitor" \
     --entry-point=job_monitor \
     --source=${SOURCE} \
     --runtime python38 \
@@ -425,10 +426,6 @@ fi
 # Fetcher
 if [ ${DEPLOY_FETCHER} -eq 1 ]; then
   # Deploy cloud function
-  if [ ${BACKGROUND} -eq 1 ]; then
-    _BG=" & > report2bq-fetcher.deploy 2>&1"
-  fi
-
   echo "report2bq-fetcher"
   ${DRY_RUN} gcloud functions deploy "report2bq-fetcher" \
     --entry-point=report_fetch \
@@ -446,10 +443,6 @@ fi
 # Loader
 if [ ${DEPLOY_LOADER} -eq 1 ]; then
   # Deploy cloud function
-  if [ ${BACKGROUND} -eq 1 ]; then
-    _BG=" & > report2bq-loader.deploy 2>&1"
-  fi
-
   echo "report2bq-loader"
   ${DRY_RUN} gcloud functions deploy "report2bq-loader" \
     --entry-point=report_upload \
@@ -469,11 +462,9 @@ fi
 if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
   # Deploy cloud function
   echo "report-runner"
-  if [ ${BACKGROUND} -eq 1 ]; then
-    _BG=" & > report2bq-runner.deploy 2>&1"
-  fi
+  cleanup report-runner
 
-  ${DRY_RUN} gcloud functions deploy "report-runner" \
+  ${DRY_RUN} gcloud functions deploy "report2bq-runner" \
     --entry-point=report_runner \
     --source=${SOURCE} \
     --runtime python38 \
@@ -489,7 +480,9 @@ fi
 if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
   # Deploy cloud function
   echo "run-monitor"
-  ${DRY_RUN} gcloud functions deploy "run-monitor" \
+  cleanup run-monitor
+
+  ${DRY_RUN} gcloud functions deploy "report2bq-run-monitor" \
     --service-account=$USER \
     --entry-point=run_monitor \
     --source=${SOURCE} \
@@ -508,8 +501,7 @@ if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
     --quiet \
     "run-monitor"
 
-  ${DRY_RUN} gcloud beta scheduler jobs create pubsub \
-    "run-monitor" \
+  ${DRY_RUN} gcloud beta scheduler jobs create pubsub "run-monitor" \
     --schedule="1-59/2 * * * *" \
     --topic="projects/${PROJECT}/topics/run-monitor" \
     --time-zone="America/Toronto" \
@@ -520,12 +512,14 @@ fi
 if [ ${DEPLOY_POSTPROCESSOR} -eq 1 ]; then
   # Deploy cloud function
   echo "postprocessor"
-  ${DRY_RUN} gcloud functions deploy "postprocessor" \
+  cleanup postprocessor
+
+  ${DRY_RUN} gcloud functions deploy "report2bq-postprocessor" \
     --service-account=$USER \
     --entry-point=post_processor \
     --source=${SOURCE} \
     --runtime python38 \
-    --memory=2048MB \
+    --memory=4096MB \
     --trigger-topic="postprocessor" \
     --service-account=$USER \
     --set-env-vars=${ENVIRONMENT} \
@@ -537,7 +531,9 @@ fi
 if [ ${DEPLOY_SA360_MANAGER} -eq 1 ]; then
   # Deploy cloud function
   echo "sa360 manager"
-  ${DRY_RUN} gcloud functions deploy "sa360-manager" \
+  cleanup sa360-manager
+
+  ${DRY_RUN} gcloud functions deploy "report2bq-sa360-manager" \
     --service-account=$USER \
     --entry-point=sa360_report_manager \
     --source=${SOURCE} \
