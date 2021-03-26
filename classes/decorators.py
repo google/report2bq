@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 __author__ = [
-  'davidharcombe@google.com (David Harcombe)'
+    'davidharcombe@google.com (David Harcombe)'
 ]
 
 import logging
@@ -23,40 +23,39 @@ import time
 import tracemalloc
 
 from functools import wraps
+from typing import Any, Callable, Mapping
 
 
-def timeit(method):
-  def timed(*args, **kw):
+def timeit(f: Callable):
+  def timed(*args: Mapping[str, Any], **kw: Mapping[str, Any]) -> Any:
     ts = time.time()
     try:
-      return method(*args, **kw)
+      return f(*args, **kw)
     finally:
       te = time.time()
-      logging.info(f'{method.__name__} {(te - ts) * 1000:0.3f}ms')
-      # return result
+      logging.info('%s %0.3fms', f.__name__, ((te - ts) * 1000))
   return timed
 
 
-def measure_memory(method):
-  def decorate(*args, **kw):
+def measure_memory(f: Callable) -> Any:
+  def decorate(*args: Mapping[str, Any], **kw: Mapping[str, Any]) -> Any:
     try:
       tracemalloc.start()
       ts = time.time()
-      return method(*args, **kw)
+      return f(*args, **kw)
     finally:
       te = time.time()
       current, peak = tracemalloc.get_traced_memory()
-      logging.info(f'Function Name        : {method.__name__}')
-      logging.info(f'Execution time       : {(te - ts) * 1000:0.3f}ms')
-      logging.info(f'Current memory usage : {current / 10**6:>04.3f}M')
-      logging.info(f'Peak                 : {peak / 10**6:>04.3f}M')
+      logging.info('Function Name        : %s', f.__name__)
+      logging.info('Execution time       : %0.3fms', ((te - ts) * 1000))
+      logging.info('Current memory usage : %04.3fM', (current / 10**6))
+      logging.info('Peak                 : %04.3fM', (peak / 10**6))
       tracemalloc.stop()
   return decorate
 
 
-def retry(exceptions, tries: int=4, delay: int=5, backoff: int=2):
-  """
-    Retry calling the decorated function using an exponential backoff.
+def retry(exceptions, tries: int = 4, delay: int = 5, backoff: int = 2):
+  """Retry calling the decorated function using an exponential backoff.
 
     Args:
         exceptions: The exception to check. may be a tuple of
@@ -77,8 +76,8 @@ def retry(exceptions, tries: int=4, delay: int=5, backoff: int=2):
         try:
           return f(*args, **kwargs)
         except exceptions as e:
-          msg = "{}, Retrying in {} seconds...".format(e, mdelay)
-          logging.warning(msg)
+          logging.warning('Try %d: "%s" - retrying in %d seconds...',
+                          (tries - mtries + 1), e, mdelay)
           time.sleep(mdelay)
           mtries -= 1
           mdelay *= backoff
@@ -87,3 +86,19 @@ def retry(exceptions, tries: int=4, delay: int=5, backoff: int=2):
     return f_retry  # true decorator
 
   return deco_retry
+
+
+def lazy_property(f: Callable):
+  """Decorator that makes a property lazy-evaluated.
+
+  Args:
+    f: the function to convert to a lazy property.
+  """
+  attr_name = '_lazy_' + f.__name__
+
+  @property
+  def _lazy_property(self) -> Any:
+    if not hasattr(self, attr_name):
+      setattr(self, attr_name, f(self))
+    return getattr(self, attr_name)
+  return _lazy_property

@@ -16,63 +16,54 @@ __author__ = ['davidharcombe@google.com (David Harcombe)']
 
 """Discovery Class.
 
-Performs OAuth against the GMB and BigQuery REST APIs.
-
-Both APIs require similar the same authentication flow. a credential file has
-be available on Colossus (for security reasons) in a specific directory. It
-is accessed via gfile and used to authenticate an https connection.
+Authenticate and fetch a discoverable API service.
 """
 
-import json
-import logging
-
-from typing import Any, Dict, List, Tuple, Mapping
+from typing import Any, Mapping
 from classes.services import Service
 
 from apiclient import discovery
 from oauth2client.client import AccessTokenCredentials
 from classes.credentials import Credentials
-from classes.decorators import timeit, measure_memory
 
 class DiscoverService(object):
   @classmethod
-  def get_unknown_service(cls, credentials: Credentials, **kwargs: Mapping[str, Any]):
+  def get_service(cls,
+                  service: Service,
+                  credentials: Credentials,
+                  api_key: str=None) -> discovery.Resource:
     """Fetch a discoverable API service.
 
-    If this is not the case (or, upon attempting to is the service an
-    authorization error is raised) the service can be cleared and forced to
-    reload.
+    Create an endpoint to one of the Google services listed in Services.py as
+    a defined service. Only services listed in the Services enum can be used,
+    and they each have a  in a ServiceDefinition containing all the information
+    needed to create the service. These parameters are decomposed to a dict of
+    keyword arguments ans passed on to the Google Discovery API.
+
+    Not all services require an API key, hence it is optional.
 
     Args:
+      service (Service): [description]
+      credentials (Credentials): [description]
+      api_key (str, optional): [description]. Defaults to None.
 
     Returns:
-      service: a service for REST calls
+        discovery.Resource: a service for REST calls
+
+    Raises:
+        NotImplementedError: if an invalid service is requested.
     """
-    credentials.get_credentials()
-    _credentials = AccessTokenCredentials(credentials.token_details['access_token'], user_agent='report2bq')
-    https = discovery.httplib2.Http()
-    auth_https = _credentials.authorize(https)
-    service = discovery.build(http=https, cache_discovery=False, **kwargs)
-    return service
-
-
-  @classmethod
-  def get_service(cls, service: Service, credentials: Credentials, api_key: str=None) -> discovery.Resource:
-    """Fetch a discoverable API service.
-
-    If this is not the case (or, upon attempting to is the service an
-    authorization error is raised) the service can be cleared and forced to
-    reload.
-
-    Args:
-
-    Returns:
-      service: a service for REST calls
-    """
-    definition = service.definition() 
-    if definition:
-      return cls.get_unknown_service(credentials=credentials, developerKey=api_key, **definition)
+    if definition := service.definition:
+      credentials.get_credentials()
+      _credentials = \
+        AccessTokenCredentials(credentials.token_details['access_token'],
+                              user_agent='report2bq')
+      auth_https = _credentials.authorize(discovery.httplib2.Http())
+      service = discovery.build(http=auth_https,
+                                cache_discovery=False,
+                                **definition.to_args)
+      return service
 
     else:
-      raise Exception(f'Unknown service {service}') 
+      raise NotImplementedError(f'Unknown service {service}')
 

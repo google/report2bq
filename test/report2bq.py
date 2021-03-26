@@ -152,7 +152,7 @@ def main(unused_argv):
     'development': FLAGS.development,
   }
   if FLAGS.product:
-    attributes['type'] = Type(attributes['product'])
+    attributes['type'] = Type(FLAGS.product)
   elif attributes.get('sa360_url'):
     attributes['type'] = Type.SA360
   elif attributes.get('profile'):
