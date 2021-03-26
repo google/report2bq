@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Tuple
 
 from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials as Report2BQCredentials
-from classes.csv_helpers import CSVHelpers
+from classes import csv_helpers
 from classes.firestore import Firestore
 from classes.gmail import GMail, GMailMessage
 from classes.report_type import Type
@@ -138,7 +138,7 @@ class ReportLoader(object):
     dataset = \
       config.get('dest_dataset') or os.environ.get('BQ_DATASET') or 'report2bq'
 
-    table_name = config.get('table_name', CSVHelpers.sanitize_string(file))
+    table_name = config.get('table_name', csv_helpers.sanitize_string(file))
     logging.info(
       f'bucket {bucket}, table {table_name}, file_name {file}')
 

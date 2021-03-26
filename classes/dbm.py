@@ -30,7 +30,7 @@ from classes import Fetcher, ReportFetcher
 from classes import credentials
 from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials
-from classes.csv_helpers import CSVHelpers
+from classes import csv_helpers
 from classes.decorators import measure_memory, retry
 from classes.discovery import DiscoverService
 from classes.report_type import Type
@@ -230,7 +230,7 @@ class DBM(ReportFetcher, Fetcher):
       data = report.read(self.chunk_multiplier * 1024 * 1024)
       bytes_io = io.BytesIO(data)
 
-    return CSVHelpers.get_column_types(bytes_io)
+    return csv_helpers.get_column_types(bytes_io)
 
 
   @measure_memory

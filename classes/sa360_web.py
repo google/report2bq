@@ -32,7 +32,7 @@ from classes import credentials
 
 from classes.credentials import Credentials
 from classes.cloud_storage import Cloud_Storage
-from classes.csv_helpers import CSVHelpers
+from classes import csv_helpers
 from classes.decorators import timeit, measure_memory
 from classes.firestore import Firestore
 from classes.report_type import Type
@@ -162,7 +162,7 @@ class SA360Web(ReportFetcher):
 
         if first:
           _, fieldtypes = \
-            CSVHelpers.get_column_types(BytesIO(output_buffer.getvalue().encode('utf-8')))
+            csv_helpers.get_column_types(BytesIO(output_buffer.getvalue().encode('utf-8')))
 
         queue.put(output_buffer.getvalue().encode('utf-8'))
         chunk_id += 1
@@ -175,7 +175,7 @@ class SA360Web(ReportFetcher):
       queue.join()
       streamer.stop()
       report_details['schema'] = \
-        CSVHelpers.create_table_schema(fieldnames, fieldtypes)
+        csv_helpers.create_table_schema(fieldnames, fieldtypes)
 
       return fieldnames, fieldtypes
 
@@ -217,7 +217,7 @@ class SA360Web(ReportFetcher):
     header, buffer = self.extract_keys(buffer=buffer, key='thead')
     if header:
       fieldnames = [
-        CSVHelpers.sanitize_string(field)
+        csv_helpers.sanitize_string(field)
         for field in re.findall(r'\<th[^>]*\>([^<]*)\<\/th\>', header)
       ]
       # logging.info(f'Fields: {fieldnames}')

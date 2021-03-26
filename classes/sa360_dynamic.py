@@ -33,7 +33,7 @@ from classes import credentials
 
 from classes.credentials import Credentials
 from classes.cloud_storage import Cloud_Storage
-from classes.csv_helpers import CSVHelpers
+from classes import csv_helpers
 from classes.decorators import timeit, measure_memory
 from classes.discovery import DiscoverService
 from classes.firestore import Firestore
@@ -91,7 +91,7 @@ class SA360Dynamic(ReportFetcher):
           type=Type.SA360_RPT, id=run_config['report_id'])
 
         csv_header, _ = self.read_header(report)
-        schema = CSVHelpers.create_table_schema(csv_header, None)
+        schema = csv_helpers.create_table_schema(csv_header, None)
         report_config['schema'] = schema
         report_config['files'] = report['files']
 
@@ -130,7 +130,7 @@ class SA360Dynamic(ReportFetcher):
       data = report.read(self.chunk_multiplier * 1024 * 1024)
       bytes_io = BytesIO(data)
 
-    return CSVHelpers.get_column_types(bytes_io)
+    return csv_helpers.get_column_types(bytes_io)
 
   @measure_memory
   def stream_to_gcs(self, report_details: Dict[str, Any],

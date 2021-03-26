@@ -15,104 +15,106 @@ limitations under the License.
 """
 
 __author__ = [
-  'davidharcombe@google.com (David Harcombe)'
+    'davidharcombe@google.com (David Harcombe)'
 ]
 
 import io
-import logging
 import messytables
 import re
 
-from messytables import types as mt_types
+from messytables import types
 from typing import Dict, List, Tuple
 
-class CSVHelpers(object):
-  """CSV file helpers
 
+def get_column_types(data: io.BytesIO) \
+  -> Tuple[List[str], List[types.CellType]]:
+  """derive the column types
+
+  Using messytables' CSV API, attempt to derive the column types based on a
+  best-guess of a sample of the rows.
+
+  This is still a WIP due to the parlous state of the DV360/CM CSV data formats
+  in general
+
+  Arguments:
+      data {io.BytesIO} -- sample of the CSV file
+
+  Returns:
+      (List[str], List[str]) -- tuple of list of header names and list of
+                                column types
   """
-  @staticmethod
-  def get_column_types(data: io.BytesIO) -> Tuple[List[str], List[str]]:
-    """derive the column types
+  table_set = messytables.CSVTableSet(data)
+  row_set = table_set.tables[0]
+  offset, csv_headers = messytables.headers_guess(row_set.sample)
+  row_set.register_processor(messytables.headers_processor(csv_headers))
+  row_set.register_processor(messytables.offset_processor(offset + 1))
+  csv_types = messytables.type_guess(row_set.sample, strict=True)
 
-    Using messytables' CSV API, attempt to derive the column types based on a best-guess
-    of a sample of the rows.
+  return (csv_headers, csv_types)
 
-    This is still a WIP due to the parlous state of the DV360/CM CSV data formats in
-    general
+def sanitize_string(original: str) -> str:
+  """sanitize string
 
-    Arguments:
-        data {io.BytesIO} -- sample of the CSV file
+  Sanitize the header names (or any other string) to convert all
+  non-alphanumerics to a simple '_' character. This matches what BQ expects.
 
-    Returns:
-        (List[str], List[str]) -- tuple of list of header names and list of column types
-    """
-    table_set = messytables.CSVTableSet(data)
-    row_set = table_set.tables[0]
-    offset, headers = messytables.headers_guess(row_set.sample)
-    logging.info(headers)
-    row_set.register_processor(messytables.headers_processor(headers))
-    row_set.register_processor(messytables.offset_processor(offset + 1))
-    types = messytables.type_guess(row_set.sample, strict=True)
-    logging.info(types)
+  Arguments:
+      original {str} -- original string
 
-    return (headers, types)
+  Returns:
+      str -- sanitized string
+  """
+  return re.sub('[^a-zA-Z0-9,]', '_', original)
 
+def create_table_schema(column_headers: List[str] = None,
+                        column_types: List[types.CellType] = None) \
+  -> List[Dict[str, str]]:
+  """create big query table schema
 
-  @staticmethod
-  def sanitize_string(original: str) -> str:
-    """sanitize string
+  Takes the list of column names and produces a json format Big Query schema
+  suitable for defining the import CSV.
 
-    Sanitize the header names (or any other string) to convert all non-alphanumerics to
-    a simple '_' character. This matches what BQ expects.
+  TODO: Also accept the column types and create the schema that way
 
-    Arguments:
-        original {str} -- original string
+  Keyword Arguments:
+      column_headers {list} -- header column names (default: {None})
+      column_types {list} -- column types (default: {None})
 
-    Returns:
-        str -- sanitized string
-    """
-    return re.sub('[^a-zA-Z0-9,]', '_', original)
+  Returns:
+      List[Dict[str, str]] -- json format schema
+  """
+  def _sql_field(T):
+    R = None
+    if isinstance(T, types.StringType):
+      R = 'STRING'
+    elif isinstance(T, types.DecimalType):
+      R = 'FLOAT'
+    elif isinstance(T, types.IntegerType):
+      R = 'INTEGER'
+    elif isinstance(T, types.DateType):
+      if T.format == '%Y-%m-%d %HH:%MM:%SS':
+        R = 'DATETIME'
+      if T.format == '%Y-%m-%d %H:%M:%S':
+        R = 'DATETIME'
+      elif T.format == '%Y-%m-%d':
+        R = 'DATE'
 
+    return R or 'STRING'
 
-  @staticmethod
-  def create_table_schema(header: List[str]=None, types: List[str]=None) -> Dict[str, str]:
-    """create big query table schema
+  field_template = {
+      "name": "",
+      "type": "STRING",
+      "mode": "NULLABLE"
+  }
+  field_list = []
 
-    Takes the list of column names and produces a json format Big Query schema suitable
-    for defining the import CSV.
+  master = dict(zip(column_headers, column_types or (
+      ['STRING'] * len(column_headers))))
 
-    TODO: Also accept the column types and create the schema that way
+  for col in column_headers:
+    new_field = field_template.copy()
+    new_field['name'] = sanitize_string(col)
+    new_field['type'] = _sql_field(master.get(col))
+    field_list.append(new_field)
 
-    Keyword Arguments:
-        header {list} -- header column names (default: {None})
-
-    Returns:
-        Dict[str, str] -- json format schema
-    """
-    def _sql_field(T):
-      R = None
-      if isinstance(T, mt_types.StringType): R = 'STRING'
-      elif isinstance(T, mt_types.DecimalType): R = 'FLOAT'
-      elif isinstance(T, mt_types.IntegerType): R = 'INTEGER'
-      elif isinstance(T, mt_types.DateType):
-        if T.format == '%Y-%m-%d %HH:%MM:%SS': R = 'DATETIME'
-        elif T.format == '%Y-%m-%d': R = 'DATE'
-
-      return R or 'STRING'
-
-    field_template = {
-        "name": "",
-        "type": "STRING",
-        "mode": "NULLABLE"
-    }
-    field_list = []
-
-    master = dict(zip(header, types or (['STRING'] * len(header))))
-
-    for col in header:
-      new_field = field_template.copy()
-      new_field['name'] = CSVHelpers.sanitize_string(col)
-      new_field['type'] = _sql_field(master.get(col))
-      field_list.append(new_field)
-
-    return field_list
+  return field_list

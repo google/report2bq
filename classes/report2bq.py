@@ -28,7 +28,7 @@ import re
 from classes import ReportFetcher
 from classes import csv_helpers
 from classes.fetcher_factory import FetcherFactory
-from classes.csv_helpers import CSVHelpers
+from classes import csv_helpers
 from classes.dbm import DBM
 from classes.dcm import DCM
 from classes.sa360_dynamic import SA360Dynamic
@@ -195,7 +195,7 @@ class Report2BQ(object):
       return field
 
     schema = list(
-      map(_field_fix, CSVHelpers.create_table_schema(csv_header, csv_types)))
+      map(_field_fix, csv_helpers.create_table_schema(csv_header, csv_types)))
     report_data['schema'] = schema
     if self.partition:
       msg = [ f'{F["name"]} - {F["type"]}' for F in schema ]

@@ -39,7 +39,7 @@ from queue import Queue, Empty
 from classes import Fetcher, ReportFetcher
 from classes import credentials
 from classes.cloud_storage import Cloud_Storage
-from classes.csv_helpers import CSVHelpers
+from classes import csv_helpers
 from classes.decorators import retry
 from classes.discovery import DiscoverService
 from classes.firestore import Firestore
@@ -374,7 +374,7 @@ class DCM(ReportFetcher, Fetcher):
     else:
       bytes_io.seek(csv_start)
 
-    return CSVHelpers.get_column_types(io.BytesIO(bytes_io.read()))
+    return csv_helpers.get_column_types(io.BytesIO(bytes_io.read()))
 
 
   def stream_to_gcs(self, bucket: str, report_data: dict):
