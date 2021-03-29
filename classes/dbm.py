@@ -32,7 +32,7 @@ from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials
 from classes import csv_helpers
 from classes.decorators import measure_memory, retry
-from classes.discovery import DiscoverService
+from classes import discovery
 from classes.report_type import Type
 from classes.services import Service
 from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
@@ -60,14 +60,10 @@ class DBM(ReportFetcher, Fetcher):
     self.project = project
     self.chunk_multiplier = int(os.environ.get('CHUNK_MULTIPLIER', 64))
 
-    # # Get authorized http transport
-    # self.credentials = Credentials(email=email, project=project)
-    # self.dbm_service = DiscoverService.get_service(Service.DV360, Credentials(email=email, project=project))
-
-
   def service(self) -> Resource:
-    return DiscoverService.get_service(Service.DV360, Credentials(email=self.email, project=self.project))
-
+    return discovery.get_service(Service.DV360,
+                                 Credentials(email=self.email,
+                                             project=self.project))
 
   def get_reports(self) -> List[Dict[str, Any]]:
     """

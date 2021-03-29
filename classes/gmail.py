@@ -29,7 +29,7 @@ import pytz
 import time
 
 from classes.credentials import Credentials
-from classes.discovery import DiscoverService
+from classes import discovery
 from classes.services import Service
 
 from base64 import urlsafe_b64encode
@@ -61,7 +61,7 @@ class GMailMessage(object):
 class GMail(object):
 
   def send_message(self, message: str, credentials: Credentials):
-    gmail = DiscoverService.get_service(Service.GMAIL, credentials=credentials)
+    gmail = discovery.get_service(Service.GMAIL, credentials=credentials)
     request = gmail.users().messages().send(userId='me', body=message.create_message())
     response = request.execute()
 

@@ -20,20 +20,15 @@ __author__ = [
 
 # Python Imports
 import datetime
-import httplib2
 import inflection
 import io
 import logging
-import os
-import random
 import re
-import sys
-import time
 
 from googleapiclient import http
 from googleapiclient.discovery import Resource
 from typing import Any, Dict, List, Tuple
-from queue import Queue, Empty
+from queue import Queue
 
 # Class Imports
 from classes import Fetcher, ReportFetcher
@@ -41,7 +36,7 @@ from classes import credentials
 from classes.cloud_storage import Cloud_Storage
 from classes import csv_helpers
 from classes.decorators import retry
-from classes.discovery import DiscoverService
+from classes import discovery
 from classes.firestore import Firestore
 from classes.report_list import Report_List
 from classes.services import Service
@@ -65,7 +60,7 @@ class DCM(ReportFetcher, Fetcher):
 
 
   def service(self) -> Resource:
-    return DiscoverService.get_service(
+    return discovery.get_service(
       Service.CM,
       credentials.Credentials(email=self.email, project=self.project))
 

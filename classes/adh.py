@@ -31,7 +31,7 @@ from typing import Dict, List, Any
 # Class Imports
 from classes.credentials import Credentials
 from classes.cloud_storage import Cloud_Storage
-from classes.discovery import DiscoverService
+from classes import discovery
 from classes.firestore import Firestore
 from classes.report_type import Type
 from classes.services import Service
@@ -129,7 +129,8 @@ class ADH(object):
     Returns:
         Resource -- ADH service
     """
-    adh_service = DiscoverService.get_service(Service.ADH, self.credentials, self.api_key)
+    adh_service = \
+      discovery.get_service(Service.ADH, self.credentials, self.api_key)
     return adh_service
 
 

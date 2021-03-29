@@ -16,7 +16,7 @@ limitations under the License.
 
 __author__ = ['davidharcombe@google.com (David Harcombe)']
 
-from classes.discovery import DiscoverService
+from classes import discovery
 from classes.services import Service
 from classes.sa360_report_validation.sa360_validator_factory import SA360ValidatorFactory
 from classes.sa360_report_manager import SA360Manager

@@ -18,18 +18,14 @@ import os
 import pytz
 
 from classes import ReportRunner
-from classes.credentials import Credentials
-from classes.discovery import DiscoverService
-from classes.gmail import GMail, GMailMessage
+from classes import discovery
 from classes.report_type import Type
 from classes.sa360_reports import SA360ReportTemplate
 from classes.sa360_dynamic import SA360Dynamic
 from classes.services import Service
 
-from dataclasses import dataclass
 from datetime import datetime, timedelta
-from dateutil.parser import parse
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 
 class SA360ReportRunner(ReportRunner):
@@ -110,7 +106,7 @@ class SA360ReportRunner(ReportRunner):
                                     '_reports').get(report_config['report'])
       request_body = \
         SA360ReportTemplate().prepare(template=template, values=report_config)
-      sa360_service = DiscoverService.get_service(Service.SA360, sa360.creds)
+      sa360_service = discovery.get_service(Service.SA360, sa360.creds)
       request = sa360_service.reports().request(body=request_body)
       response = request.execute()
       logging.info(response)

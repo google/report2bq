@@ -19,14 +19,9 @@ __author__ = [
 ]
 
 from googleapiclient import discovery
-from classes.gcs_streaming import GCSObjectStreamUpload
-from dataclasses_json.undefined import Undefined
 from classes.services import Service
-from classes.discovery import DiscoverService
-from classes.sa360_dynamic import SA360Dynamic
-from classes.sa360_reports import SA360ReportTemplate
-from classes.sa360_report_validation.sa360_validator_factory import SA360ValidatorFactory
-from classes.sa360_report_validation.campaign import Campaign
+from classes import discovery
+from classes.sa360_report_validation import sa360_validator_factory
 
 import csv
 import dataclasses
@@ -236,7 +231,7 @@ class SA360Manager(object):
     for sa360_object in sa360_objects:
       if sa360_object == '_reports': continue
       creds = Credentials(project=project, email=sa360_object['email'])
-      sa360_service = DiscoverService.get_service(Service.SA360, creds)
+      sa360_service = discovery.get_service(Service.SA360, creds)
 
       (valid, validation) = \
         self._file_based(sa360_report_definitions, sa360_object, sa360_service)
@@ -290,7 +285,7 @@ class SA360Manager(object):
 
     target_report = sa360_report_definitions[report['report']]
     validator = \
-      SA360ValidatorFactory().get_validator(
+      sa360_validator_factory.SA360ValidatorFactory().get_validator(
         report_type=target_report['report']['reportType'],
         sa360_service=sa360_service,
         agency=report['AgencyId'], advertiser=report['AdvertiserId'])
@@ -339,7 +334,7 @@ class SA360Manager(object):
       id = f"{runner['report']}_{runner['AgencyId']}_{runner['AdvertiserId']}"
 
       creds = Credentials(project=project, email=runner['email'])
-      sa360_service = DiscoverService.get_service(Service.SA360, creds)
+      sa360_service = discovery.get_service(Service.SA360, creds)
       (valid, validity) = self._file_based(
         sa360_report_definitions=sa360_report_definitions,
         report=runner, sa360_service=sa360_service)

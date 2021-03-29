@@ -18,24 +18,18 @@ __author__ = ['davidharcombe@google.com (David Harcombe)']
 
 # Python Imports
 from classes import ReportFetcher
-import csv
 import logging
-import os
-import re
-import requests as req
 import urllib.request
 
-from html.parser import unescape
-from io import BytesIO, StringIO, SEEK_END
+from io import BytesIO
 from typing import Dict, List, Any, Tuple
-from urllib.parse import unquote
 from classes import credentials
 
 from classes.credentials import Credentials
 from classes.cloud_storage import Cloud_Storage
 from classes import csv_helpers
-from classes.decorators import timeit, measure_memory
-from classes.discovery import DiscoverService
+from classes.decorators import measure_memory
+from classes import discovery
 from classes.firestore import Firestore
 from classes.report_type import Type
 from classes.services import Service
@@ -43,7 +37,6 @@ from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
 
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import storage
-from google.resumable_media import requests
 from googleapiclient.discovery import Resource
 
 # Other imports
@@ -77,7 +70,7 @@ class SA360Dynamic(ReportFetcher):
     self.bucket = f'{self.project}-report2bq-upload'
 
   def service(self) -> Resource:
-    return DiscoverService.get_service(Service.SA360, self.creds)
+    return discovery.get_service(Service.SA360, self.creds)
 
   def handle_report(self, run_config: Dict[str, Any]) -> bool:
     sa360_service = self.service()

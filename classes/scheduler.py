@@ -18,32 +18,28 @@ __author__ = [
     'davidharcombe@google.com (David Harcombe)'
 ]
 
-import base64
 import json
-import logging
 import os
-import pprint
 import random
 import uuid
 
 # Class Imports
 from io import StringIO
-from typing import Any, Dict, Generator, List, Mapping, Tuple
+from typing import Any, Dict, List, Tuple
 
 from google.cloud import scheduler as scheduler
-from google.cloud.pubsub import PublisherClient
 from googleapiclient.errors import HttpError
 
 from classes import Fetcher
 from classes.credentials import Credentials
-from classes.discovery import DiscoverService
+from classes import discovery
 from classes.report_type import Type
 from classes.services import Service
 
 
 class Scheduler(Fetcher):
   """Scheduler helper
-  
+
   Handles the scheduler operations for Report2BQ
 
   """
@@ -58,15 +54,15 @@ class Scheduler(Fetcher):
       email=_email,
       project=_project
     )
-    
+
     locations = self.list_locations(credentials=_credentials, project=_project)
     _location = locations[-1]
 
     if _action == 'list':
       jobs = self.list_jobs(
-        credentials=_credentials, 
-        project=_project, 
-        location=_location, 
+        credentials=_credentials,
+        project=_project,
+        location=_location,
         email=_email)
       if _html:
         result = StringIO()
@@ -77,7 +73,7 @@ class Scheduler(Fetcher):
 
     elif _action == 'get':
       (success, job) = self.get_job(
-        credentials=_credentials, 
+        credentials=_credentials,
         project=_project,
         location=_location,
         job_id=args.get('job_id'))
@@ -85,7 +81,7 @@ class Scheduler(Fetcher):
 
     elif _action == 'delete':
       (success, error) = self.delete_job(
-        credentials=_credentials, 
+        credentials=_credentials,
         project=_project,
         location=_location,
         job_id=args.get('job_id'))
@@ -97,7 +93,7 @@ class Scheduler(Fetcher):
 
     elif _action == 'enable':
       (success, error) = self.enable_job(
-        credentials=_credentials, 
+        credentials=_credentials,
         project=_project,
         location=_location,
         job_id=args.get('job_id'),
@@ -110,7 +106,7 @@ class Scheduler(Fetcher):
 
     elif _action == 'disable':
       (success, error) = self.enable_job(
-        credentials=_credentials, 
+        credentials=_credentials,
         project=_project,
         location=_location,
         job_id=args.get('job_id'),
@@ -205,7 +201,7 @@ class Scheduler(Fetcher):
       name = f"{action}-{product}-{args.get('report_id')}"
       schedule = f"{minute} {hour} * * *"
 
-      job = { 
+      job = {
         'description': args.get('description'),
         'timeZone': args.get('timezone') or 'UTC',
         'api_key': args.get('api_key'),
@@ -216,14 +212,14 @@ class Scheduler(Fetcher):
       }
 
       self.create_job(
-        credentials=_credentials, 
+        credentials=_credentials,
         project=_project,
         location=_location,
         job=job)
 
 
   def list_locations(self, credentials: Credentials=None, project: str=None):
-    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
     locations_response = self.fetch(
       method=service.projects().locations().list,
       **{'name': Scheduler.project_path(project)}
@@ -241,12 +237,12 @@ class Scheduler(Fetcher):
     that there is essentially no limit on the maximum size of a DV360 report we can handle.
 
     The destination file name is the report's id.
-    
+
     Arguments:
         bucket_name {str} -- destination bucket name
         report {Dict[str, Any]} -- report definition
     """
-    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
     token = None
     method = service.projects().locations().jobs().list
     jobs = []
@@ -274,12 +270,12 @@ class Scheduler(Fetcher):
         lambda j: j.get('pubsubTarget', {}).get('attributes', {}).get('email', '') == email,
         jobs
       )
-    
+
     return list(jobs)
 
 
   def delete_job(self, job_id: str=None, credentials: Credentials=None, project: str=None, location: str=None) -> Tuple[bool, Dict[str, Any]]:
-    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
     method = service.projects().locations().jobs().delete
     if not location:
       locations = self.list_locations(credentials=credentials, project=project)
@@ -294,14 +290,14 @@ class Scheduler(Fetcher):
       return (False, e)
 
 
-  def enable_job(self, 
-    job_id: str=None, 
-    credentials: Credentials=None, 
-    project: str=None, 
+  def enable_job(self,
+    job_id: str=None,
+    credentials: Credentials=None,
+    project: str=None,
     location: str=None,
     enable: bool=True
     ) -> Tuple[bool, Dict[str, Any]]:
-    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
     if not location:
       locations = self.list_locations(credentials=credentials, project=project)
       location = locations[-1]
@@ -321,7 +317,7 @@ class Scheduler(Fetcher):
 
 
   def create_job(self, credentials: Credentials=None, project: str=None, location: str=None, job: Dict[str, Any]=None):
-    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
     _method = service.projects().locations().jobs().create
 
     if not location:
@@ -350,9 +346,9 @@ class Scheduler(Fetcher):
     request.execute()
 
   def get_job(self, job_id: str=None, credentials: Credentials=None, project: str=None, location: str=None) -> Tuple[bool, Dict[str, Any]]:
-    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
     method = service.projects().locations().jobs().get
-    
+
     try:
       job = method(
         name=Scheduler.job_path(
