@@ -54,12 +54,19 @@ class JobMonitor(object):
       event {Dict[str, Any]} -- data sent from the PubSub message
       context {Dict[str, Any]} -- context data. unused
     """
-    firestore = Firestore()
+    if attributes := data.get('attributes'):
+      firestore = Firestore(
+        project=attributes.get('project') or os.environ.get('GCP_PROJECT'),
+        email=attributes.get('email'))
+
+    else:
+      firestore = Firestore()
+
     documents = firestore.get_all_jobs()
 
     for document in documents:
-      if (job_type := Type(document.get('type'))) != Type._UNKNOWN:
-        if config := firestore.get_report_config(job_type, document.id):
+      for product in [ T for T in Type ]:
+        if config := firestore.get_report_config(product, document.id):
           if config.get('dest_project'):
             # authenticate against supplied project with supplied key
             project = \
@@ -97,7 +104,7 @@ class JobMonitor(object):
 
                 self._handle_finished(job=job, config=config)
                 ('notifier' in config) and self.notify(
-                  report_type=job_type, config=config, job=job, id=document.id)
+                  report_type=product, config=config, job=job, id=document.id)
                 firestore.mark_import_job_complete(document.id, job,)
 
             except Exception as e:

@@ -1,28 +1,28 @@
-"""
-Copyright 2020 Google LLC
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-__author__ = [
-    'davidharcombe@google.com (David Harcombe)'
-]
+import os
+import traceback
 
 from googleapiclient.discovery import Resource
 from googleapiclient.errors import HttpError
 from typing import Any, Dict, Mapping
 
-from classes.decorators import retry
+from classes.credentials import Credentials
+from classes.decorators import lazy_property, retry
+from classes.firestore import Firestore
+from classes.gmail import GMail, GMailMessage
 from classes.report_type import Type
 
 class Fetcher(object):
@@ -56,5 +56,38 @@ class ReportFetcher(object):
 
 class ReportRunner(object):
   report_type = None
+  project = None
+  email = None
+
+  @lazy_property
+  def firestore(self) -> Firestore:
+    return Firestore(project=self.project, email=self.email)
 
   def run(self, unattended: bool): pass
+
+  def _email_error(self,
+                   message: str,
+                   email: str=None,
+                   error: Exception=None) -> None:
+    _to = [email] if email else []
+    _administrator = \
+      os.environ.get('ADMINISTRATOR_EMAIL') or self.FIRESTORE.get_document(
+        Type._ADMIN, 'admin').get('email')
+    _cc = [_administrator] if _administrator else []
+
+    if _trace := "".join(traceback.format_exception(error)) if error else None:
+      _trace = 'Error\n\n' + _trace
+
+    if _to or _cc:
+      message = GMailMessage(
+        to=_to,
+        cc=_cc,
+        subject=f'Error in report_loader',
+        body=f'{message}{_trace if _trace else ""}',
+        project=os.environ.get('GCP_PROJECT'))
+
+      GMail().send_message(
+        message=message,
+        credentials=Credentials(
+          email=email, project=os.environ.get('GCP_PROJECT'))
+      )

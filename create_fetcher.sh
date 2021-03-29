@@ -335,6 +335,7 @@ elif [ ! -z ${SA360_ID} ]; then
     "report_id=${SA360_ID}"
     "type=sa360_report"
     "timezone=${TZ}"
+    "${PARTITION}"
   )
 elif [ "x${PROFILE}" == "x" ]; then
   # DV360
@@ -348,7 +349,6 @@ elif [ "x${PROFILE}" == "x" ]; then
     HOUR="*"
     parameters=(
       ${parameters[@]}
-      "${PARTITION}"
       "${INFER_SCHEMA}"
     )
   fi
@@ -358,6 +358,7 @@ elif [ "x${PROFILE}" == "x" ]; then
     ${parameters[@]}
     "report_id=${REPORT_ID}"
     "type=dv360"
+    "${PARTITION}"
   )
 else
   # CM
@@ -371,7 +372,6 @@ else
     HOUR="*"
     parameters=(
       ${parameters[@]}
-      "${PARTITION}"
       "${INFER_SCHEMA}"
     )
   fi
@@ -381,6 +381,7 @@ else
     ${parameters[@]}
     "report_id=${REPORT_ID}"
     "profile=${PROFILE}"
+    "${PARTITION}"
     "type=cm"
   )
 fi

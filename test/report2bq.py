@@ -20,7 +20,7 @@ __author__ = [
 
 # Python logging
 import logging
-import pprint
+import os
 
 # Class Imports
 from absl import app
@@ -138,7 +138,7 @@ def main(unused_argv):
     'email': FLAGS.email,
     'in_cloud': True,
     'append': FLAGS.append,
-    'project': FLAGS.project,
+    'project': FLAGS.project or os.environ.get('GCP_PROJECT'),
     'sa360_url': unquote(FLAGS.sa360_url) if FLAGS.sa360_url else None,
     'sa360': (True if FLAGS.sa360_url else False),
     'dest_project': FLAGS.dest_project,

@@ -103,15 +103,25 @@ class RunMonitor(object):
   def _invalid_type(self,
                     job_config: Dict[str, Any],
                     run_config: Dict[str, Any]) -> None:
+    """Invalid job type handler.
+
+    This shouldn't even happen (but could if somebody manually messes with
+    the Firestore), but is handled just in case.
+
+    Args:
+        job_config (Dict[str, Any]): job configuration
+        run_config (Dict[str, Any]): current run configuration
+    """
     raise NotImplementedError('Invalid job type requested')
 
   def _check_dv360_report(self,
                           job_config: Dict[str, Any],
-                          run_config: Dict[str, Any]):
-    """Check a running DV360 report for completion
+                          run_config: Dict[str, Any]) -> None:
+    """Check a running DV360 report for completion.
 
-    Arguments:
-        report {Dict[str, Any]} -- The report data structure from Firestore
+    Args:
+        job_config (Dict[str, Any]): job configuration
+        run_config (Dict[str, Any]): current run configuration
     """
     job_attributes = job_config['pubsubTarget']['attributes']
     dbm = DBM(email=job_attributes['email'], project=self.project)
@@ -120,9 +130,6 @@ class RunMonitor(object):
     logging.info('Report %s status: %s', job_attributes['report_id'], status)
 
     if status == 'DONE':
-      # Remove job from running
-      self.firestore_client.remove_report_runner(job_attributes['report_id'])
-
       # Send pubsub to trigger report2bq now
       topic = job_config['pubsubTarget']['topicName']
       self.pubsub_client.publish(
@@ -130,6 +137,9 @@ class RunMonitor(object):
         data=b'RUN',
         **job_attributes
       )
+
+      # Remove job from running
+      self.firestore_client.remove_report_runner(job_attributes['report_id'])
 
     elif status == 'FAILED':
       # Remove job from running
@@ -139,29 +149,29 @@ class RunMonitor(object):
   def _check_cm_report(self,
                        job_config: Dict[str, Any],
                        run_config: Dict[str, Any]) -> None:
-    """Check a running CM report for completion
+    """Check a running CM360 report for completion.
 
-    Arguments:
-        report {Dict[str, Any]} -- The report data structure from Firestore
+    Args:
+        job_config (Dict[str, Any]): job configuration
+        run_config (Dict[str, Any]): current run configuration
     """
     job_attributes = job_config['pubsubTarget']['attributes']
     dcm = DCM(email=job_attributes['email'],
               project=self.project,
               profile=job_attributes['profile'])
-    # TODO: Add report_file.id to run_config
     response = dcm.report_state(report_id=job_attributes['report_id'],
-                                file_id=run_config['report_file']['id'])
+                                file_id=run_config['file_id'])
     status = \
       response['status'] if response and  'status' in response else 'UNKNOWN'
 
     logging.info('Report %s status: %s.', job_attributes['report_id'], status)
     if status == 'REPORT_AVAILABLE':
-      # Remove job from running
-      self.firestore_client.remove_report_runner(job_attributes['report_id'])
-
       # Send pubsub to trigger report2bq now
       topic = f'projects/{self.project}/topics/report2bq-trigger'
       self.pubsub_client.publish(topic=topic, data=b'RUN', **job_attributes)
+
+      # Remove job from running
+      self.firestore_client.remove_report_runner(job_attributes['report_id'])
 
     elif status == 'FAILED' or status =='CANCELLED':
       # Remove job from running
@@ -171,6 +181,12 @@ class RunMonitor(object):
   def _check_sa360_report(self,
                           job_config: Dict[str, Any],
                           run_config: Dict[str, Any]) -> None:
+    """Check a running SA360 report for completion.
+
+    Args:
+        job_config (Dict[str, Any]): job configuration
+        run_config (Dict[str, Any]): current run configuration
+    """
     # Merge configs
     job_attributes = \
       job_config['pubsubTarget']['attributes'] \

@@ -22,6 +22,12 @@ __author__ = [
 import logging
 import pprint
 
-from cloud_functions.job_monitor import JobMonitor
+from cloud_functions import job_monitor
 
-JobMonitor().process({}, None)
+job_monitor.JobMonitor().process({}, None)
+  # {'attributes':
+  #   {
+  #     'email': 'davidharcombe@google.com',
+  #     'project': 'testproject08052020'
+  #   }
+  # }, None)

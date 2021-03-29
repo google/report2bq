@@ -11,7 +11,6 @@ dataclasses-json>=0.5.2
 decorator>=4.4.2
 discovery
 Flask>=1.1.2
-frozendict
 futures>=3.1.1
 gcs-oauth2-boto-plugin>=2.7
 gcsfs>=0.7.2
@@ -33,6 +32,7 @@ googleapis-common-protos>=1.53.0
 grpcio>=1.36.1
 httplib2>=0.19.0
 idna
+immutabledict
 inflection>=0.5.1
 ipaddress>=1.0.23
 lxml>=4.6.3

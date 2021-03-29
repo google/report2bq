@@ -23,7 +23,7 @@ from classes import decorators
 from typing import Any, Dict, Optional, Mapping
 
 import dataclasses
-import frozendict
+import immutabledict
 
 
 @dataclasses.dataclass
@@ -39,7 +39,7 @@ class ServiceDefinition(object):
     This is defined as lazy so it can be referred to as a
     property instead of a function which makes the code read
     cleaner.
-    
+
     Returns:
         Mapping[str, Any]: the definition as kwargs
     """
@@ -69,7 +69,7 @@ class Service(enum.Enum):
     """Fetch the ServiceDefinition.
 
     Lazily returns the dataclass containing the service definition
-    details. It has to be lazy, as it can't be defined at 
+    details. It has to be lazy, as it can't be defined at
     initialization time.
 
     Returns:
@@ -79,7 +79,7 @@ class Service(enum.Enum):
 
 
 SERVICE_DEFINITIONS = \
-  frozendict.frozendict({
+  immutabledict.immutabledict({
     Service.ADH:
       ServiceDefinition(name='AdsDataHub', version='v1'),
     Service.BQ:

@@ -49,7 +49,7 @@ class Firestore(object):
     in the cloud (in_cloud=True), is assumes it can simply use the project default service account
     creds to access Firestore. This is different to the DV360/CM/SA360/ADH fetchers as they have
     to use a person's real credentials.
-    
+
     Keyword Arguments:
         email {str} -- email address of the credentials (default: {None})
         project {str} -- project identifier (default: {None})
@@ -59,18 +59,20 @@ class Firestore(object):
       self.client = firestore.Client()
 
     else:
-      self.client = firestore.Client(credentials=Credentials(in_cloud=in_cloud, email=email, project=project).get_credentials())
+      self.client = \
+        firestore.Client(credentials=Credentials(email=email,
+                         project=project).get_credentials())
 
 
   def get_report_config(self, type: Type, id: str) -> Dict[str, Any]:
     """Load a config
 
     Load a report's config
-    
+
     Arguments:
         type {Type} -- report type
         id {str} -- report id
-    
+
     Returns:
         Dict[str, Any] -- stored configuration dictionary
     """
@@ -89,7 +91,7 @@ class Firestore(object):
 
     Store a report's config in Firestore. They're all stored by Type (DCM/DBM/SA360/ADH)
     and each one within the type is keyed by the appropriate report id.
-    
+
     Arguments:
         type {Type} -- product
         id {str} -- report id
@@ -107,10 +109,10 @@ class Firestore(object):
     """List all reports
 
     List all defined reports for a specific product.
-    
+
     Arguments:
         type {Type} -- product type
-    
+
     Returns:
         List[Dict[str, Any]] -- list of all reports for a given project
     """
@@ -126,7 +128,7 @@ class Firestore(object):
 
   def store_import_job_details(self, report_id: int, job: bigquery.LoadJob):
     """Save a BQ Import job in Firestore
-    
+
     Arguments:
         report_id {int} -- [description]
         job {bigquery.LoadJob} -- [description]
@@ -137,23 +139,23 @@ class Firestore(object):
 
   def mark_import_job_complete(self, report_id: int, job: bigquery.LoadJob):
     """Mark BQ Import job in Firestore done
-    
+
     Moves an import job from 'jobs/' to 'jobs-completed'.
-    
+
     Arguments:
         report_id {int} -- [description]
         job {bigquery.LoadJob} -- [description]
     """
     document = 'jobs/{report_id}'.format(report_id=report_id)
     self.client.document(document).delete()
-    
+
     document = 'jobs-completed/{report_id}'.format(report_id=report_id)
     self.client.document(document).set(job.to_api_repr())
-    
+
 
   def get_all_jobs(self) -> List[DocumentReference]:
     """List all running jobs
-    
+
     Returns:
         jobs {List[DocumentReference]} -- List of all available jobs
     """
@@ -164,7 +166,7 @@ class Firestore(object):
     """List running reports
 
     Lists all running reports
-    
+
     Returns:
         runners {List[DocumentReference]} -- list of all running reports
     """
@@ -175,7 +177,7 @@ class Firestore(object):
     """List documents
 
     Lists all documents of a given Type
-    
+
     Returns:
         runners {List[DocumentReference]} -- list of all documents
     """
@@ -189,7 +191,7 @@ class Firestore(object):
 
   def store_report_runner(self, runner: Dict[str, Any]):
     """Store running report
-    
+
     Arguments:
         runner {Dict[str, Any]} -- store a running report definition
     """
@@ -201,7 +203,7 @@ class Firestore(object):
     """Remove running report
 
     Delete a running report from the list of active reports
-    
+
     Arguments:
         runner {Dict[str, Any]} -- [description]
     """
@@ -213,11 +215,11 @@ class Firestore(object):
     """Load a document (could be anything, 'type' identifies the root.)
 
     Load a document
-    
+
     Arguments:
         type {Type} -- document type (document root in firestore)
         id {str} -- document id
-    
+
     Returns:
         Dict[str, Any] -- stored configuration dictionary, or None
                           if not present
@@ -237,7 +239,7 @@ class Firestore(object):
 
     Store a report's config in Firestore. They're all stored by Type (DCM/DBM/SA360/ADH)
     and each one within the type is keyed by the appropriate report id.
-    
+
     Arguments:
         type {Type} -- product
         id {str} -- report id
