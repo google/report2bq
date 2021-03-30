@@ -28,7 +28,7 @@ from pprint import pprint
 from typing import Dict, Any
 
 from classes import ReportFetcher
-from classes.fetcher_factory import FetcherFactory
+from classes import fetcher_factory
 from classes.report_type import Type
 # from classes.dcm import DCM
 
@@ -75,8 +75,11 @@ flags.mark_bool_flags_as_mutual_exclusive(['list', 'backup', 'restore'])
 
 # Stub main()
 def main(unused_argv):
-  fetcher = FetcherFactory.create_fetcher(Type(FLAGS.product), email=FLAGS.email, project=FLAGS.project, profile=FLAGS.profile)
-  
+  fetcher = fetcher_factory.create_fetcher(Type(FLAGS.product),
+                                           email=FLAGS.email,
+                                           project=FLAGS.project,
+                                           profile=FLAGS.profile)
+
   if fetcher.report_type == Type.CM:
     if FLAGS.list:
       reports = fetcher.get_reports()
@@ -113,7 +116,7 @@ def main(unused_argv):
         for key in report:
           if key in keys_wanted:
             new_report[key] = report[key]
-        
+
         if FLAGS.new_name:
           new_report['name'] = FLAGS.new_name
 
