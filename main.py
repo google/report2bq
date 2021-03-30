@@ -65,27 +65,27 @@ def report_fetch(event: Dict[str, Any], context=None):
       event {Dict[str, Any]} -- data sent from the PubSub message
       context {Dict[str, Any]} -- context data. unused
   """
-  logging.info(f'Running fetcher: {event}')
   if 'attributes' in event:
     attributes = event['attributes']
 
     try:
-      logging.info(f'Attributes: {attributes}')
-
       kwargs = {
         'email': attributes['email'],
         'project': attributes['project'],
-        'report_id': attributes.get('dv360_id') or attributes.get('cm_id') or attributes.get('report_id'),
-        'profile': attributes.get('profile', None),
-        'sa360_url': attributes.get('sa360_url') if 'sa360_url' in attributes else None,
+        'report_id':
+          attributes.get('dv360_id') or \
+            attributes.get('cm_id') or \
+              attributes.get('report_id'),
+        'profile': attributes.get('profile'),
+        'sa360_url': attributes.get('sa360_url'),
         'force': attributes.get('force', False),
         'append': attributes.get('append', False),
         'infer_schema': attributes.get('infer_schema', False),
-        'dest_project': attributes.get('dest_project', None),
+        'dest_project': attributes.get('dest_project'),
         'dest_dataset': attributes.get('dest_dataset', 'report2bq'),
-        'notify_topic': attributes.get('notify_topic', None),
-        'notify_message': attributes.get('notify_message', None),
-        'partition': attributes.get('partition', False)
+        'notify_topic': attributes.get('notify_topic'),
+        'notify_message': attributes.get('notify_message'),
+        'partition': attributes.get('partition')
       }
       kwargs.update(attributes)
 
@@ -94,13 +94,14 @@ def report_fetch(event: Dict[str, Any], context=None):
       elif kwargs.get('profile'): kwargs['product'] = Type.CM
       else: kwargs['product'] = Type.DV360
 
-      logging.info(f'args: {kwargs}')
       report2bq = Report2BQ(**kwargs)
       report2bq.run()
 
     except Exception as e:
       if email := attributes.get('email'):
-        email_error(email=attributes['email'], product='Report Fetcher', event=event, error=e)
+        email_error(email=attributes['email'],
+                    product='Report Fetcher',
+                    event=event, error=e)
 
       logging.fatal(f'Error: {e}')
       return
@@ -157,7 +158,6 @@ def report_runner(event: Dict[str, Any], context=None):
   """
   email = None
 
-
   if attributes := event.get('attributes'):
     T = Type(attributes.get('type'))
     _base_args = {
@@ -206,8 +206,7 @@ def report_runner(event: Dict[str, Any], context=None):
       logging.error('No or unknown report type specified.')
 
 
-def post_processor(event: Dict[str, Any], context=None):
-  logging.info(f'Event supplied: {event}')
+def post_processor(event: Dict[str, Any], context=None) -> None:
   if 'data' in event:
     postprocessor = base64.b64decode(event['data']).decode('utf-8')
     logging.info(f'Loading and running "{postprocessor}"')
@@ -216,13 +215,17 @@ def post_processor(event: Dict[str, Any], context=None):
     if attributes := event.get('attributes'):
       _import = f'import classes.postprocessor.{postprocessor}'
       exec(_import)
-      Processor = getattr(import_module(f'classes.postprocessor.{postprocessor}'), 'Processor')
+      Processor = getattr(
+        import_module(f'classes.postprocessor.{postprocessor}'), 'Processor')
       Processor().run(context=context, **attributes)
 
   else:
     logging.fatal('No postprocessor specified')
 
-def email_error(email: str, product: str, event: Dict[str, Any], error: Exception):
+def email_error(email: str,
+                product: str,
+                event: Dict[str, Any],
+                error: Exception) -> None:
   message = GMailMessage(
     to=[email],
     subject=f'Error in {product or "Report2BQ"}',

@@ -90,7 +90,10 @@ Options:
     --description Plain text description for the scheduler list
     --partition   Store the table in Big Query as a date-partitioned table. This means you MUST
                   have in your schema at least one DATE or DATETIME column. The FIRST ONE in the
-                  schema will be the one used to partition the data.
+                  schema will be the one used to partition the data. Using:
+                    --partition=timestamp
+                  will cause the system to partition on 'ingestion' time; see the Big Query
+                  documentation for an explanation for this.
     --infer-schema
                   [BETA] Guess the column types based on a sample of the report's first slice.
     --topic       [BETA] Topic to send a PubSub message to on completion of import job
@@ -142,6 +145,7 @@ PARTITION=                          # Create a BQ Partitioned table
 # Command line parameter parser
 QUIT=0
 UNKNOWN=
+
 while [[ $1 == -* ]] ; do
   case $1 in
     # Common to SA360, DV360, ADH and CM
@@ -210,8 +214,16 @@ while [[ $1 == -* ]] ; do
     --append)
       APPEND="append=True"
       ;;
-    --partition)
-      PARTITION="partition=True"
+    --partition*)
+      PARTITION=1
+      IFS="=" read _cmd _PARTITION_TYPE <<< "$1"
+      if [[ -z "${_PARTITION_TYPE}" ]]; then
+        shift
+        if [[ "$1" =~ ^--.* ]]; then
+          continue
+        fi
+        _PARTITION_TYPE=$1
+      fi
       ;;
     --timer*)
       # Random if not set
@@ -274,6 +286,18 @@ fi
 [ -z "${DEST_DATASET}" ] || _DEST_DATASET="dest_dataset=${DEST_DATASET}"
 [ -z "${TOPIC}" ] || _NOTIFIER_TOPIC="notify_topic=${TOPIC}"
 [ -z "${MESSAGE}" ] || _NOTIFIER_MESSAGE="notify_message=${MESSAGE}"
+
+# partitioning tables
+if [[ ${PARTITION} -eq 1 ]]; then
+  case ${_PARTITION_TYPE} in
+    ingestion | timestamp)
+      PARTITION="partition=ingestion"
+      ;;
+    *)
+      PARTITION="partition=infer"
+      ;;
+  esac
+fi
 
 parameters=(
   "${FORCE}"

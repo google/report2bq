@@ -219,7 +219,7 @@ class Scheduler(Fetcher):
 
 
   def list_locations(self, credentials: Credentials=None, project: str=None):
-    service = discovery.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(service=Service.SCHEDULER, credentials=credentials, api_key=os.environ['API_KEY'])
     locations_response = self.fetch(
       method=service.projects().locations().list,
       **{'name': Scheduler.project_path(project)}
@@ -242,7 +242,7 @@ class Scheduler(Fetcher):
         bucket_name {str} -- destination bucket name
         report {Dict[str, Any]} -- report definition
     """
-    service = discovery.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(service=Service.SCHEDULER, credentials=credentials, api_key=os.environ['API_KEY'])
     token = None
     method = service.projects().locations().jobs().list
     jobs = []
@@ -275,7 +275,7 @@ class Scheduler(Fetcher):
 
 
   def delete_job(self, job_id: str=None, credentials: Credentials=None, project: str=None, location: str=None) -> Tuple[bool, Dict[str, Any]]:
-    service = discovery.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(service=Service.SCHEDULER, credentials=credentials, api_key=os.environ['API_KEY'])
     method = service.projects().locations().jobs().delete
     if not location:
       locations = self.list_locations(credentials=credentials, project=project)
@@ -297,7 +297,7 @@ class Scheduler(Fetcher):
     location: str=None,
     enable: bool=True
     ) -> Tuple[bool, Dict[str, Any]]:
-    service = discovery.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(service=Service.SCHEDULER, credentials=credentials, api_key=os.environ['API_KEY'])
     if not location:
       locations = self.list_locations(credentials=credentials, project=project)
       location = locations[-1]
@@ -317,7 +317,7 @@ class Scheduler(Fetcher):
 
 
   def create_job(self, credentials: Credentials=None, project: str=None, location: str=None, job: Dict[str, Any]=None):
-    service = discovery.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(service=Service.SCHEDULER, credentials=credentials, api_key=os.environ['API_KEY'])
     _method = service.projects().locations().jobs().create
 
     if not location:
@@ -346,7 +346,7 @@ class Scheduler(Fetcher):
     request.execute()
 
   def get_job(self, job_id: str=None, credentials: Credentials=None, project: str=None, location: str=None) -> Tuple[bool, Dict[str, Any]]:
-    service = discovery.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(service=Service.SCHEDULER, credentials=credentials, api_key=os.environ['API_KEY'])
     method = service.projects().locations().jobs().get
 
     try:

@@ -106,7 +106,8 @@ class SA360ReportRunner(ReportRunner):
                                     '_reports').get(report_config['report'])
       request_body = \
         SA360ReportTemplate().prepare(template=template, values=report_config)
-      sa360_service = discovery.get_service(Service.SA360, sa360.creds)
+      sa360_service = \
+        discovery.get_service(service=Service.SA360, credentials=sa360.creds)
       request = sa360_service.reports().request(body=request_body)
       response = request.execute()
       logging.info(response)

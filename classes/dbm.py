@@ -61,9 +61,9 @@ class DBM(ReportFetcher, Fetcher):
     self.chunk_multiplier = int(os.environ.get('CHUNK_MULTIPLIER', 64))
 
   def service(self) -> Resource:
-    return discovery.get_service(Service.DV360,
-                                 Credentials(email=self.email,
-                                             project=self.project))
+    return discovery.get_service(service=Service.DV360,
+                                 credentials=Credentials(email=self.email,
+                                                         project=self.project))
 
   def get_reports(self) -> List[Dict[str, Any]]:
     """

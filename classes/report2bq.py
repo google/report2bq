@@ -49,7 +49,7 @@ class Report2BQ(object):
     force: bool=False, append: bool=False, infer_schema: bool=False,
     dest_project: str=None, dest_dataset: str='report2bq',
     notify_topic: str=None, notify_message: str=None,
-    file_id: str=None, partition: bool=False, **unused):
+    file_id: str=None, partition: str=None, **unused):
     self.product = product
 
     self.force = force
@@ -77,7 +77,8 @@ class Report2BQ(object):
 
   def handle_report_fetcher(self, fetcher: ReportFetcher):
     def _schema(field):
-      if self.partition and field['type'] not in ['DATE', 'DATETIME']:
+      if self.partition == 'infer' and \
+        field['type'] not in ['DATE', 'DATETIME']:
         field['type'] = 'STRING'
       return field
 
@@ -188,7 +189,7 @@ class Report2BQ(object):
     self, report_data: Dict[str, Any], csv_header: List[str],
     csv_types: List[str]) -> None:
     def _field_fix(field: Dict[str, str]) -> Dict[str, str]:
-      if self.partition and field['type'] in ['DATE', 'DATETIME']:
+      if self.partition == 'infer' and field['type'] in ['DATE', 'DATETIME']:
         return field
       elif not self.infer_schema:
         field['type'] = 'STRING'
@@ -197,7 +198,7 @@ class Report2BQ(object):
     schema = list(
       map(_field_fix, csv_helpers.create_table_schema(csv_header, csv_types)))
     report_data['schema'] = schema
-    if self.partition:
+    if self.partition == 'infer':
       msg = [ f'{F["name"]} - {F["type"]}' for F in schema ]
       date_columns = \
         [F['name'] for F in schema if F['type'] in ['DATE', 'DATETIME']]
@@ -206,10 +207,12 @@ class Report2BQ(object):
         report_data['partition_column'] = date_columns[0]
       else:
         logging.info(
-          'Partitioning requested, but no DATE[TIME] columns '
-          'found in the schema: '
-          f'{", ".join(msg)}')
-        report_data['partition'] = False
+          'Inferred partitioning requested, but no DATE[TIME] columns '
+          'found in schema: %s', ", ".join(msg))
+        if 'partition' in report_data:
+          report_data.pop('partition')
+    elif self.partition:
+      report_data['partition'] = self.partition
 
   def run(self):
     logging.info(f'Product: {self.product}')

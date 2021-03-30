@@ -20,6 +20,7 @@ __author__ = ['davidharcombe@google.com (David Harcombe)']
 from classes import ReportFetcher
 import logging
 import urllib.request
+import os
 
 from io import BytesIO
 from typing import Dict, List, Any, Tuple
@@ -70,7 +71,7 @@ class SA360Dynamic(ReportFetcher):
     self.bucket = f'{self.project}-report2bq-upload'
 
   def service(self) -> Resource:
-    return discovery.get_service(Service.SA360, self.creds)
+    return discovery.get_service(service=Service.SA360, credentials=self.creds)
 
   def handle_report(self, run_config: Dict[str, Any]) -> bool:
     sa360_service = self.service()

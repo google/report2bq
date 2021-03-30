@@ -116,8 +116,8 @@ flags.DEFINE_string('notify_topic',
                      None,
                      'Post load job completion topic to notify')
 
-flags.DEFINE_boolean('partition',
-                     False,
+flags.DEFINE_string('partition',
+                     None,
                      'Create a partitioned table in BQ.')
 flags.DEFINE_boolean('development', False, 'Leave the files in GCS.')
 flags.DEFINE_boolean('runner', False, 'Runner, not fetcher')
@@ -148,7 +148,7 @@ def main(unused_argv):
     # 'type': FLAGS.product,
     'notify_topic': FLAGS.notify_topic,
     'notify_message': FLAGS.notify_message,
-    'partition': FLAGS.partition,
+    'partition': FLAGS.partition or None,
     'development': FLAGS.development,
   }
   if FLAGS.product:

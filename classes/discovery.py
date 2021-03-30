@@ -27,8 +27,7 @@ from oauth2client.client import AccessTokenCredentials
 from classes.credentials import Credentials
 
 
-def get_service(cls,
-                service: Service,
+def get_service(service: Service,
                 credentials: Credentials,
                 api_key: str=None) -> discovery.Resource:
   """Fetch a discoverable API service.
@@ -60,6 +59,7 @@ def get_service(cls,
     auth_https = _credentials.authorize(discovery.httplib2.Http())
     service = discovery.build(http=auth_https,
                               cache_discovery=False,
+                              developerKey=api_key,
                               **definition.to_args)
     return service
 

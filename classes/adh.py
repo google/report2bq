@@ -130,7 +130,8 @@ class ADH(object):
         Resource -- ADH service
     """
     adh_service = \
-      discovery.get_service(Service.ADH, self.credentials, self.api_key)
+      discovery.get_service(service=Service.ADH,
+        credentials=self.credentials, api_key=self.api_key)
     return adh_service
 
 

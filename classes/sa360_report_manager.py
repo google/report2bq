@@ -18,7 +18,8 @@ __author__ = [
   'davidharcombe@google.com (David Harcombe)'
 ]
 
-from googleapiclient import discovery
+from googleapiclient import discovery as gdiscovery
+from classes import credentials
 from classes.services import Service
 from classes import discovery
 from classes.sa360_report_validation import sa360_validator_factory
@@ -231,7 +232,8 @@ class SA360Manager(object):
     for sa360_object in sa360_objects:
       if sa360_object == '_reports': continue
       creds = Credentials(project=project, email=sa360_object['email'])
-      sa360_service = discovery.get_service(Service.SA360, creds)
+      sa360_service = \
+        discovery.get_service(service=Service.SA360, credentials=creds)
 
       (valid, validation) = \
         self._file_based(sa360_report_definitions, sa360_object, sa360_service)
@@ -278,7 +280,7 @@ class SA360Manager(object):
   def _file_based(
     self, sa360_report_definitions: Dict[str, Any],
     report: Dict[str, Any],
-    sa360_service: discovery.Resource) -> Tuple[bool, Dict[str, Any]]:
+    sa360_service: gdiscovery.Resource) -> Tuple[bool, Dict[str, Any]]:
     logging.info(
       'Validating %s (%s/%s) on report %s', report.get("agencyName", "-"),
       report["AgencyId"], report["AdvertiserId"], report["report"])
@@ -334,7 +336,8 @@ class SA360Manager(object):
       id = f"{runner['report']}_{runner['AgencyId']}_{runner['AdvertiserId']}"
 
       creds = Credentials(project=project, email=runner['email'])
-      sa360_service = discovery.get_service(Service.SA360, creds)
+      sa360_service = \
+        discovery.get_service(service=Service.SA360, credentials=creds)
       (valid, validity) = self._file_based(
         sa360_report_definitions=sa360_report_definitions,
         report=runner, sa360_service=sa360_service)

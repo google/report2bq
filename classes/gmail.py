@@ -61,7 +61,8 @@ class GMailMessage(object):
 class GMail(object):
 
   def send_message(self, message: str, credentials: Credentials):
-    gmail = discovery.get_service(Service.GMAIL, credentials=credentials)
+    gmail = discovery.get_service(service=Service.GMAIL,
+                                  credentials=credentials)
     request = gmail.users().messages().send(userId='me', body=message.create_message())
     response = request.execute()
 

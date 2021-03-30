@@ -79,9 +79,15 @@ class RunMonitor(object):
         with suppress(ValueError):
           run_config = document.get().to_dict()
           T = Type(run_config['type'])
-          job_config = self._fetch_schedule(type=T, run_config=run_config)
-          report_checker.get(T, self._invalid_type)(
-            run_config=run_config, job_config=job_config)
+          (success, job_config) = \
+            self._fetch_schedule(type=T, run_config=run_config)
+          if success:
+            report_checker.get(T, self._invalid_type)(
+              run_config=run_config, job_config=job_config)
+          else:
+            # Invalid job; remove this runner
+            self.firestore_client.remove_report_runner(document.id)
+
 
     except Exception as e:
       logging.error(e)
@@ -90,15 +96,13 @@ class RunMonitor(object):
                       type: Type,
                       run_config: Dict[str, Any]) -> Dict[str, Any]:
     scheduler = Scheduler()
-    (success, job_config) = scheduler.process({
+    return scheduler.process({
         'action': 'get',
         'project': os.environ['GCP_PROJECT'],
         'email': run_config['email'],
         'html': False,
         'job_id': type.runner(run_config['report_id'])
       })
-
-    return job_config
 
   def _invalid_type(self,
                     job_config: Dict[str, Any],

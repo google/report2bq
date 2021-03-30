@@ -61,8 +61,8 @@ class DCM(ReportFetcher, Fetcher):
 
   def service(self) -> Resource:
     return discovery.get_service(
-      Service.CM,
-      credentials.Credentials(email=self.email, project=self.project))
+      service=Service.CM,
+      credentials=credentials.Credentials(email=self.email, project=self.project))
 
 
   def get_user_profiles(self):

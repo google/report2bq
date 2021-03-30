@@ -190,7 +190,7 @@ class ReportLoader(object):
       job_config.time_partitioning = \
         bigquery.TimePartitioning(
           type_=bigquery.TimePartitioningType.DAY,
-          field=config['partition_column'])
+          field=config.get('partition_column'))
 
     uri = f'gs://{bucket}/{file}'
     load_job = bq.load_table_from_uri(uri, table_ref, job_config=job_config)
