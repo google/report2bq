@@ -1,43 +1,32 @@
-"""
-Copyright 2020 Google LLC
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-__author__ = [
-  'davidharcombe@google.com (David Harcombe)'
-]
-
-# Python logging
 import logging
 import os
 import pprint
 import re
 
-# Class Imports
 from classes import ReportFetcher
 from classes import csv_helpers
-from classes.fetcher_factory import FetcherFactory
+from classes import fetcher_factory
 from classes import csv_helpers
-from classes.dbm import DBM
-from classes.dcm import DCM
 from classes.sa360_dynamic import SA360Dynamic
 from classes.sa360_web import SA360Web
-from classes.cloud_storage import Cloud_Storage
 from classes.firestore import Firestore
 from classes.report_type import Type
 
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List
 from urllib.parse import unquote
 
 
@@ -150,7 +139,8 @@ class Report2BQ(object):
       report_data['notifier'] = {
         'topic': self.notify_topic,
       }
-      if self.notify_message: report_data['notifier']['message'] = self.notify_message
+      if self.notify_message:
+        report_data['notifier']['message'] = self.notify_message
     csv_header, csv_types = sa360.stream_to_gcs(
       bucket='{project}-report2bq-upload'.format(project=self.project),
       report_details=report_data)
@@ -181,8 +171,8 @@ class Report2BQ(object):
       logging.info(f'Report {self.report_id} done.')
 
     else:
-      # SA360 ones can't fail - they won't start if there are errors, so it's just
-      # not ready yet. So just leave it here and try again later.
+      # SA360 ones can't fail - they won't start if there are errors, so it's
+      # just not ready yet. So just leave it here and try again later.
       logging.error(f'Report {self.report_id} not ready.')
 
   def _handle_partitioning(
@@ -217,7 +207,10 @@ class Report2BQ(object):
   def run(self):
     logging.info(f'Product: {self.product}')
     if self.product in [ Type.DV360, Type.CM ]:
-      fetcher = FetcherFactory.create_fetcher(self.product, email=self.email, project=self.project, profile=self.cm_profile)
+      fetcher = fetcher_factory.create_fetcher(self.product,
+                                               email=self.email,
+                                               project=self.project,
+                                               profile=self.cm_profile)
       self.handle_report_fetcher(fetcher=fetcher)
 
     elif self.product == Type.SA360:
