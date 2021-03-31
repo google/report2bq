@@ -60,6 +60,7 @@ class Service(enum.Enum):
   BQ = enum.auto()
   CM = enum.auto()
   DV360 = enum.auto()
+  GA360 = enum.auto()
   GMAIL = enum.auto()
   SA360 = enum.auto()
   SCHEDULER = enum.auto()
@@ -88,6 +89,8 @@ SERVICE_DEFINITIONS = \
       ServiceDefinition(name='dfareporting', version='v3.4'),
     Service.DV360:
       ServiceDefinition(name='doubleclickbidmanager', version='v1.1'),
+    Service.GA360:
+      ServiceDefinition(name='analyticsreporting', version='v4'),
     Service.GMAIL:
       ServiceDefinition(name='gmail', version='v1'),
     Service.SA360:

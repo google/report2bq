@@ -24,6 +24,8 @@ class Type(Enum):
   ADH = 'adh'
   CM = 'cm'
   DV360 = 'dv360'
+  GA360 = 'ga360'
+  GA360_RPT = 'ga360_report'
   SA360 = 'sa360'
   SA360_RPT = 'sa360_report'
 
