@@ -19,7 +19,6 @@ __author__ = [
 ]
 
 from googleapiclient import discovery as gdiscovery
-from classes import credentials
 from classes.services import Service
 from classes import discovery
 from classes.sa360_report_validation import sa360_validator_factory
