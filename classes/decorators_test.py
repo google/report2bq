@@ -97,7 +97,6 @@ class MeasureMemoryTest(unittest.TestCase):
       dummy_function_for_mocking()
 
     _test_measure_memory()
-    print(mock_logger.call_args_list)
     mock_logger.assert_any_call(
         'Function Name        : %s',
         MockValidator(lambda x: isinstance(x, str)))
