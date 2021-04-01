@@ -1,31 +1,24 @@
-"""
-Copyright 2020 Google LLC
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+from __future__ import annotations
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-__author__ = [
-  'davidharcombe@google.com (David Harcombe)'
-]
-
-# Python Imports
 import datetime
 import io
 import logging
 import os
 import re
 
-# Class Imports
 from classes import Fetcher, ReportFetcher
 from classes import credentials
 from classes.cloud_storage import Cloud_Storage
@@ -37,7 +30,6 @@ from classes.report_type import Type
 from classes.services import Service
 from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
 
-# Other imports
 from contextlib import closing
 from queue import Queue
 from typing import Dict, Any, List, Tuple
@@ -52,7 +44,7 @@ class DBM(ReportFetcher, Fetcher):
   project = None
   profile = None
 
-  def __init__(self, email: str, project: str, profile: str=None):
+  def __init__(self, email: str, project: str, profile: str=None) -> DBM:
     """
     Initialize Reporting Class
     """
@@ -143,7 +135,8 @@ class DBM(ReportFetcher, Fetcher):
       Normalized data structure
     """
     # Fetch query details too, as this contains the main piece
-    query_object = self.service().queries().getquery(queryId=report_id).execute()
+    query_object = \
+      self.service().queries().getquery(queryId=report_id).execute()
 
     # Check if report has ever completed a run
     if(
@@ -163,7 +156,8 @@ class DBM(ReportFetcher, Fetcher):
     report_data = {
       'id': query_object['queryId'],
       'name': query_object['metadata']['title'],
-      'table_name': re.sub('[^a-zA-Z0-9]+', '_', query_object['metadata']['title']),
+      'report_name':
+          csv_helpers.sanitize_string(query_object['metadata']['title']),
       'type': query_object['params']['type'],
       'current_path': gcs_path,
       'last_updated': datetime.datetime.fromtimestamp(
@@ -261,7 +255,7 @@ class DBM(ReportFetcher, Fetcher):
       _downloaded = 0
       chunk_id = 1
       _report_size = int(_report.headers['content-length'])
-      logging.info(f'Report is %s bytes', _report_size)
+      logging.info('Report is %s bytes', f'{_report_size:,}')
       while _downloaded < _report_size:
         chunk = _report.read(chunk_size)
         _downloaded += len(chunk)

@@ -59,18 +59,17 @@ class ReportLoader(object):
         event {Dict[str, Any]} -- data sent from the PubSub message
         context {Dict[str, Any]} -- context data. unused
     """
-    logging.info(data)
     bucket_name = data['bucket']
     file_name = data['name']
 
     if file_name.upper().endswith('CSV'):
-      logging.info('Processing CSV file %s' % file_name)
+      logging.info('Processing CSV file %s', file_name)
 
       try:
         self._handle_csv(bucket_name, file_name)
 
       except Exception as e:
-        logging.error('Error processing file %s\n%s' % (file_name, e))
+        logging.error('Error processing file %s\n%s', file_name, e)
 
   def _get_report_config(self, id: str) -> Tuple[Type, Dict[str, Any]]:
     """Fetch the report configuration
@@ -138,9 +137,14 @@ class ReportLoader(object):
     dataset = \
       config.get('dest_dataset') or os.environ.get('BQ_DATASET') or 'report2bq'
 
-    table_name = config.get('table_name', csv_helpers.sanitize_string(file))
-    logging.info(
-      f'bucket {bucket}, table {table_name}, file_name {file}')
+    # To avoid breaking existing configs, use table_name if it is present.
+    # Net new configs will not have a table_name key, instead having dest_table
+    # so use that instead.
+    table_name = config.get('table_name',
+                            config.get('dest_table',
+                                       csv_helpers.sanitize_string(file)))
+    logging.info('bucket %s{bucket}, table %s{table_name}, %sfile_name {file}',
+                 bucket, table_name, file)
 
     # Build the json format schema that the BQ LoadJob requires
     json_schema = config['schema']
@@ -194,7 +198,7 @@ class ReportLoader(object):
 
     uri = f'gs://{bucket}/{file}'
     load_job = bq.load_table_from_uri(uri, table_ref, job_config=job_config)
-    logging.info(f'Starting CSV import job {load_job.job_id}')
+    logging.info('Starting CSV import job %s', load_job.job_id)
 
     return load_job
 
@@ -219,7 +223,6 @@ class ReportLoader(object):
       client_key['client_secret'] = \
         (server_key.get('web') or
         server_key.get('installed')).get('client_secret')
-      logging.info(client_key)
       creds = Credentials.from_authorized_user_info(client_key)
       bq = bigquery.Client(project=project, credentials=creds)
 
@@ -264,8 +267,8 @@ Table has schema:
 {self._schema_to_string(bq.get_table(table_ref).schema)}
 '''
       )
-      logging.error(
-        f"Mismatched schema for {_table.full_table_id}, trying anyway")
+      logging.error('Mismatched schema for %s, trying anyway',
+                    _table.full_table_id)
 
     return _valid
 

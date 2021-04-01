@@ -168,8 +168,9 @@ def report_runner(event: Dict[str, Any], context=None):
       Type.DV360: {
         'runner': DBMReportRunner,
         'args': {
-          'dv360_id': attributes.get('dv360_id') or attributes.get('report_id'),
-        }
+          'dbm_id': attributes.get('dv360_id') or attributes.get('report_id'),
+          **_base_args,
+        },
       },
       Type.CM: {
         'runner': DCMReportRunner,

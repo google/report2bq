@@ -1,24 +1,18 @@
-"""
-Copyright 2020 Google LLC
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+from __future__ import annotations
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-__author__ = [
-    'davidharcombe@google.com (David Harcombe)'
-]
-
-import json
 import logging
 import pytz
 import re
@@ -26,12 +20,13 @@ import re
 from datetime import datetime
 from datetime import timedelta
 
-from typing import Dict, List, Any
+from typing import Any, Dict
 
-# Class Imports
+from classes import csv_helpers
+from classes import decorators
+from classes import discovery
 from classes.credentials import Credentials
 from classes.cloud_storage import Cloud_Storage
-from classes import discovery
 from classes.firestore import Firestore
 from classes.report_type import Type
 from classes.services import Service
@@ -52,7 +47,8 @@ class ADH(object):
   def __init__(self,
     email: str, project: str, adh_customer: str,
     adh_query: str, api_key: str, days: int,
-    dest_project: str=None, dest_dataset: str=None, **unused):
+    dest_project: str=None, dest_dataset: str=None, dest_table: str=None,
+    **unused) -> ADH:
     """Constructor
 
     Setus up the ADH helper
@@ -66,6 +62,7 @@ class ADH(object):
         days {int} -- Lookback window (default: 60)
         dest_project {str} -- target GCP project for results
         dest_dataset {str} -- target BQ dataset for results
+        dest_table {str} -- target table override
     """
     self.email = email
     self.project = project
@@ -75,11 +72,34 @@ class ADH(object):
     self.days = days
     self.dest_project = dest_project
     self.dest_dataset = dest_dataset
+    self.dest_table = dest_table
 
-    self.credentials = Credentials(email=email, project=project)
-    self.storage = Cloud_Storage(email=email, project=project)
-    self.firestore = Firestore(email=email, project=project)
+  @decorators.lazy_property
+  def credentials(self) -> Credentials:
+    """Fetch the credentials on demand.
 
+    Returns:
+        Credentials: credentials
+    """
+    return Credentials(email=self.email, project=self.project)
+
+  @decorators.lazy_property
+  def storage(self) -> Cloud_Storage:
+    """Fetch the GCS storage client on demand.
+
+    Returns:
+        Cloud_Storage: storage client
+    """
+    return Cloud_Storage(email=self.email, project=self.project)
+
+  @decorators.lazy_property
+  def firestore(self) -> Firestore:
+    """Fetch the Firestore client on demand.
+
+    Returns:
+        Firestore: firestore client
+    """
+    return Firestore(email=self.email, project=self.project)
 
   def run(self, unattended: bool=True):
     """Run the ADH query
@@ -98,13 +118,18 @@ class ADH(object):
         'id': self.adh_query,
         'details': query_details,
         'customer_id': self.adh_customer,
-        'table_name': self._sanitize_string(query_details['title']),
       }
       if self.dest_project:
         report['dest_project'] = self.dest_project
 
       if self.dest_dataset:
         report['dest_dataset'] = self.dest_dataset
+
+      if self.dest_table:
+        report['dest_table'] = self.dest_table
+
+      query_details['table_name'] = \
+        csv_helpers._sanitize_string(query_details['title'])
 
       self.firestore.store_report_config(
         type=Type.ADH,
@@ -120,8 +145,8 @@ class ADH(object):
 
       logging.info('Result: {result}'.format(result=result))
 
-
-  def _get_adh_service(self) -> Resource:
+  @decorators.lazy_property
+  def adh(self) -> Resource:
     """Create the ADH Service
 
     Use the discovery API to create the ADH service
@@ -133,21 +158,6 @@ class ADH(object):
       discovery.get_service(service=Service.ADH,
         credentials=self.credentials, api_key=self.api_key)
     return adh_service
-
-
-  def _sanitize_string(self, original: str) -> str:
-    """Sanitize Strings
-
-    Convert any non alphanumeric into an '_' as per BQ requirements
-
-    Arguments:
-        original {str} --
-
-    Returns:
-        str --
-    """
-    return re.sub('[^a-zA-Z0-9,]', '_', original)
-
 
   def fetch_query_details(self) -> Dict[str, Any]:
     """Get the Query details
@@ -164,7 +174,6 @@ class ADH(object):
 
     return query
 
-
   def run_query(self, query_details: Dict[str, Any]) -> Dict[str, Any]:
     """Run the ADH query
 
@@ -174,8 +183,6 @@ class ADH(object):
     Returns:
         Dict[str, Any] -- result of the query run directive
     """
-    service = self._get_adh_service()
-
     yesterday = datetime.now(tz=pytz.timezone('US/Eastern')) - timedelta(days=1)
     earliest = yesterday - timedelta(days=60)
 
@@ -199,7 +206,7 @@ class ADH(object):
       ),
       "customerId": query_details['customer_id']
     }
-    result = service.customers().analysisQueries().start(
+    result = self.adh.customers().analysisQueries().start(
       name=query_details['details']['name'], body=body).execute()
 
     return result

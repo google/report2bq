@@ -11,14 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
 
 import logging
-import os
-import pprint
 import re
 
-from classes import ReportFetcher
 from classes import csv_helpers
+from classes import decorators
+from classes import ReportFetcher
 from classes import fetcher_factory
 from classes import csv_helpers
 from classes.sa360_dynamic import SA360Dynamic
@@ -31,12 +31,10 @@ from urllib.parse import unquote
 
 
 class Report2BQ(object):
-  def __init__(self, product: Type, email=None, project=None,
-    report_id=None,
-    profile=None,
-    sa360_url=None,
+  def __init__(self, product: Type, email: str=None, project: str=None,
+    report_id: str=None, profile: str=None, sa360_url: str=None,
     force: bool=False, append: bool=False, infer_schema: bool=False,
-    dest_project: str=None, dest_dataset: str='report2bq',
+    dest_project: str=None, dest_dataset: str='report2bq', dest_table: str=None,
     notify_topic: str=None, notify_message: str=None,
     file_id: str=None, partition: str=None, **unused):
     self.product = product
@@ -57,14 +55,17 @@ class Report2BQ(object):
 
     self.dest_project = dest_project
     self.dest_dataset = dest_dataset
+    self.dest_table = dest_table
 
     self.notify_topic = notify_topic
     self.notify_message = notify_message
     self.partition = partition
 
-    self.firestore = Firestore(email=email, project=project)
+  @decorators.lazy_property
+  def firestore(self) -> Firestore:
+    return Firestore() #email=self.email, project=self.project)
 
-  def handle_report_fetcher(self, fetcher: ReportFetcher):
+  def handle_report_fetcher(self, fetcher: ReportFetcher) -> None:
     def _schema(field):
       if self.partition == 'infer' and \
         field['type'] not in ['DATE', 'DATETIME']:
@@ -96,6 +97,14 @@ class Report2BQ(object):
 
     if self.dest_project: report_data['dest_project'] = self.dest_project
     if self.dest_dataset: report_data['dest_dataset'] = self.dest_dataset
+
+    if self.dest_table:
+      table_name = ("_" + csv_helpers.sanitize_string(self.dest_table))
+    else:
+      table_name = report_data.get("report_name", "unnamed_report")
+    report_data['dest_table'] = \
+      f'{fetcher.report_type}_{self.report_id}_{table_name}'
+
     if self.notify_topic:
       report_data['notifier'] = {
         'topic': self.notify_topic,
@@ -125,16 +134,20 @@ class Report2BQ(object):
     report_data = self.firestore.get_report_config(Type.SA360, id)
 
     if not report_data:
-      # Create new report details structure
       report_data = {
         'id': id,
-        'url': self.sa360_url
+        'url': self.sa360_url,
+        'email': self.email,
       }
-      report_data['table_name'] = 'SA360_{id}'.format(id=id)
-      report_data['email'] = self.email
 
     if self.dest_project: report_data['dest_project'] = self.dest_project
     if self.dest_dataset: report_data['dest_dataset'] = self.dest_dataset
+    if self.dest_table:
+      table_suffix = f'{"_" + csv_helpers.sanitize_string(self.dest_table)}'
+    else:
+      table_suffix = ''
+    report_data['dest_table'] = f'{Type.SA360}_{id}{table_suffix}'
+
     if self.notify_topic:
       report_data['notifier'] = {
         'topic': self.notify_topic,
@@ -142,7 +155,7 @@ class Report2BQ(object):
       if self.notify_message:
         report_data['notifier']['message'] = self.notify_message
     csv_header, csv_types = sa360.stream_to_gcs(
-      bucket='{project}-report2bq-upload'.format(project=self.project),
+      bucket=f'{self.project}-report2bq-upload',
       report_details=report_data)
 
     self._handle_partitioning(

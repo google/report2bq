@@ -82,6 +82,9 @@ flags.DEFINE_string('dest_project',
 flags.DEFINE_string('dest_dataset',
                      None,
                      'Destination BQ Dataset')
+flags.DEFINE_string('dest_table',
+                     None,
+                     'Destination BQ Table')
 
 flags.DEFINE_boolean('list',
                      False,
@@ -143,6 +146,7 @@ def main(unused_argv):
     'sa360': (True if FLAGS.sa360_url else False),
     'dest_project': FLAGS.dest_project,
     'dest_dataset': FLAGS.dest_dataset,
+    'dest_table': FLAGS.dest_table,
     'infer_schema': FLAGS.infer_schema,
     # 'product': Type(FLAGS.product),
     # 'type': FLAGS.product,

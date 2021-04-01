@@ -1,36 +1,30 @@
-"""
-Copyright 2020 Google LLC
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+from __future__ import annotations
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-__author__ = [
-  'davidharcombe@google.com (David Harcombe)'
-]
-
-# Python Imports
 import datetime
 import inflection
 import io
 import logging
-import re
+import os
 
 from googleapiclient import http
 from googleapiclient.discovery import Resource
 from typing import Any, Dict, List, Tuple
 from queue import Queue
 
-# Class Imports
 from classes import Fetcher, ReportFetcher
 from classes import credentials
 from classes.cloud_storage import Cloud_Storage
@@ -49,7 +43,8 @@ from google.cloud import pubsub
 class DCM(ReportFetcher, Fetcher):
   report_type = Type.CM
 
-  def __init__(self, email: str=None, profile: str=None, project: str=None):
+  def __init__(self,
+               email: str=None, profile: str=None, project: str=None) -> DCM:
     """
     Initialize Reporting Class
     """
@@ -57,13 +52,12 @@ class DCM(ReportFetcher, Fetcher):
     self.email = email
     self.profile = profile
     self.report_list = Report_List()
-
+    self.chunk_multiplier = int(os.environ.get('CHUNK_MULTIPLIER', 64))
 
   def service(self) -> Resource:
     return discovery.get_service(
       service=Service.CM,
       credentials=credentials.Credentials(email=self.email, project=self.project))
-
 
   def get_user_profiles(self):
     """
@@ -80,7 +74,6 @@ class DCM(ReportFetcher, Fetcher):
     return [
       item['profileId'] for item in result['items'] if not item['accountName'].startswith('SUPERUSER')
     ] if result and 'items' in result else []
-
 
   def get_reports(self) -> Report_List:
     """
@@ -119,7 +112,6 @@ class DCM(ReportFetcher, Fetcher):
 
     return reports
 
-
   def get_report_files(self, report_id: int) -> List[Dict[str, Any]]:
     """
     Fetches latest dcm report files
@@ -147,7 +139,6 @@ class DCM(ReportFetcher, Fetcher):
     )
 
     return files
-
 
   def get_report_definition(self, report_id: int):
     """
@@ -226,7 +217,6 @@ class DCM(ReportFetcher, Fetcher):
     # No files available
     return report
 
-
   def normalize_report_details(
     self,
     report_object: Dict[str, Any],
@@ -269,7 +259,7 @@ class DCM(ReportFetcher, Fetcher):
       'id': report_object['id'],
       'profile_id': report_object['ownerProfileId'],
       'name': report_object['name'],
-      'table_name': re.sub('[^a-zA-Z0-9]+', '_', report_object['name']),
+      'report_name': csv_helpers.sanitize_string(report_object['name']),
       'type': report_object['type'],
       'current_path': gcs_path,
       'last_updated': datetime.datetime.fromtimestamp(
@@ -282,7 +272,6 @@ class DCM(ReportFetcher, Fetcher):
 
     # Return
     return report_data
-
 
   def fetch_report_config(self, report_object: Dict[str, Any], report_id: str):
     report_data = self.normalize_report_details(
@@ -304,7 +293,6 @@ class DCM(ReportFetcher, Fetcher):
 
     return report_data
 
-
   def add_report_to_config(self, report_data):
     """
     Add report to list of tracked reports
@@ -317,7 +305,6 @@ class DCM(ReportFetcher, Fetcher):
         product = 'dcm',
         report_data = report_data
     )
-
 
   def get_report_details_from_config(self, report_id):
     """
@@ -334,14 +321,12 @@ class DCM(ReportFetcher, Fetcher):
     # Return
     return report_details
 
-
   def find_first_data_byte(self, data: bytes) -> int:
     HEADER_MARKER=b'Report Fields\n'
 
     # Parse out the file; look for 'Report Fields\n'
     start = data.find(HEADER_MARKER) + len(HEADER_MARKER)
     return start
-
 
   def read_data_chunk(self, report_data: dict, chunk: int=16384) -> bytes:
     report_id = report_data['id']
@@ -356,7 +341,6 @@ class DCM(ReportFetcher, Fetcher):
 
     return out_file.getvalue()
 
-
   def read_header(self, report_details: dict) -> Tuple[List[str], List[str]]:
     if not 'report_file' in report_details:
       return (None, None)
@@ -370,7 +354,6 @@ class DCM(ReportFetcher, Fetcher):
       bytes_io.seek(csv_start)
 
     return csv_helpers.get_column_types(io.BytesIO(bytes_io.read()))
-
 
   def stream_to_gcs(self, bucket: str, report_data: dict):
     """Multi-threaded stream to GCS
@@ -387,7 +370,7 @@ class DCM(ReportFetcher, Fetcher):
     report_id = report_data['id']
     file_id = report_data['report_file']['id']
 
-    chunk_size = 16 * 1024 * 1024
+    chunk_size = self.chunk_multiplier * 1024 * 1024
     out_file = io.BytesIO()
 
     download_request = self.service().files().get_media(
@@ -427,14 +410,11 @@ class DCM(ReportFetcher, Fetcher):
       else:
         out_file.seek(0)
 
-      logging.info(
-        'Downloader status {percent:3.2%}, chunk {chunk} ({progress:,} '
-        'of {size:,})'.format(
-          percent=(status.resumable_progress/status.total_size),
-          progress=status.resumable_progress,
-          size=status.total_size,
-          chunk=chunk_id)
-      )
+      logging.info('Downloader status %s, chunk %s (%s of %d)',
+                   f'{(status.resumable_progress/status.total_size):3.2%}',
+                   f'{status.resumable_progress:,}',
+                   f'{status.total_size:,}',
+                   chunk_id)
 
       chunk = out_file.read(chunk_size)
       # chunk = out_file.getvalue()
@@ -446,7 +426,6 @@ class DCM(ReportFetcher, Fetcher):
     queue.join()
     streamer.stop()
 
-
   @retry(Exception, tries=3, delay=15, backoff=2)
   def run_report(self, report_id: int, synchronous: bool=False):
     request = self.service().reports().run(
@@ -455,7 +434,6 @@ class DCM(ReportFetcher, Fetcher):
 
     return result
 
-
   @retry(Exception, tries=3, delay=15, backoff=2)
   def report_state(self, report_id: int, file_id: int):
     request = self.service().reports().files().get(
@@ -463,7 +441,6 @@ class DCM(ReportFetcher, Fetcher):
     result = request.execute()
 
     return result
-
 
   def check_running_report(self, config: Dict[str, Any]):
     """Check a running CM report for completion

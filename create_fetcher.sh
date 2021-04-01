@@ -41,6 +41,13 @@ Options:
                   Destination GCP project (if different than "--project")
     --dest-dataset
                   Destination BQ dataset (if not 'report2bq')
+    --dest-table OR --alias
+                  Name the output table as this. Tables will be prefixed by the
+                  product (DV360/CM/SA360) and the report id, and will be
+                  sanitized to a valid Big Query name. Thus
+                    --alias="R2BQ's Test (demo)"
+                  would produce a table called
+                    SA360_00000_R2BQ_s_Test_demo_
 
   DV360/CM
   --------
@@ -135,6 +142,7 @@ DAYS=60                             # Default day lookback for ADH
 IS_RUNNER=0                         # Is this a 'run' or a 'fetch'
 DEST_PROJECT=                       # Destination project
 DEST_DATASET=                       # Destination dataset
+DEST_TABLE=                         # Destination table name
 TIMEZONE=                           # Timezone
 INFER_SCHEMA=                       # Guess the report's schema
 SA360_ID=                           # ID of the SA360 report to schedule
@@ -163,6 +171,9 @@ while [[ $1 == -* ]] ; do
       ;;
     --dest-dataset*)
       IFS="=" read _cmd DEST_DATASET <<< "$1" && [ -z ${DEST_DATASET} ] && shift && DEST_DATASET=$1
+      ;;
+    --dest-table*|--alias*)
+      IFS="=" read _cmd DEST_TABLE <<< "$1" && [ -z ${DEST_TABLE} ] && shift && DEST_TABLE=$1
       ;;
 
     # DV360 and CM
@@ -233,7 +244,7 @@ while [[ $1 == -* ]] ; do
       # '*' if not set
       IFS="=" read _cmd HOUR <<< "$1" && [ -z ${HOUR} ] && shift && HOUR=$1
       ;;
-    --description*)
+    --description*|--alias*)
       IFS="=" read _cmd DESCRIPTION <<< "$1" && [ -z "${DESCRIPTION}" ] && shift && DESCRIPTION="$1"
       ;;
     --time-zone*)
@@ -284,6 +295,7 @@ fi
 
 [ -z "${DEST_PROJECT}" ] || _DEST_PROJECT="dest_project=${DEST_PROJECT}"
 [ -z "${DEST_DATASET}" ] || _DEST_DATASET="dest_dataset=${DEST_DATASET}"
+[ -z "${DEST_TABLE}" ] || _DEST_TABLE="dest_table=${DEST_TABLE//[^0-9a-zA-Z_]/_}"
 [ -z "${TOPIC}" ] || _NOTIFIER_TOPIC="notify_topic=${TOPIC}"
 [ -z "${MESSAGE}" ] || _NOTIFIER_MESSAGE="notify_message=${MESSAGE}"
 
@@ -291,10 +303,10 @@ fi
 if [[ ${PARTITION} -eq 1 ]]; then
   case ${_PARTITION_TYPE} in
     ingestion | timestamp)
-      PARTITION="partition=ingestion"
+      _PARTITION="partition=ingestion"
       ;;
     *)
-      PARTITION="partition=infer"
+      _PARTITION="partition=infer"
       ;;
   esac
 fi
@@ -307,8 +319,10 @@ parameters=(
   "project=${PROJECT}"
   "${_DEST_PROJECT}"
   "${_DEST_DATASET}"
+  "${_DEST_TABLE}"
   "${_NOTIFIER_TOPIC}"
   "${_NOTIFIER_MESSAGE}"
+  "${_PARTITION}"
 )
 
 if [ ! -z "${TIMEZONE}" ]; then
@@ -344,7 +358,6 @@ elif [ "x${SA360_URL}" != "x" ]; then
     ${parameters[@]}
     "sa360_url=${SA360_URL}"
     "type=sa360"
-    "${PARTITION}"
     "${INFER_SCHEMA}"
   )
   set_hour 3
@@ -359,7 +372,6 @@ elif [ ! -z ${SA360_ID} ]; then
     "report_id=${SA360_ID}"
     "type=sa360_report"
     "timezone=${TZ}"
-    "${PARTITION}"
   )
 elif [ "x${PROFILE}" == "x" ]; then
   # DV360
@@ -382,7 +394,6 @@ elif [ "x${PROFILE}" == "x" ]; then
     ${parameters[@]}
     "report_id=${REPORT_ID}"
     "type=dv360"
-    "${PARTITION}"
   )
 else
   # CM
@@ -405,7 +416,6 @@ else
     ${parameters[@]}
     "report_id=${REPORT_ID}"
     "profile=${PROFILE}"
-    "${PARTITION}"
     "type=cm"
   )
 fi
