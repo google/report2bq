@@ -37,7 +37,10 @@ class SA360ReportParameter(object):
 
 
 class SA360ReportTemplate(object):
-  def _update(self, field: SA360ReportParameter, original: Dict[str, Any], new: Dict[str, Any]):
+  def _update(self,
+              field: SA360ReportParameter,
+              original: Dict[str, Any],
+              new: Dict[str, Any]) -> Dict[str, Any]:
     for key, val in new.items():
       if isinstance(val, collections.Mapping):
         tmp = self._update(field, original.get(key, { }), val)
@@ -56,7 +59,10 @@ class SA360ReportTemplate(object):
     return original
 
 
-  def _insert(self, data: Dict[Any, Any], field: SA360ReportParameter, value: Any):
+  def _insert(self,
+              data: Dict[Any, Any],
+              field: SA360ReportParameter,
+              value: Any) -> Dict[Any, Any]:
     _path_elements = field.path.split('.')
     _path_elements.reverse()
 
@@ -78,12 +84,16 @@ class SA360ReportTemplate(object):
           _data = {_element: _data }
 
     except KeyError as k:
-      logging.info(f'Error replacing {self.path}{("["+self.ordinal+"]") if self.ordinal else ""} - not found in data.')
+      logging.info(f'Error replacing {self.path}'
+                   f'{("["+self.ordinal+"]") if self.ordinal else ""}'
+                   ' - not found in data.')
 
     return _data
 
 
-  def prepare(self, template: Dict[str, Any], values: Dict[str, Any]) -> Dict[str, Any]:
+  def prepare(self,
+              template: Dict[str, Any],
+              values: Dict[str, Any]) -> Dict[str, Any]:
     _parameters = template['parameters']
     _report = template['report']
 
@@ -100,6 +110,9 @@ class SA360ReportTemplate(object):
         _report = self._update(field=_param, original=_report, new=_new)
 
     # Filter out blank column names
-    _columns = list(filter(lambda n: n.get('columnName', n.get('savedColumnName', '')) != '', _report['columns']))
+    _columns = \
+      list(filter(lambda n: \
+        n.get('columnName', n.get('savedColumnName', '')) != \
+          '', _report['columns']))
     _report['columns'] = _columns
     return _report

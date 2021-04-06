@@ -30,9 +30,10 @@ class Type(Enum):
   SA360_RPT = 'sa360_report'
 
   # Internal use only
+  _ADMIN = 'administration'
+  _COMPLETED = 'jobs-completed'
   _JOBS = 'jobs'
   _RUNNING = 'running'
-  _ADMIN = 'administration'
 
   # Missing value
   _UNKNOWN = 'unknown'

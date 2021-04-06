@@ -1,22 +1,16 @@
-"""
-Copyright 2020 Google LLC
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-__author__ = [
-  'davidharcombe@google.com (David Harcombe)'
-]
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 from googleapiclient import discovery as gdiscovery
 from classes.services import Service
@@ -37,16 +31,17 @@ import stringcase
 import uuid
 
 # Class Imports
-from contextlib import suppress
-from datetime import datetime
 from urllib.parse import unquote
 from typing import Any, Dict, List, Tuple
 
-from classes.firestore import Firestore
-from classes.report_type import Type
-from classes.scheduler import Scheduler
+from classes import discovery
 from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials
+from classes.report_manager import ReportManager
+from classes.report_type import Type
+from classes.sa360_report_validation import sa360_validator_factory
+from classes.scheduler import Scheduler
+from classes.services import Service
 
 
 class Validity(enum.Enum):
@@ -72,20 +67,19 @@ class Validation(object):
     def keys(cls):
         return list(Validation.__dataclass_fields__.keys())
 
-class SA360Manager(object):
+class SA360Manager(ReportManager):
+  report_type = Type.SA360_RPT
   sa360 = None
   sa360_service = None
-  scheduler = None
   saved_column_names = {}
 
-  def manage(self, **kwargs):
+  def manage(self, **kwargs) -> Any:
     project = kwargs['project']
     email = kwargs.get('email')
-    firestore = Firestore(project=project, email=email)
+    self.bucket=f'{project}-report2bq-sa360-manager'
+
     if kwargs.get('api_key') is not None:
       os.environ['API_KEY'] = kwargs['API_KEY']
-
-    if 'API_KEY' in os.environ: self.scheduler = Scheduler()
 
     if 'name' in kwargs:
       report_name = kwargs['name']
@@ -97,14 +91,13 @@ class SA360Manager(object):
     args = {
       'report': report_name,
       'file': kwargs.get('file'),
-      'firestore': firestore,
       'project': project,
       'email': email,
       **kwargs,
     }
 
     action = {
-      'list': self.list_all,
+      'list': self.list,
       'show': self.show,
       'add': self.add,
       'delete': self.delete,
@@ -118,32 +111,17 @@ class SA360Manager(object):
     else:
       raise NotImplementedError()
 
-  def list_all(
-    self, firestore: Firestore, project: str, _print: bool=False,
-    gcs_stored: bool=False, **unused):
-    sa360_objects = firestore.list_documents(Type.SA360_RPT)
-    reports = firestore.list_documents(Type.SA360_RPT, '_reports')
-    results = []
-    results.append(f'SA360 Dynamic Reports defined for project {project}')
-    for report in reports:
-      results.append(f'  {report}')
-      for sa360_object in sa360_objects:
-        if sa360_object.startswith(report):
-          results.append(f'    {sa360_object}')
-      self._output_results(
-        results=results, project=project, email=None, file='report_list',
-        gcs_stored=gcs_stored)
-
-    if _print:
-      for result in results:
-        logging.info(result)
-
-    return reports
+  def list(self, report: str, file: str, gcs_stored: bool,
+           project: str, email: str, **extra) -> List[str]:
+    results = super().list(report=report, file=file,
+                           gcs_stored=gcs_stored, project=project, email=email,
+                           **extra)
+    return results
 
   def show(
-    self, firestore: Firestore, project: str, report: str, _print: bool=False,
-    gcs_stored: bool=False, **unused):
-    definition = firestore.get_document(Type.SA360_RPT, '_reports').get(report)
+    self, project: str, report: str, _print: bool=False,
+    gcs_stored: bool=False, **unused) -> Dict[str, Any]:
+    definition = self.firestore.get_document(self.report_type, '_reports').get(report)
     results = [ l for l in json.dumps(definition, indent=2).splitlines() ]
 
     self._output_results(
@@ -156,76 +134,15 @@ class SA360Manager(object):
 
     return definition
 
-  def add(
-    self, firestore: Firestore, report: str, file: str, gcs_stored: bool=False,
-    project: str = None, email: str = None, **unused):
-    if gcs_stored:
-      content = Cloud_Storage(
-        project=project, email=email).fetch_file(
-          bucket=f'{project}-report2bq-sa360-manager', file=file)
-      cfg = json.loads(content)
-
-    else:
-      with open(file) as definition:
-        cfg = json.loads(''.join(definition.readlines()))
-
-    firestore.update_document(Type.SA360_RPT, '_reports', { report: cfg })
-
-  def _read_file(self, file: str, gcs_stored: bool, project: str) -> str:
-    if gcs_stored:
-      logging.info(file)
-      email = str(Cloud_Storage().fetch_file(
-          bucket=f'{project}-report2bq-sa360-manager', file=file),
-        encoding='utf-8').strip()
-
-    else:
-      with open(file, 'r') as _command_file:
-        email = _command_file.readline().strip()
-
-    if not email:
-      logging.error('No email found, cannot access scheduler.')
-
-    return email
-
-  def delete(
-    self, firestore: Firestore, project: str, report: str, email: str,
-    gcs_stored: bool=False, file: str=None, **unused):
-    firestore.delete_document(Type.SA360_RPT, '_reports', report)
-
-    if email := \
-      self._read_file(file=file, gcs_stored=gcs_stored, project=project):
-      return
-
-    if self.scheduler:
-      args = {
-        'action': 'list',
-        'email': email,
-        'project': project,
-        'html': False,
-      }
-
-      # Disable all runners for the now deleted report
-      runners = list(
-        runner['name'].split('/')[-1] for runner in self.scheduler.process(args) if report in runner['name'])
-      for runner in runners:
-        args = {
-          'action': 'disable',
-          'email': email,
-          'project': project,
-          'job_id': runner,
-        }
-        self.scheduler.process(args)
-
-  def validate(
-    self, firestore: Firestore, project: str, email: str,
-    file: str=None, gcs_stored: bool=False, **unused) -> None:
+  def validate(self, project: str, email: str,
+               file: str=None, gcs_stored: bool=False, **unused) -> None:
     sa360_report_definitions = \
-      firestore.get_document(Type.SA360_RPT, '_reports')
+      self.firestore.get_document(self.report_type, '_reports')
     validation_results = []
 
     sa360_objects = \
       self._get_sa360_objects(
-        firestore=firestore, file=file, gcs_stored=gcs_stored, project=project,
+        file=file, gcs_stored=gcs_stored, project=project,
         email=email)
 
     for sa360_object in sa360_objects:
@@ -247,7 +164,7 @@ class SA360Manager(object):
         writer.writeheader()
         writer.writerows([r.to_dict() for r in validation_results])
         Cloud_Storage(project=project, email=email).write_file(
-          bucket=f'{project}-report2bq-sa360-manager',
+          bucket=self.bucket,
           file=csv_output,
           data=csv_bytes.getvalue())
 
@@ -259,20 +176,20 @@ class SA360Manager(object):
           writer.writerows([r.to_dict() for r in validation_results])
 
   def _get_sa360_objects(
-    self, firestore: Firestore, file: str, project: str, email: str,
+    self, file: str, project: str, email: str,
     gcs_stored: bool=False) -> List[Dict[str, Any]]:
     if file:
       if gcs_stored:
         content = Cloud_Storage(
           project=project, email=email).fetch_file(
-            bucket=f'{project}-report2bq-sa360-manager', file=file)
+            bucket=self.bucket, file=file)
         sa360_objects = json.loads(content)
       else:
         with open(file) as rpt:
           sa360_objects = json.loads(''.join(rpt.readlines()))
 
     else:
-      sa360_objects = firestore.list_documents(Type.SA360_RPT)
+      sa360_objects = self.firestore.list_documents(self.report_type)
 
     return sa360_objects
 
@@ -321,15 +238,14 @@ class SA360Manager(object):
 
     return (valid, validation)
 
-  def install(self, firestore: Firestore, project: str, email: str,
+  def install(self, project: str, email: str,
     file: str=None, gcs_stored: bool=False, **unused) -> None:
     scheduler = Scheduler()
     results = []
     random.seed(uuid.uuid4())
 
-
     runners = self._get_sa360_objects(firestore, file, project, email, gcs_stored)
-    sa360_report_definitions = firestore.get_document(Type.SA360_RPT, '_reports')
+    sa360_report_definitions = self.firestore.get_document(self.report_type, '_reports')
 
     for runner in runners:
       id = f"{runner['report']}_{runner['AgencyId']}_{runner['AdvertiserId']}"
@@ -344,7 +260,7 @@ class SA360Manager(object):
       if valid:
         logging.info('Valid report: %s', id)
 
-        old_runner = firestore.get_document(type=Type.SA360_RPT, id=id)
+        old_runner = self.firestore.get_document(type=self.report_type, id=id)
         if old_runner:
           for k in runner.keys():
             if k == 'minute': continue
@@ -353,8 +269,8 @@ class SA360Manager(object):
           results.append(f'{id} - Identical report present. No action taken.')
           continue
 
-        firestore.store_document(Type.SA360_RPT, f'{id}', runner)
-        job_id = f"run-{Type.SA360_RPT}-{id}"
+        self.firestore.store_document(self.report_type, f'{id}', runner)
+        job_id = f"run-{self.report_type}-{id}"
 
         args = {
           'action': 'get',
@@ -420,24 +336,3 @@ class SA360Manager(object):
       self._output_results(
         results=results, project=project, email=email, gcs_stored=gcs_stored,
         file=file)
-
-  def _output_results(
-    self, results: List[str], project: str, email: str, file: str=None,
-    gcs_stored: bool=False) -> None:
-    def _send():
-      for result in results:
-        print(result, file=outfile)
-
-    output_name = f'{file}.results'
-    if gcs_stored:
-      outfile = io.StringIO()
-      _send()
-
-      Cloud_Storage(project=project, email=email).write_file(
-        bucket=f'{project}-report2bq-sa360-manager',
-        file=output_name,
-        data=outfile.getvalue())
-
-    else:
-      with open(output_name, 'w') as outfile:
-        _send()
