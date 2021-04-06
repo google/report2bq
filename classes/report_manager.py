@@ -63,9 +63,8 @@ class ReportManager(object):
     """
     pass
 
-  def add(self, report: str, True: str, file: str,
-          gcs_stored: bool=True, project: str=None, email: str=None,
-          **unused) -> None:
+  def add(self, report: str, file: str, gcs_stored: bool=True,
+          project: str=None, email: str=None, **unused) -> None:
     """Add a report
 
     Add a report to the firestore for this 'Type' of product.
