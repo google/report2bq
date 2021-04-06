@@ -77,7 +77,9 @@ class GA360DateRange(object):
       _d = date.fromisoformat(d)
 
     except ValueError:
-      if d.casefold() == 'yesterday':
+      if d.casefold() == 'today':
+        o = { 'days': 0 }
+      elif d.casefold() == 'yesterday':
         o = { 'days': -1 }
       elif match := re.match('(^[0-9]+)([a-z]+s)Ago', d):
           if not (

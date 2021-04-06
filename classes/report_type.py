@@ -70,3 +70,6 @@ class Type(Enum):
 
   def __str__(self):
     return str(self.value)
+
+  def __repr__(self) -> str:
+    return str(self.value)
