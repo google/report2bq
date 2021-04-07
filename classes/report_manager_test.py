@@ -21,6 +21,13 @@ from classes.report_type import Type
 from unittest import mock
 
 
+class MockValidator(object):
+    def __init__(self, validator):
+        self.validator = validator
+
+    def __eq__(self, other):
+        return bool(self.validator(other))
+
 STANDARD_ARGS = {
   'gcs_stored': True,
   'email': 'luke@skywalker.com',
@@ -38,11 +45,20 @@ REPORT_CONFIG = {
                  {"name": "ga:dcmLastEventSitePlacementId"}]
 }
 
+RUNNER =  {
+  "description": "Test job #1",
+  "report": "bmo_test",
+  "email": "davidharcombe@google.com",
+  "view_id": "00001",
+  "minute": 10,
+  "date_ranges": [{"start_date": "7daysAgo", "end_date": "yesterday"}]
+}
+
 class ReportManagerTest(unittest.TestCase):
   maxDiff = None
 
   class _Manager(ReportManager):
-    type = Type.GA360_RPT
+    report_type = Type.GA360_RPT
     bucket = 'manager-bucket'
 
 
@@ -51,7 +67,6 @@ class ReportManagerTest(unittest.TestCase):
 
   def test_list_valid(self):
     manager = ReportManagerTest._Manager()
-    manager.type = Type.GA360_RPT
     manager._output_results = mock.Mock()
     manager._lazy_firestore = self.mock_firestore
 
@@ -66,7 +81,6 @@ class ReportManagerTest(unittest.TestCase):
 
   def test_add_basic(self):
     manager = ReportManagerTest._Manager()
-    manager.type = Type.GA360_RPT
     manager._read_json = mock.Mock(return_value=REPORT_CONFIG)
     self.mock_firestore.update_document.return_value = None
     manager._lazy_firestore = self.mock_firestore
@@ -77,7 +91,6 @@ class ReportManagerTest(unittest.TestCase):
 
   def test_add_no_content(self):
     manager = ReportManagerTest._Manager()
-    manager.type = Type.GA360_RPT
     manager._read_json = mock.Mock(return_value=None)
     self.mock_firestore.update_document.return_value = None
 
@@ -87,7 +100,6 @@ class ReportManagerTest(unittest.TestCase):
 
   def test_delete_valid(self):
     manager = ReportManagerTest._Manager()
-    manager.type = Type.GA360_RPT
     self.mock_firestore.delete_document.return_value = None
     manager._read_email = mock.Mock(return_value='luke@skywalker.com')
     mock_scheduler = mock.create_autospec(scheduler.Scheduler)
@@ -121,7 +133,6 @@ class ReportManagerTest(unittest.TestCase):
 
   def test_delete_no_scheduler(self):
     manager = ReportManagerTest._Manager()
-    manager.type = Type.GA360_RPT
     self.mock_firestore.delete_document.return_value = None
     manager._read_email = mock.Mock(return_value='luke@skywalker.com')
     manager._lazy_scheduler = None
@@ -134,7 +145,6 @@ class ReportManagerTest(unittest.TestCase):
   def test_delete_no_email_in_file(self):
     with mock.patch.object(logging, 'error') as mock_logger:
       manager = ReportManagerTest._Manager()
-      manager.type = Type.GA360_RPT
       self.mock_firestore.delete_document.return_value = None
       manager._read_email = mock.Mock(return_value=None)
       manager._lazy_firestore = self.mock_firestore
@@ -145,3 +155,131 @@ class ReportManagerTest(unittest.TestCase):
       self.assertEqual(1, mock_logger.call_count)
       self.assertEqual(mock.call('No email found, cannot access scheduler.'),
                        mock_logger.call_args)
+
+  def test_valid_schedule_new_job(self):
+    manager = ReportManagerTest._Manager()
+    manager.report_type = Type.GA360_RPT
+    self.mock_firestore.update_document.return_value = None
+    mock_scheduler = mock.create_autospec(scheduler.Scheduler)
+    mock_scheduler.process.side_effect = [
+      (False, None),
+      None
+    ]
+    manager._lazy_scheduler = mock_scheduler
+    manager._lazy_firestore = self.mock_firestore
+
+    result = manager._schedule_job(project='rebellion',
+                                   runner=RUNNER,
+                                   id='r2d2')
+    self.assertEqual('run-ga360_report-r2d2 - Valid and installed.',
+                     result)
+    self.assertEqual([
+      mock.call({'action': 'get', 'email': 'davidharcombe@google.com',
+                 'project': 'rebellion', 'job_id': 'run-ga360_report-r2d2'}),
+      mock.call({'action': 'create', 'email': 'davidharcombe@google.com',
+                 'project': 'rebellion', 'force': False, 'infer_schema': False,
+                 'append': False, 'report_id': 'r2d2',
+                 'description': 'Test job #1', 'minute': 10, 'hour': '*',
+                 'type': Type.GA360_RPT})],
+      mock_scheduler.process.call_args_list)
+
+  def test_valid_reschedule_existing_job(self):
+    manager = ReportManagerTest._Manager()
+    manager.report_type = Type.GA360_RPT
+    self.mock_firestore.update_document.return_value = None
+    mock_scheduler = mock.create_autospec(scheduler.Scheduler)
+    mock_scheduler.process.side_effect = [
+      (True, None),
+      None,
+      None
+    ]
+    manager._lazy_scheduler = mock_scheduler
+    manager._lazy_firestore = self.mock_firestore
+
+    result = manager._schedule_job(project='rebellion',
+                                   runner=RUNNER,
+                                   id='r2d2')
+    self.assertEqual('run-ga360_report-r2d2 - Valid and installed.',
+                     result)
+    self.assertEqual([
+      mock.call({'action': 'get', 'email': 'davidharcombe@google.com',
+                 'project': 'rebellion', 'job_id': 'run-ga360_report-r2d2'}),
+      mock.call({'action': 'delete', 'email': 'davidharcombe@google.com',
+                 'project': 'rebellion', 'job_id': 'run-ga360_report-r2d2'}),
+      mock.call({'action': 'create', 'email': 'davidharcombe@google.com',
+                 'project': 'rebellion', 'force': False, 'infer_schema': False,
+                 'append': False, 'report_id': 'r2d2',
+                 'description': 'Test job #1', 'minute': 10, 'hour': '*',
+                 'type': Type.GA360_RPT})],
+      mock_scheduler.process.call_args_list)
+
+  def test_error_cant_delete_existing_job(self):
+    self.maxDiff = None
+    with mock.patch.object(logging, 'error') as mock_logger:
+      manager = ReportManagerTest._Manager()
+      manager.report_type = Type.GA360_RPT
+      self.mock_firestore.update_document.return_value = None
+      mock_scheduler = mock.create_autospec(scheduler.Scheduler)
+      mock_scheduler.process.side_effect = [
+        (True, None),
+        Exception('403 Invalid OAuth')
+      ]
+      manager._lazy_scheduler = mock_scheduler
+      manager._lazy_firestore = self.mock_firestore
+
+      result = manager._schedule_job(project='rebellion',
+                                    runner=RUNNER,
+                                    id='r2d2')
+      self.assertEqual('run-ga360_report-r2d2 - Already present but delete '
+                      'failed: 403 Invalid OAuth',
+                      result)
+      self.assertEqual([
+        mock.call({'action': 'get', 'email': 'davidharcombe@google.com',
+                   'project': 'rebellion', 'job_id': 'run-ga360_report-r2d2'}),
+        mock.call({'action': 'delete', 'email': 'davidharcombe@google.com',
+                   'project': 'rebellion', 'job_id': 'run-ga360_report-r2d2'}),
+        ],
+        mock_scheduler.process.call_args_list)
+      self.assertEqual(
+        mock.call('%s - Already present but delete failed: %s',
+                  'run-ga360_report-r2d2',
+                  MockValidator(lambda x: isinstance(x, Exception))),
+        mock_logger.call_args)
+
+  def test_error_cant_create_new_job(self):
+    self.maxDiff = None
+    with mock.patch.object(logging, 'error') as mock_logger:
+      manager = ReportManagerTest._Manager()
+      manager.report_type = Type.GA360_RPT
+      self.mock_firestore.update_document.return_value = None
+      mock_scheduler = mock.create_autospec(scheduler.Scheduler)
+      mock_scheduler.process.side_effect = [
+        (True, None),
+        None,
+        Exception('403 Invalid OAuth')
+      ]
+      manager._lazy_scheduler = mock_scheduler
+      manager._lazy_firestore = self.mock_firestore
+
+      result = manager._schedule_job(project='rebellion',
+                                    runner=RUNNER,
+                                    id='r2d2')
+      self.assertEqual('run-ga360_report-r2d2 - Failed to create: '
+                       '403 Invalid OAuth',
+                       result)
+      self.assertEqual([
+        mock.call({'action': 'get', 'email': 'davidharcombe@google.com',
+                   'project': 'rebellion', 'job_id': 'run-ga360_report-r2d2'}),
+        mock.call({'action': 'delete', 'email': 'davidharcombe@google.com',
+                   'project': 'rebellion', 'job_id': 'run-ga360_report-r2d2'}),
+        mock.call({'action': 'create', 'email': 'davidharcombe@google.com',
+                   'project': 'rebellion', 'force': False,
+                   'infer_schema': False, 'append': False, 'report_id': 'r2d2',
+                   'description': 'Test job #1', 'minute': 10, 'hour': '*',
+                   'type': Type.GA360_RPT})],
+        mock_scheduler.process.call_args_list)
+      self.assertEqual(
+        mock.call('%s - Failed to create: %s',
+                  'run-ga360_report-r2d2',
+                  MockValidator(lambda x: isinstance(x, Exception))),
+        mock_logger.call_args)

@@ -16,6 +16,7 @@ import io
 import json
 import logging
 import os
+import random
 
 from typing import Any, Dict, List
 
@@ -318,3 +319,63 @@ class ReportManager(object):
         cfg = json.loads(''.join(definition.readlines()))
 
     return cfg
+
+
+  def _schedule_job(self, project: str, runner: Dict[str, Any], id: str) -> str:
+    job_id = f"run-{self.report_type}-{id}"
+
+    args = {
+      'action': 'get',
+      'email': runner['email'],
+      'project': f'{project}',
+      'job_id': job_id,
+    }
+
+    try:
+      present, _ = self.scheduler.process(args)
+
+    except Exception as e:
+      logging.error('%s - Check if already defined failed: %s', job_id, e)
+      return f'{job_id} - Check if already defined failed: {e}'
+
+    if present:
+      args = {
+        'action': 'delete',
+        'email': runner['email'],
+        'project': f'{project}',
+        'job_id': job_id,
+      }
+      try:
+        self.scheduler.process(args)
+
+      except Exception as e:
+        logging.error('%s - Already present but delete failed: %s', job_id, e)
+        return f'{job_id} - Already present but delete failed: {e}'
+
+    args = {
+      'action': 'create',
+      'email': runner['email'],
+      'project': f'{project}',
+      'force': False,
+      'infer_schema': runner.get('infer_schema', False),
+      'append': runner.get('append', False),
+      'report_id': id,
+      'description': runner.get('description'),
+      'minute': runner.get('minute', random.randrange(0, 59)),
+      'hour': runner.get('hour', '*'),
+      'type': self.report_type,
+    }
+    if dest_project := runner.get('dest_project'):
+      args['dest_project'] = dest_project
+    if dest_dataset := runner.get('dest_dataset'):
+      args['dest_dataset'] = runner.get('dest_dataset')
+    if dest_table := runner.get('dest_table'):
+      args['dest_table'] = dest_table
+
+    try:
+      self.scheduler.process(args)
+      return f'{job_id} - Valid and installed.'
+
+    except Exception as e:
+      logging.error('%s - Failed to create: %s', job_id, e)
+      return f'{job_id} - Failed to create: {e}'

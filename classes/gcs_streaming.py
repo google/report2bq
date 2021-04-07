@@ -157,7 +157,7 @@ class GCSObjectStreamUpload(GCSStreamingUploader):
 
   Typical usage example:
       chunk_size = self.chunk_multiplier * 1024 * 1024
-      streamer = ThreadedGCSObjectStreamUpload(
+      streamer = GCSObjectStreamUpload(
           client=CloudStorageUtils(project_id='project').client,
           bucket_name='bucket',
           blob_name='test.csv',

@@ -209,12 +209,16 @@ class SA360Manager(ReportManager):
 
   def install(self, project: str, email: str,
     file: str=None, gcs_stored: bool=False, **unused) -> None:
-    scheduler = Scheduler()
+    if not self.scheduler:
+      logging.warn(
+        'No scheduler is available: jobs will be stored but not scheduled.')
+
     results = []
     random.seed(uuid.uuid4())
 
     runners = self._get_sa360_objects(file, project, email, gcs_stored)
-    sa360_report_definitions = self.firestore.get_document(self.report_type, '_reports')
+    sa360_report_definitions = \
+      self.firestore.get_document(self.report_type, '_reports')
 
     for runner in runners:
       id = f"{runner['report']}_{runner['AgencyId']}_{runner['AdvertiserId']}"
@@ -228,75 +232,18 @@ class SA360Manager(ReportManager):
 
       if valid:
         logging.info('Valid report: %s', id)
+        self.firestore.update_document(type=self.report_type,
+                                      id=id, new_data=runner)
 
-        old_runner = self.firestore.get_document(type=self.report_type, id=id)
-        if old_runner:
-          for k in runner.keys():
-            if k == 'minute': continue
-            if k in old_runner and old_runner[k] != runner[k]:
-              break
-          results.append(f'{id} - Identical report present. No action taken.')
-          continue
-
-        self.firestore.store_document(self.report_type, f'{id}', runner)
-        job_id = f"run-{self.report_type}-{id}"
-
-        args = {
-          'action': 'get',
-          'email': runner['email'],
-          'project': f'{project}',
-          'job_id': job_id,
-        }
-
-        try:
-          present, job = scheduler.process(args)
-
-        except Exception as e:
-          logging.error(e)
-          results.append(f'{id} - Check if already defined failed: {e}')
-          continue
-
-        if present:
-          args = {
-            'action': 'delete',
-            'email': runner['email'],
-            'project': f'{project}',
-            'job_id': job_id,
-          }
-          try:
-            scheduler.process(args)
-
-          except Exception as e:
-            logging.error(e)
-            results.append(f'{id} - Already present but delete failed: {e}')
-            continue
-
-        args = {
-          'action': 'create',
-          'email': runner['email'],
-          'project': f'{project}',
-          'force': False,
-          'infer_schema': runner.get('infer_schema', False),
-          'append': runner.get('append', False),
-          'sa360_id': id,
-          'description':
-            runner['description'] if 'description' in runner else (
+        if self.scheduler:
+          if not (description := runner.get('description')):
+            description = ( \
               f'{runner["title"] if "title" in runner else runner["report"]}: '
-              f'{runner["agencyName"]}/{runner["advertiserName"]}'),
-          'dest_dataset': runner.get('dest_dataset', 'report2bq'),
-          'minute': runner.get('minute', random.randrange(0, 59)),
-          'hour': runner.get('hour', '*')
-        }
+              f'{runner["agencyName"]}/{runner["advertiserName"]}')
+            runner['description'] = description
 
-        try:
-          scheduler.process(args)
-          results.append(f'{id} - Valid and installed.')
-
-
-        except Exception as e:
-          logging.error(e)
-          results.append(f'{id} - Failed to create: {e}')
-
+          results.append(self._schedule_job(project=project,
+                                            runner=runner, id=id))
       else:
         logging.info('Invalid report: %s', id)
         results.append(f'{id} - Validation failed: {validity}')

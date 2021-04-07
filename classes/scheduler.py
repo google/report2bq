@@ -132,6 +132,9 @@ class Scheduler(Fetcher):
       if 'dest_project' in args:
         _attrs['dest_project'] = args.get('dest_project')
 
+      if 'dest_table' in args:
+        _attrs['dest_table'] = args.get('dest_table')
+
       if args.get('minute'):
         minute = args.get('minute')
       else:
@@ -145,22 +148,21 @@ class Scheduler(Fetcher):
         topic = 'report2bq-trigger'
         _attrs.update({
           'sa360_url': args.get('sa360_url'),
-          'type': 'sa360',
+          'type': Type.SA360.value,
         })
 
-      elif args.get('sa360_id'):
+      elif args.get('type') == Type.SA360_RPT:
         product = _type = Type.SA360_RPT.value
         hour = args.get('hour', '*')
         action = 'run'
         topic = 'report-runner'
         _attrs.update({
-          'report_id': args.get('sa360_id'),
+          'report_id': args.get('report_id'),
           'type': Type.SA360_RPT.value,
         })
-        args['report_id'] = args.get('sa360_id')
 
       elif args.get('adh_customer'):
-        product = _type = 'adh'
+        product = _type = Type.ADH.value
         hour = args.get('hour') if args.get('hour') else '2'
         action = 'run'
         topic = 'report2bq-trigger'
@@ -169,7 +171,17 @@ class Scheduler(Fetcher):
           'adh_query': args.get('adh_query'),
           'api_key': args.get('api_key'),
           'days': args.get('days'),
-          'type': 'adh',
+          'type': Type.ADH.value,
+        })
+
+      elif args.get('type') == Type.GA360_RPT:
+        product = _type = Type.GA360_RPT.value
+        hour = args.get('hour', '*')
+        action = 'run'
+        topic = 'report-runner'
+        _attrs.update({
+          'report_id': args.get('report_id'),
+          'type': Type.GA360_RPT.value,
         })
 
       else:
@@ -188,14 +200,14 @@ class Scheduler(Fetcher):
           _attrs.update({
             'profile': args.get('profile'),
             'cm_id': args.get('report_id'),
-            'type': 'cm',
+            'type': Type.CM.value,
           })
         else:
           product = 'dv360'
           _type = 'dv360'
           _attrs.update({
             'dv360_id': args.get('report_id'),
-            'type': 'dv360',
+            'type': Type.DV360.value,
           })
 
       name = f"{action}-{product}-{args.get('report_id')}"

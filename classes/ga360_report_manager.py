@@ -13,21 +13,28 @@
 # limitations under the License.
 
 
+import logging
 import os
+import random
+import uuid
 
 from typing import Any, Dict, List
 
+from classes import discovery
+from classes.credentials import Credentials
 from classes.report_manager import ReportManager
 from classes.report_type import Type
+from classes.services import Service
 
 
 class GA360ReportManager(ReportManager):
   report_type = Type.GA360_RPT
   actions = {
-      'list',
-      'show',
       'add',
       'delete',
+      'install',
+      'list',
+      'show',
   }
 
   def manage(self, **kwargs: Dict[str, Any]) -> Any:
@@ -51,3 +58,36 @@ class GA360ReportManager(ReportManager):
     }
 
     return self._get_action(kwargs.get('action'))(**args)
+
+  def install(self, project: str, email: str, file: str,
+              gcs_stored: bool, **unused) -> None:
+    if not self.scheduler:
+      logging.warn(
+        'No scheduler is available: jobs will be stored but not scheduled.')
+
+    results = []
+    random.seed(uuid.uuid4())
+    runners = self._read_json(project=project, email=email,
+                              file=file, gcs_stored=gcs_stored)
+
+    for runner in runners:
+      id = f'{runner["report"]}_{runner["view_id"]}'
+      creds = Credentials(project=project, email=runner.get('email'))
+      service = discovery.get_service(service=Service.GA360,
+                                      credentials=creds)
+
+      self.firestore.update_document(type=self.report_type,
+                                     id=id, new_data=runner)
+
+      # Now schedule.
+      if self.scheduler:
+        if not (description := runner.get('description')):
+          if title := runner.get('title'):
+            description = title
+          else:
+            description = (f'Runner: report {runner.get("report")}, '
+                          f'view_id {runner.get("view_id")}.')
+          runner['description'] = description
+
+        results.append(self._schedule_job(project=project,
+                                          runner=runner, id=id))
