@@ -23,6 +23,12 @@ from classes.report_type import Type
 
 class GA360ReportManager(ReportManager):
   report_type = Type.GA360_RPT
+  actions = {
+      'list',
+      'show',
+      'add',
+      'delete',
+  }
 
   def manage(self, **kwargs: Dict[str, Any]) -> Any:
     project = kwargs['project']
@@ -44,18 +50,4 @@ class GA360ReportManager(ReportManager):
       **kwargs,
     }
 
-    action = {
-      'list': self.list,
-      'show': self.show,
-      'add': self.add,
-      'delete': self.delete,
-      # 'validate': self.validate,
-      # 'install': self.install,
-    }.get(kwargs['action'])
-
-    if action:
-      return action(**args)
-
-    else:
-      raise NotImplementedError(
-        f'Action "{kwargs["action"]}" is not implemented.')
+    return self._get_action(kwargs.get('action'))(**args)

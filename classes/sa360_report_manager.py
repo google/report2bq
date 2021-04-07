@@ -25,13 +25,11 @@ import io
 import json
 import logging
 import os
-import pprint
 import random
 import stringcase
 import uuid
 
 # Class Imports
-from urllib.parse import unquote
 from typing import Any, Dict, List, Tuple
 
 from classes import discovery
@@ -72,6 +70,14 @@ class SA360Manager(ReportManager):
   sa360 = None
   sa360_service = None
   saved_column_names = {}
+  actions = {
+    'list',
+    'show',
+    'add',
+    'delete',
+    'validate',
+    'install',
+  }
 
   def manage(self, **kwargs) -> Any:
     project = kwargs['project']
@@ -96,43 +102,7 @@ class SA360Manager(ReportManager):
       **kwargs,
     }
 
-    action = {
-      'list': self.list,
-      'show': self.show,
-      'add': self.add,
-      'delete': self.delete,
-      'validate': self.validate,
-      'install': self.install,
-    }.get(kwargs['action'])
-
-    if action:
-      return action(**args)
-
-    else:
-      raise NotImplementedError()
-
-  def list(self, report: str, file: str, gcs_stored: bool,
-           project: str, email: str, **extra) -> List[str]:
-    results = super().list(report=report, file=file,
-                           gcs_stored=gcs_stored, project=project, email=email,
-                           **extra)
-    return results
-
-  def show(
-    self, project: str, report: str, _print: bool=False,
-    gcs_stored: bool=False, **unused) -> Dict[str, Any]:
-    definition = self.firestore.get_document(self.report_type, '_reports').get(report)
-    results = [ l for l in json.dumps(definition, indent=2).splitlines() ]
-
-    self._output_results(
-      results=results, project=project, email=None, file=report,
-      gcs_stored=gcs_stored)
-
-    if _print:
-      logging.info(f'SA360 Dynamic Report "{report}"')
-      pprint.pprint(definition, indent=2, compact=False)
-
-    return definition
+    return self._get_action(kwargs.get('action'))(**args)
 
   def validate(self, project: str, email: str,
                file: str=None, gcs_stored: bool=False, **unused) -> None:
@@ -175,14 +145,13 @@ class SA360Manager(ReportManager):
           writer.writeheader()
           writer.writerows([r.to_dict() for r in validation_results])
 
-  def _get_sa360_objects(
-    self, file: str, project: str, email: str,
-    gcs_stored: bool=False) -> List[Dict[str, Any]]:
+  def _get_sa360_objects(self, file: str, project: str, email: str,
+                         gcs_stored: bool=False) -> List[Dict[str, Any]]:
     if file:
       if gcs_stored:
-        content = Cloud_Storage(
-          project=project, email=email).fetch_file(
-            bucket=self.bucket, file=file)
+        content = Cloud_Storage(project=project,
+                                email=email).fetch_file(bucket=self.bucket,
+                                                        file=file)
         sa360_objects = json.loads(content)
       else:
         with open(file) as rpt:
@@ -194,8 +163,7 @@ class SA360Manager(ReportManager):
     return sa360_objects
 
   def _file_based(
-    self, sa360_report_definitions: Dict[str, Any],
-    report: Dict[str, Any],
+    self, sa360_report_definitions: Dict[str, Any], report: Dict[str, Any],
     sa360_service: gdiscovery.Resource) -> Tuple[bool, Dict[str, Any]]:
     logging.info(
       'Validating %s (%s/%s) on report %s', report.get("agencyName", "-"),
@@ -208,7 +176,8 @@ class SA360Manager(ReportManager):
         sa360_service=sa360_service,
         agency=report['AgencyId'], advertiser=report['AdvertiserId'])
     report_custom_columns = \
-      [column['name'] for column in target_report['parameters'] if 'is_list' in column]
+      [column['name'] for column in target_report['parameters'] \
+        if 'is_list' in column]
     valid = True
     validation = Validation(report['AgencyId'], report['AdvertiserId'])
 
@@ -244,7 +213,7 @@ class SA360Manager(ReportManager):
     results = []
     random.seed(uuid.uuid4())
 
-    runners = self._get_sa360_objects(firestore, file, project, email, gcs_stored)
+    runners = self._get_sa360_objects(file, project, email, gcs_stored)
     sa360_report_definitions = self.firestore.get_document(self.report_type, '_reports')
 
     for runner in runners:

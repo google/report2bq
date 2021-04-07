@@ -31,6 +31,7 @@ class ReportManager(object):
   """
   report_type: Type=None
   bucket: str=None
+  actions: set=None
 
   @lazy_property
   def scheduler(self) -> Scheduler:
@@ -162,7 +163,8 @@ class ReportManager(object):
            **unused) -> Dict[str, Any]:
     """Display a report definition content.
 
-    To be implemented by the child.
+    Writes the json definition of the requested report to a file, either
+    locally or in GCS.
 
     Args:
         report (str): report name
@@ -177,7 +179,15 @@ class ReportManager(object):
     Returns:
         Dict[str, Any]: the report definition as json.
     """
-    raise NotImplementedError('Not implemented')
+    definition = \
+      self.firestore.get_document(self.report_type, '_reports').get(report)
+    results = [ l for l in json.dumps(definition, indent=2).splitlines() ]
+
+    self._output_results(
+      results=results, project=project, email=None, file=report,
+      gcs_stored=gcs_stored)
+
+    return definition
 
   def install(self, project: str, email: str, file: str,
               gcs_stored: bool=True, **unused) -> None:
@@ -242,6 +252,25 @@ class ReportManager(object):
     else:
       with open(output_name, 'w') as outfile:
         _send()
+
+  def _get_action(self, action_name: str) -> Any:
+    """Determines the function to run.
+
+    Checks the 'actions' set for a match between the requested action and
+    one which exists. It then returns the function to be executed.
+
+    Args:
+        action_name (str): the action name to execute
+
+    Returns:
+        Any: the action function
+    """
+    if action := getattr(self, action_name) \
+      if action_name in self.actions else None:
+      return action
+
+    else:
+      raise NotImplementedError(f'Action "{action_name}" is not implemented.')
 
   def _read_email(self, file: str, gcs_stored: bool) -> str:
     """Read an email address from a file.

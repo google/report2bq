@@ -30,7 +30,7 @@ from classes.ga360_report_manager import GA360ReportManager
 
 
 logging.basicConfig(
-  filename=f'sa360_report_manager-{datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.log',
+  filename=f'ga360_report_manager-{datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.log',
   format='%(asctime)s %(message)s',
   datefmt='%Y-%m-%d %I:%M:%S %p',
   level=logging.DEBUG

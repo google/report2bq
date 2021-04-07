@@ -45,9 +45,11 @@ class GA360ReportManagerTest(unittest.TestCase):
   def test_invalid_super_action(self):
     with self.assertRaisesRegex(NotImplementedError, 'Not implemented'):
       with mock.patch.object(firestore.Firestore, 'client'):
-        r = GA360ReportManager().manage(
+        manager = GA360ReportManager()
+        manager.actions = {'validate'}
+        r = manager.manage(
           **{
-              'action': 'show',
+              'action': 'validate',
               'project': 'foo',
               'file': 'foo.csv',
               'gcs_stored': True
