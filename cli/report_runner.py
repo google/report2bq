@@ -19,6 +19,7 @@ __author__ = [
 ]
 
 # Python logging
+from classes.ga360_report_runner import GA360ReportRunner
 import logging
 import pprint
 
@@ -47,6 +48,12 @@ flags.DEFINE_integer('cm_id',
 flags.DEFINE_integer('dv360_id',
                            None,
                            'Report to load')
+flags.DEFINE_string('ga360_id',
+                    None,
+                    'Report to load')
+flags.DEFINE_string('report_id',
+                    None,
+                    'Report to load')
 
 # Optional
 flags.DEFINE_boolean('force',
@@ -67,30 +74,29 @@ flags.DEFINE_integer('account',
                      None,
                      'CM account id. RFequired for CM Superusers.')
 
-flags.register_multi_flags_validator(['account', 'cm_superuser'],
-                        lambda value: (value.get('account') and value['cm_superuser']) or 
-                                      (not value['cm_superuser'] and not value['account']),
-                        message='--account_id must be set for a superuser, and not set for normal users.')
-#flags.register_multi_flags_validator(['cm_id', 'profile'],
-#                        lambda value: (value['cm_id'] and not value['profile']) or (not value['cm_id'] and value['profile']),
-#                        message='profile must be set for a CM report to be specified')                        
-
 
 # Stub main()
 def main(unused_argv):
   if FLAGS.dv360_id:
     runner = DBMReportRunner(
-      dbm_id=FLAGS.dv360_id, 
+      dbm_id=FLAGS.dv360_id,
       email=FLAGS.email,
       project=FLAGS.project
     )
 
   if FLAGS.cm_id:
     runner = DCMReportRunner(
-      cm_id=FLAGS.cm_id, 
-      profile=FLAGS.profile, 
+      cm_id=FLAGS.cm_id,
+      profile=FLAGS.profile,
       email=FLAGS.email,
       project=FLAGS.project
+    )
+
+  if FLAGS.ga360_id:
+    runner = GA360ReportRunner(
+      report_id=FLAGS.ga360_id,
+      email=FLAGS.email,
+      project=FLAGS.project,
     )
 
   runner.run()
