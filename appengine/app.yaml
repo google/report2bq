@@ -1,4 +1,4 @@
-runtime: python37
+runtime: python38
 
 env_variables:
   # Insert an API key with access to the Cloud Scheduler API here

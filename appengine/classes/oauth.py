@@ -39,8 +39,11 @@ logging.getLogger().setLevel(logging.INFO)
 app = Flask(__name__)
 
 class OAuth(object):
+  # Scope definitions here:
+  #   https://developers.google.com/identity/protocols/oauth2/scopes
   SCOPES = [
     'https://www.googleapis.com/auth/adsdatahub', # ADH
+    'https://www.googleapis.com/auth/analytics', # Analytics Reporting
     'https://www.googleapis.com/auth/bigquery', # BigQuery
     'https://www.googleapis.com/auth/cloud-platform', # Cloud Platform
     'https://www.googleapis.com/auth/datastore', # Firestore
@@ -56,7 +59,7 @@ class OAuth(object):
     if(request.get_data()):
       app.logger.info(f'data:\n{request.get_data()}')
       auth_code = str(request.get_data(), encoding='utf-8')
-    
+
     else:
       app.logger.error('No code sent!')
       return 'AUTH FAIL: No authentication code received.'
@@ -65,7 +68,7 @@ class OAuth(object):
       self.bucket,
       'client_secrets.json'
     ), encoding='utf-8')
-    
+
     credentials = client.credentials_from_code(
       client_id=project_credentials['web']['client_id'],
       client_secret=project_credentials['web']['client_secret'],
@@ -90,11 +93,11 @@ class OAuth(object):
   @staticmethod
   def fetch_file(bucket: str, file: str, credentials=None) -> str:
     """fetch a file from GCS
-    
+
     Arguments:
       bucket {str} -- bucket name
       file {str} -- file name
-    
+
     Returns:
       {str} -- file content
     """

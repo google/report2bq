@@ -43,17 +43,22 @@ class Credentials(object):
     """
     self.project = project
     self.email = email
-
-    # if not self.creds:
     self.bucket = f'{project}-report2bq-tokens'
     self.client_token = f'{email}_user_token.json'
-    self.project_credentials = json.loads(Cloud_Storage.fetch_file(bucket=self.bucket, file='client_secrets.json'))
-    self.token_details = json.loads(Cloud_Storage.fetch_file(bucket=self.bucket, file=self.client_token))
+    self.project_credentials = json.loads(
+      Cloud_Storage.fetch_file(bucket=self.bucket, file='client_secrets.json'))
+    self.token_details = json.loads(
+      Cloud_Storage.fetch_file(bucket=self.bucket, file=self.client_token))
 
 
-  def _refresh_credentials(self, project_credentials: Dict[str, str], user_token: Dict[str, str]) -> Dict[str, str]:
+  def _refresh_credentials(
+    self,
+    project_credentials: Dict[str, str],
+    user_token: Dict[str, str]
+  ) -> Dict[str, str]:
     # Remove top-level element
-    secrets = project_credentials['web'] if 'web' in project_credentials else project_credentials['installed']
+    secrets = project_credentials['web'] \
+      if 'web' in project_credentials else project_credentials['installed']
 
     # Init credentials
     creds = google.oauth2.credentials.Credentials(
@@ -71,8 +76,12 @@ class Credentials(object):
       'refresh_token': creds.refresh_token
     }
 
-    Cloud_Storage.write_file(bucket=self.bucket, file=self.client_token, data=json.dumps(refresh_token_details).encode('utf-8'))
+    Cloud_Storage.write_file(
+      bucket=self.bucket, file=self.client_token,
+      data=json.dumps(refresh_token_details).encode('utf-8'))
 
+    # logging.info(
+    #   'Credentials are %s', f'{"valid" if creds.valid else "invalid"}')
     return creds
 
 
@@ -84,7 +93,8 @@ class Credentials(object):
     """
 
     # Return
-    return self._refresh_credentials(self.project_credentials, self.token_details)
+    return self._refresh_credentials(
+      self.project_credentials, self.token_details)
 
 
   def get_auth_headers(self):
@@ -98,7 +108,8 @@ class Credentials(object):
     oauth2_header = {}
 
     # Apply credential to headers
-    self._refresh_credentials(self.project_credentials, self.token_details).apply(oauth2_header)
+    self._refresh_credentials(
+      self.project_credentials, self.token_details).apply(oauth2_header)
 
     # Return authorized http transport
     return oauth2_header

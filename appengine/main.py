@@ -62,7 +62,7 @@ def set_response_headers(response):
 # [START index]
 @app.route('/', methods=['GET', 'POST'])
 def index():
-  
+
   project = os.environ['GOOGLE_CLOUD_PROJECT']
   bucket = f'{project}-report2bq-tokens'
   project_credentials = json.loads(OAuth.fetch_file(
@@ -78,11 +78,13 @@ def index():
 
   if has_auth:
     template = JINJA_ENVIRONMENT.get_template('index.html')
-    running_jobs = Scheduler().process(args={'action': 'list', 'project': project, 'email': user_email})
+    running_jobs = Scheduler().process(args={'action': 'list',
+                                             'project': project,
+                                             'email': user_email})
     jobs = []
     for job in running_jobs:
-      with suppress(ValueError, KeyError):
-        _attrs = job['pubsubTarget']['attributes']
+      with suppress(ValueError, KeyError, TypeError):
+        _attrs = job.get('pubsubTarget', {}).get('attributes', {})
         _def = Type(_attrs['type'])
         j = {
           'id': job['name'].split('/')[-1],
@@ -91,12 +93,12 @@ def index():
           'schedule': job['schedule'],
           'timezone': job['timeZone'],
         }
-        
+
         j['attributes'] = switch(_def, _attrs)
         jobs.append(j)
 
     data = {'jobs': jobs, 'user_email': user_email}
-  
+
   else:
     template = JINJA_ENVIRONMENT.get_template('authenticate.html')
     data = {
@@ -107,8 +109,14 @@ def index():
   return template.render(data)
 # [END index]
 
-def job_attributes_sa360(attributes: Dict[str, str]) -> Dict[str, str]: 
+def job_attributes_sa360(attributes: Dict[str, str]) -> Dict[str, str]:
   return { 'sa360_url': attributes.get('sa360_url') }
+
+def job_attributes_sa360_report(attributes: Dict[str, str]) -> Dict[str, str]:
+  return { 'report_id': attributes.get('report_id') }
+
+def job_attributes_ga360_report(attributes: Dict[str, str]) -> Dict[str, str]:
+  return { 'report_id': attributes.get('report_id') }
 
 def job_attributes_dv360(attributes: Dict[str, str]) -> Dict[str, str]:
   return {
@@ -135,11 +143,14 @@ def switch(report_type: Type, attributes: Dict[str, str]) -> Dict[str, str]:
     Type.CM: job_attributes_cm,
     Type.SA360: job_attributes_sa360,
     Type.ADH: job_attributes_adh,
+    Type.SA360_RPT: job_attributes_sa360_report,
+    Type.GA360_RPT: job_attributes_ga360_report,
   }
   a = {}
-  for _attr in ['force', 'rebuild_schema', 'infer_schema', 'dest_project', 'dest_dataset']:
-    if _attr in attributes: a[_attr] = attributes[_attr]
-    a.update(job_attribute_extractor[report_type](attributes))
+  for _attr in ['force', 'rebuild_schema', 'infer_schema', 'dest_project', 'dest_dataset', 'dest_table']:
+    if extractor := job_attribute_extractor.get('report_type'):
+      if _attr in attributes: a[_attr] = attributes[_attr]
+      a.update(extractor(attributes))
   return a
 
 

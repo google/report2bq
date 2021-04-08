@@ -18,58 +18,51 @@ __author__ = [
     'davidharcombe@google.com (David Harcombe)'
 ]
 
-import base64
 import json
-import logging
 import os
-import pprint
 import random
 import uuid
 
 # Class Imports
 from io import StringIO
-from typing import Any, Dict, Generator, List, Mapping, Tuple
+from typing import Any, Dict, List, Tuple
 
 from google.cloud import scheduler as scheduler
-from google.cloud.pubsub import PublisherClient
 from googleapiclient.errors import HttpError
 
-from classes.credentials import Credentials
-from classes.discovery import DiscoverService
-from classes.services import Service
-from classes.report_type import Type
 from classes import Fetcher
+from classes.credentials import Credentials
+from classes import discovery
+from classes.report_type import Type
+from classes.services import Service
 
 
 class Scheduler(Fetcher):
   """Scheduler helper
-  
+
   Handles the scheduler operations for Report2BQ
 
   """
 
   def process(self, args: Dict[str, Any]) -> str:
-    logging.info(f'args: {args}')
-
     _action = args.get('action')
     _project = args.get('project')
     _email = args.get('email')
-    _html = args.get('html', True)
+    _html = args.get('html', False)
 
-    # _credentials = Credentials(
-    #   email=_email,
-    #   project=_project
-    # )
-    _credentials = None
-        
+    _credentials = Credentials(
+      email=_email,
+      project=_project
+    )
+
     locations = self.list_locations(credentials=_credentials, project=_project)
     _location = locations[-1]
 
     if _action == 'list':
       jobs = self.list_jobs(
-        credentials=_credentials, 
-        project=_project, 
-        location=_location, 
+        credentials=_credentials,
+        project=_project,
+        location=_location,
         email=_email)
       if _html:
         result = StringIO()
@@ -80,7 +73,7 @@ class Scheduler(Fetcher):
 
     elif _action == 'get':
       (success, job) = self.get_job(
-        credentials=_credentials, 
+        credentials=_credentials,
         project=_project,
         location=_location,
         job_id=args.get('job_id'))
@@ -88,7 +81,7 @@ class Scheduler(Fetcher):
 
     elif _action == 'delete':
       (success, error) = self.delete_job(
-        credentials=_credentials, 
+        credentials=_credentials,
         project=_project,
         location=_location,
         job_id=args.get('job_id'))
@@ -100,7 +93,7 @@ class Scheduler(Fetcher):
 
     elif _action == 'enable':
       (success, error) = self.enable_job(
-        credentials=_credentials, 
+        credentials=_credentials,
         project=_project,
         location=_location,
         job_id=args.get('job_id'),
@@ -113,7 +106,7 @@ class Scheduler(Fetcher):
 
     elif _action == 'disable':
       (success, error) = self.enable_job(
-        credentials=_credentials, 
+        credentials=_credentials,
         project=_project,
         location=_location,
         job_id=args.get('job_id'),
@@ -133,6 +126,15 @@ class Scheduler(Fetcher):
         'append': str(args.get('append')),
       }
 
+      if 'dest_dataset' in args:
+        _attrs['dest_dataset'] = args.get('dest_dataset')
+
+      if 'dest_project' in args:
+        _attrs['dest_project'] = args.get('dest_project')
+
+      if 'dest_table' in args:
+        _attrs['dest_table'] = args.get('dest_table')
+
       if args.get('minute'):
         minute = args.get('minute')
       else:
@@ -146,22 +148,21 @@ class Scheduler(Fetcher):
         topic = 'report2bq-trigger'
         _attrs.update({
           'sa360_url': args.get('sa360_url'),
-          'type': 'sa360',
+          'type': Type.SA360.value,
         })
 
-      elif args.get('sa360_id'):
+      elif args.get('type') == Type.SA360_RPT:
         product = _type = Type.SA360_RPT.value
         hour = args.get('hour', '*')
         action = 'run'
         topic = 'report-runner'
         _attrs.update({
-          'report_id': args.get('sa360_id'),
+          'report_id': args.get('report_id'),
           'type': Type.SA360_RPT.value,
         })
-        args['report_id'] = args.get('sa360_id')
 
       elif args.get('adh_customer'):
-        product = _type = 'adh'
+        product = _type = Type.ADH.value
         hour = args.get('hour') if args.get('hour') else '2'
         action = 'run'
         topic = 'report2bq-trigger'
@@ -170,7 +171,17 @@ class Scheduler(Fetcher):
           'adh_query': args.get('adh_query'),
           'api_key': args.get('api_key'),
           'days': args.get('days'),
-          'type': 'adh',
+          'type': Type.ADH.value,
+        })
+
+      elif args.get('type') == Type.GA360_RPT:
+        product = _type = Type.GA360_RPT.value
+        hour = args.get('hour', '*')
+        action = 'run'
+        topic = 'report-runner'
+        _attrs.update({
+          'report_id': args.get('report_id'),
+          'type': Type.GA360_RPT.value,
         })
 
       else:
@@ -189,20 +200,20 @@ class Scheduler(Fetcher):
           _attrs.update({
             'profile': args.get('profile'),
             'cm_id': args.get('report_id'),
-            'type': 'cm',
+            'type': Type.CM.value,
           })
         else:
           product = 'dv360'
           _type = 'dv360'
           _attrs.update({
             'dv360_id': args.get('report_id'),
-            'type': 'dv360',
+            'type': Type.DV360.value,
           })
 
       name = f"{action}-{product}-{args.get('report_id')}"
       schedule = f"{minute} {hour} * * *"
 
-      job = { 
+      job = {
         'description': args.get('description'),
         'timeZone': args.get('timezone') or 'UTC',
         'api_key': args.get('api_key'),
@@ -213,14 +224,14 @@ class Scheduler(Fetcher):
       }
 
       self.create_job(
-        credentials=_credentials, 
+        credentials=_credentials,
         project=_project,
         location=_location,
         job=job)
 
 
   def list_locations(self, credentials: Credentials=None, project: str=None):
-    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(service=Service.SCHEDULER, credentials=credentials, api_key=os.environ['API_KEY'])
     locations_response = self.fetch(
       method=service.projects().locations().list,
       **{'name': Scheduler.project_path(project)}
@@ -230,19 +241,25 @@ class Scheduler(Fetcher):
     return locations
 
 
-  def list_jobs(self, credentials: Credentials=None, project: str=None, location: str=None, email: str=None) -> List[Dict[str, Any]]:
-    """[summary]
+  def list_jobs(self, credentials: Credentials=None, project: str=None,
+                location: str=None, email: str=None) -> List[Dict[str, Any]]:
+    """Lists jobs for a given user.
+
+    Use the scheduler API to fetch all the jobs. Then filter them by the user's
+    email. If the user is the administrator, don't filter.
 
     Args:
-        credentials (Credentials, optional): [description]. Defaults to None.
-        project (str, optional): [description]. Defaults to None.
-        location (str, optional): [description]. Defaults to None.
-        email (str, optional): [description]. Defaults to None.
+        credentials (Credentials, optional): scheduler creds. Defaults to None.
+        project (str, optional): project id. Defaults to None.
+        location (str, optional): scheduler location. Defaults to None.
+        email (str, optional): user email. Defaults to None.
 
     Returns:
         List[Dict[str, Any]]: [description]
     """
-    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(service=Service.SCHEDULER,
+                                    credentials=credentials,
+                                    api_key=os.environ['API_KEY'])
     token = None
     method = service.projects().locations().jobs().list
     jobs = []
@@ -265,17 +282,22 @@ class Scheduler(Fetcher):
 
       token = _jobs['nextPageToken']
 
-    if email and jobs:
-      jobs = filter(
-        lambda j: j.get('pubsubTarget', {}).get('attributes', {}).get('email', '') == email,
-        jobs
-      )
-    
+    def _filter(job: Dict[str, Any]):
+      if _job := job.get('pubsubTarget'):
+        if _attr := _job.get('attributes'):
+          if _email := _attr.get('attributes'):
+            return _email == email
+
+      return False
+
+    if email and jobs and (email != os.environ.get('ADMINISTRATOR_EMAIL')):
+      jobs = filter(_filter, jobs)
+
     return list(jobs)
 
 
   def delete_job(self, job_id: str=None, credentials: Credentials=None, project: str=None, location: str=None) -> Tuple[bool, Dict[str, Any]]:
-    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(service=Service.SCHEDULER, credentials=credentials, api_key=os.environ['API_KEY'])
     method = service.projects().locations().jobs().delete
     if not location:
       locations = self.list_locations(credentials=credentials, project=project)
@@ -290,29 +312,14 @@ class Scheduler(Fetcher):
       return (False, e)
 
 
-  def get_job(self, job_id: str=None, credentials: Credentials=None, project: str=None, location: str=None) -> Tuple[bool, Dict[str, Any]]:
-    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
-    method = service.projects().locations().jobs().get
-    if not location:
-      locations = self.list_locations(credentials=credentials, project=project)
-      location = locations[-1]
-
-    try:
-      job = method(name=Scheduler.job_path(project=project, location=location, job=job_id)).execute()
-      return (True, job)
-
-    except HttpError as error:
-      e = json.loads(error.content)
-      return (False, e)
-
-  def enable_job(self, 
-    job_id: str=None, 
-    credentials: Credentials=None, 
-    project: str=None, 
+  def enable_job(self,
+    job_id: str=None,
+    credentials: Credentials=None,
+    project: str=None,
     location: str=None,
     enable: bool=True
     ) -> Tuple[bool, Dict[str, Any]]:
-    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(service=Service.SCHEDULER, credentials=credentials, api_key=os.environ['API_KEY'])
     if not location:
       locations = self.list_locations(credentials=credentials, project=project)
       location = locations[-1]
@@ -332,7 +339,7 @@ class Scheduler(Fetcher):
 
 
   def create_job(self, credentials: Credentials=None, project: str=None, location: str=None, job: Dict[str, Any]=None):
-    service = DiscoverService.get_service(Service.SCHEDULER, credentials, api_key=os.environ['API_KEY'])
+    service = discovery.get_service(service=Service.SCHEDULER, credentials=credentials, api_key=os.environ['API_KEY'])
     _method = service.projects().locations().jobs().create
 
     if not location:
@@ -360,6 +367,20 @@ class Scheduler(Fetcher):
     request = _method(**_args)
     request.execute()
 
+  def get_job(self, job_id: str=None, credentials: Credentials=None, project: str=None, location: str=None) -> Tuple[bool, Dict[str, Any]]:
+    service = discovery.get_service(service=Service.SCHEDULER, credentials=credentials, api_key=os.environ['API_KEY'])
+    method = service.projects().locations().jobs().get
+
+    try:
+      job = method(
+        name=Scheduler.job_path(
+          project=project, location=location, job=job_id
+        )).execute()
+      return (True, job)
+
+    except HttpError as error:
+      e = json.loads(error.content)
+      return (False, e)
 
   @classmethod
   def job_path(cls, project, location, job):

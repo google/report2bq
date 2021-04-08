@@ -26,7 +26,7 @@
 
   <!-- Required Material Web JavaScript library -->
   <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
-  
+
   <!-- Local -->
   <link rel="stylesheet" type="text/css" href="/static/css/main.css">
 
@@ -41,7 +41,7 @@
       gapi.load('auth2', function() {
         auth2 = gapi.auth2.init({
           client_id: '{{client_id}}',
-          scope: 'https://www.googleapis.com/auth/adsdatahub https://www.googleapis.com/auth/bigquery https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/dfareporting https://www.googleapis.com/auth/devstorage.read_write https://www.googleapis.com/auth/doubleclickbidmanager https://www.googleapis.com/auth/doubleclicksearch https://www.googleapis.com/auth/gmail.send'
+          scope: 'https://www.googleapis.com/auth/analytics https://www.googleapis.com/auth/adsdatahub https://www.googleapis.com/auth/bigquery https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/dfareporting https://www.googleapis.com/auth/devstorage.read_write https://www.googleapis.com/auth/doubleclickbidmanager https://www.googleapis.com/auth/doubleclicksearch https://www.googleapis.com/auth/gmail.send'
         });
       });
     }
@@ -95,7 +95,7 @@
   </script>
 
   <script src="https://apis.google.com/js/platform.js?onload=renderButton" async defer></script>
-  
+
   <script>
     $('#signinButton').click(function() {
       // signInCallback defined in step 6.
@@ -107,10 +107,10 @@
 <script>
   function signInCallback(authResult) {
     if (authResult['code']) {
-  
+
       // Hide the sign-in button now that the user is authorized, for example:
       // $('#signinButton').attr('style', 'display: none');
-  
+
       // Send the code to the server
       $.ajax({
         type: 'POST',

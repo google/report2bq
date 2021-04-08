@@ -24,14 +24,44 @@ class Type(Enum):
   ADH = 'adh'
   CM = 'cm'
   DV360 = 'dv360'
+  GA360 = 'ga360'
+  GA360_RPT = 'ga360_report'
   SA360 = 'sa360'
   SA360_RPT = 'sa360_report'
 
   # Internal use only
+  _ADMIN = 'administration'
+  _COMPLETED = 'jobs-completed'
   _JOBS = 'jobs'
   _RUNNING = 'running'
-  _ADMIN = 'administration'
-  
+
+  # Missing value
+  _UNKNOWN = 'unknown'
+
+  @classmethod
+  def _missing_(cls, value):
+    """Backward compatilbility for old enums.
+
+    If the old product names are still in use in some Firestore or other confguration
+    systems (this is possible post migration from the older versions), replace them with
+    the new values seamlessly.
+
+    Args:
+        value (str): enum string value requested
+
+    Returns:
+        Type: the corrected type
+
+    Raises:
+        ValueError if it was simply an incorrect enum rather than dv360/dbm or dcm/cm confusion
+    """
+    if value == 'dbm':
+      return cls.DV360
+    elif value == 'dcm':
+      return cls.CM
+    else:
+      return cls._UNKNOWN
+
   def runner(self, report_id: str):
     return {
       Type._JOBS: None,
@@ -40,4 +70,7 @@ class Type(Enum):
     }.get(self, f'run-{self.value}-{report_id}')
 
   def __str__(self):
+    return str(self.value)
+
+  def __repr__(self) -> str:
     return str(self.value)

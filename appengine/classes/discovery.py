@@ -15,64 +15,54 @@
 __author__ = ['davidharcombe@google.com (David Harcombe)']
 
 """Discovery Class.
+
+Authenticate and fetch a discoverable API service.
 """
 
-import json
-import logging
-
-from apiclient import discovery
-from oauth2client.client import AccessTokenCredentials, GoogleCredentials
-from typing import Any, Dict, List, Tuple, Mapping
-
-from classes.credentials import Credentials
+from typing import Any, Mapping
 from classes.services import Service
 
+from apiclient import discovery
+from oauth2client.client import AccessTokenCredentials
+from classes.credentials import Credentials
 
-class DiscoverService(object):
-  @classmethod
-  def get_unknown_service(cls, credentials: Credentials, **kwargs: Mapping[str, Any]):
-    """Fetch a discoverable API service.
 
-    If this is not the case (or, upon attempting to is the service an
-    authorization error is raised) the service can be cleared and forced to
-    reload.
+def get_service(service: Service,
+                credentials: Credentials,
+                api_key: str=None) -> discovery.Resource:
+  """Fetch a discoverable API service.
 
-    Args:
+  Create an endpoint to one of the Google services listed in Services.py as
+  a defined service. Only services listed in the Services enum can be used,
+  and they each have a  in a ServiceDefinition containing all the information
+  needed to create the service. These parameters are decomposed to a dict of
+  keyword arguments ans passed on to the Google Discovery API.
 
-    Returns:
-      service: a service for REST calls
-    """
-    if credentials:
-      credentials.get_credentials()
-      _credentials = AccessTokenCredentials(credentials.token_details['access_token'], user_agent='report2bq')
-      https = discovery.httplib2.Http()
-      auth_https = _credentials.authorize(https)
-      service = discovery.build(http=https, cache_discovery=False, **kwargs)
+  Not all services require an API key, hence it is optional.
 
-    else:
-      _credentials = GoogleCredentials.get_application_default()
-      service = discovery.build(credentials=_credentials, cache_discovery=False, **kwargs)
+  Args:
+    service (Service): [description]
+    credentials (Credentials): [description]
+    api_key (str, optional): [description]. Defaults to None.
 
+  Returns:
+      discovery.Resource: a service for REST calls
+
+  Raises:
+      NotImplementedError: if an invalid service is requested.
+  """
+  if definition := service.definition:
+    credentials.get_credentials()
+    _credentials = \
+      AccessTokenCredentials(credentials.token_details['access_token'],
+                            user_agent='report2bq')
+    auth_https = _credentials.authorize(discovery.httplib2.Http())
+    service = discovery.build(http=auth_https,
+                              cache_discovery=False,
+                              developerKey=api_key,
+                              **definition.to_args)
     return service
 
-
-  @classmethod
-  def get_service(cls, service: Service, credentials: Credentials, api_key: str=None) -> discovery.Resource:
-    """Fetch a discoverable API service.
-
-    If this is not the case (or, upon attempting to is the service an
-    authorization error is raised) the service can be cleared and forced to
-    reload.
-
-    Args:
-
-    Returns:
-      service: a service for REST calls
-    """
-    definition = service.definition() 
-    if definition:
-      return cls.get_unknown_service(credentials=credentials, developerKey=api_key, **definition)
-
-    else:
-      raise Exception(f'Unknown service {service}') 
+  else:
+    raise NotImplementedError(f'Unknown service {service}')
 
