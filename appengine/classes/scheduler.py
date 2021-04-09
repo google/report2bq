@@ -285,15 +285,14 @@ class Scheduler(Fetcher):
     def _filter(job: Dict[str, Any]):
       if _job := job.get('pubsubTarget'):
         if _attr := _job.get('attributes'):
-          if _email := _attr.get('attributes'):
-            return _email == email
+          return _attr.get('email') == email
 
       return False
 
     if email and jobs and (email != os.environ.get('ADMINISTRATOR_EMAIL')):
-      jobs = filter(_filter, jobs)
+      job_list = filter(_filter, jobs)
 
-    return list(jobs)
+    return list(job_list)
 
 
   def delete_job(self, job_id: str=None, credentials: Credentials=None, project: str=None, location: str=None) -> Tuple[bool, Dict[str, Any]]:

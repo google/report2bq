@@ -96,7 +96,7 @@ class RunMonitor(object):
                       type: Type,
                       run_config: Dict[str, Any]) -> Dict[str, Any]:
     scheduler = Scheduler()
-    return scheduler.process({
+    return scheduler.process(**{
         'action': 'get',
         'project': os.environ['GCP_PROJECT'],
         'email': run_config['email'],

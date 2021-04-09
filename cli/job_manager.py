@@ -77,13 +77,12 @@ flags.DEFINE_boolean('create', False, 'Create a job')
 
 def main(unused_argv):
   args = FLAGS.flag_values_dict()
-  args['html'] = False
   if FLAGS.list: args['action'] = 'list'
   if FLAGS.delete: args['action'] = 'delete'
   if FLAGS.create: args['action'] = 'create'
 
   scheduler = Scheduler()
-  print(scheduler.process(args).replace('<br/>', '\n'))
+  print(scheduler.process(**args))
 
 
 if __name__ == '__main__':

@@ -97,7 +97,7 @@ def main(unusedargv):
             'sa360_id': id,
         }
         try:
-          scheduler.process(args)
+          scheduler.process(**args)
 
         except Exception as e:
           print(e)
@@ -115,7 +115,7 @@ def main(unusedargv):
           'minute': runner['minute'],
         }
         try:
-          scheduler.process(args)
+          scheduler.process(**args)
 
         except Exception as e:
           print(e)
