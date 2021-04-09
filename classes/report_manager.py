@@ -100,7 +100,7 @@ class ReportManager(object):
         project (str, optional): the project id. Defaults to None.
         email (str, optional): email address for OAuth. Defaults to None.
     """
-    self.firestore.delete_document(Type.SA360_RPT, '_reports', report)
+    self.firestore.delete_document(self.report_type, '_reports', report)
 
     if email := self._read_email(file=file, gcs_stored=gcs_stored):
       if self.scheduler:
@@ -114,7 +114,7 @@ class ReportManager(object):
         # Disable all runners for the now deleted report
         runners = list(
           runner['name'].split('/')[-1] \
-            for runner in self.scheduler.process(args) \
+            for runner in self.scheduler.process(**args) \
               if report in runner['name'])
         for runner in runners:
           args = {
@@ -123,7 +123,7 @@ class ReportManager(object):
             'project': project,
             'job_id': runner,
           }
-          self.scheduler.process(args)
+          self.scheduler.process(**args)
     else:
       logging.error('No email found, cannot access scheduler.')
       return
@@ -332,7 +332,7 @@ class ReportManager(object):
     }
 
     try:
-      present, _ = self.scheduler.process(args)
+      present, _ = self.scheduler.process(**args)
 
     except Exception as e:
       logging.error('%s - Check if already defined failed: %s', job_id, e)
@@ -346,7 +346,7 @@ class ReportManager(object):
         'job_id': job_id,
       }
       try:
-        self.scheduler.process(args)
+        self.scheduler.process(**args)
 
       except Exception as e:
         logging.error('%s - Already present but delete failed: %s', job_id, e)
@@ -373,7 +373,7 @@ class ReportManager(object):
       args['dest_table'] = dest_table
 
     try:
-      self.scheduler.process(args)
+      self.scheduler.process(**args)
       return f'{job_id} - Valid and installed.'
 
     except Exception as e:

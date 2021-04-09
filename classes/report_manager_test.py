@@ -21,6 +21,11 @@ from classes.report_type import Type
 from unittest import mock
 
 
+if 'unittest.util' in __import__('sys').modules:
+    # Show full diff in self.assertEqual.
+    __import__('sys').modules['unittest.util']._MAX_LENGTH = 999999999
+
+
 class MockValidator(object):
     def __init__(self, validator):
         self.validator = validator
@@ -31,6 +36,7 @@ class MockValidator(object):
 STANDARD_ARGS = {
   'gcs_stored': True,
   'email': 'luke@skywalker.com',
+  'project': 'test',
 }
 
 REPORT_CONFIG = {
@@ -55,11 +61,11 @@ RUNNER =  {
 }
 
 class ReportManagerTest(unittest.TestCase):
-  maxDiff = None
 
   class _Manager(ReportManager):
     report_type = Type.GA360_RPT
     bucket = 'manager-bucket'
+    project = 'test'
 
 
   def setUp(self):
@@ -99,6 +105,7 @@ class ReportManagerTest(unittest.TestCase):
     self.assertEqual(0, self.mock_firestore.update_document.call_count)
 
   def test_delete_valid(self):
+    self.maxDiff = None
     manager = ReportManagerTest._Manager()
     self.mock_firestore.delete_document.return_value = None
     manager._read_email = mock.Mock(return_value='luke@skywalker.com')
@@ -116,18 +123,19 @@ class ReportManagerTest(unittest.TestCase):
                    file='bar.list', **STANDARD_ARGS)
 
     self.assertEqual(1, self.mock_firestore.delete_document.call_count)
+    print(mock_scheduler.process.call_args_list)
     self.assertEqual([
-      mock.call({'action': 'list',
+      mock.call(**{'action': 'list',
                  'email': 'luke@skywalker.com',
-                 'project': None,
+                 'project': 'test',
                  'html': False}),
-      mock.call({'action': 'disable',
+      mock.call(**{'action': 'disable',
                  'email': 'luke@skywalker.com',
-                 'project': None,
+                 'project': 'test',
                  'job_id': 'bar_1'}),
-      mock.call({'action': 'disable',
+      mock.call(**{'action': 'disable',
                  'email': 'luke@skywalker.com',
-                 'project': None,
+                 'project': 'test',
                  'job_id': 'bar_2'})],
       mock_scheduler.process.call_args_list)
 
@@ -174,9 +182,9 @@ class ReportManagerTest(unittest.TestCase):
     self.assertEqual('run-ga360_report-r2d2 - Valid and installed.',
                      result)
     self.assertEqual([
-      mock.call({'action': 'get', 'email': 'davidharcombe@google.com',
+      mock.call(**{'action': 'get', 'email': 'davidharcombe@google.com',
                  'project': 'rebellion', 'job_id': 'run-ga360_report-r2d2'}),
-      mock.call({'action': 'create', 'email': 'davidharcombe@google.com',
+      mock.call(**{'action': 'create', 'email': 'davidharcombe@google.com',
                  'project': 'rebellion', 'force': False, 'infer_schema': False,
                  'append': False, 'report_id': 'r2d2',
                  'description': 'Test job #1', 'minute': 10, 'hour': '*',
@@ -202,11 +210,11 @@ class ReportManagerTest(unittest.TestCase):
     self.assertEqual('run-ga360_report-r2d2 - Valid and installed.',
                      result)
     self.assertEqual([
-      mock.call({'action': 'get', 'email': 'davidharcombe@google.com',
+      mock.call(**{'action': 'get', 'email': 'davidharcombe@google.com',
                  'project': 'rebellion', 'job_id': 'run-ga360_report-r2d2'}),
-      mock.call({'action': 'delete', 'email': 'davidharcombe@google.com',
+      mock.call(**{'action': 'delete', 'email': 'davidharcombe@google.com',
                  'project': 'rebellion', 'job_id': 'run-ga360_report-r2d2'}),
-      mock.call({'action': 'create', 'email': 'davidharcombe@google.com',
+      mock.call(**{'action': 'create', 'email': 'davidharcombe@google.com',
                  'project': 'rebellion', 'force': False, 'infer_schema': False,
                  'append': False, 'report_id': 'r2d2',
                  'description': 'Test job #1', 'minute': 10, 'hour': '*',
@@ -214,7 +222,6 @@ class ReportManagerTest(unittest.TestCase):
       mock_scheduler.process.call_args_list)
 
   def test_error_cant_delete_existing_job(self):
-    self.maxDiff = None
     with mock.patch.object(logging, 'error') as mock_logger:
       manager = ReportManagerTest._Manager()
       manager.report_type = Type.GA360_RPT
@@ -234,9 +241,9 @@ class ReportManagerTest(unittest.TestCase):
                       'failed: 403 Invalid OAuth',
                       result)
       self.assertEqual([
-        mock.call({'action': 'get', 'email': 'davidharcombe@google.com',
+        mock.call(**{'action': 'get', 'email': 'davidharcombe@google.com',
                    'project': 'rebellion', 'job_id': 'run-ga360_report-r2d2'}),
-        mock.call({'action': 'delete', 'email': 'davidharcombe@google.com',
+        mock.call(**{'action': 'delete', 'email': 'davidharcombe@google.com',
                    'project': 'rebellion', 'job_id': 'run-ga360_report-r2d2'}),
         ],
         mock_scheduler.process.call_args_list)
@@ -247,7 +254,6 @@ class ReportManagerTest(unittest.TestCase):
         mock_logger.call_args)
 
   def test_error_cant_create_new_job(self):
-    self.maxDiff = None
     with mock.patch.object(logging, 'error') as mock_logger:
       manager = ReportManagerTest._Manager()
       manager.report_type = Type.GA360_RPT
@@ -268,11 +274,11 @@ class ReportManagerTest(unittest.TestCase):
                        '403 Invalid OAuth',
                        result)
       self.assertEqual([
-        mock.call({'action': 'get', 'email': 'davidharcombe@google.com',
+        mock.call(**{'action': 'get', 'email': 'davidharcombe@google.com',
                    'project': 'rebellion', 'job_id': 'run-ga360_report-r2d2'}),
-        mock.call({'action': 'delete', 'email': 'davidharcombe@google.com',
+        mock.call(**{'action': 'delete', 'email': 'davidharcombe@google.com',
                    'project': 'rebellion', 'job_id': 'run-ga360_report-r2d2'}),
-        mock.call({'action': 'create', 'email': 'davidharcombe@google.com',
+        mock.call(**{'action': 'create', 'email': 'davidharcombe@google.com',
                    'project': 'rebellion', 'force': False,
                    'infer_schema': False, 'append': False, 'report_id': 'r2d2',
                    'description': 'Test job #1', 'minute': 10, 'hour': '*',
