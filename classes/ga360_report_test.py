@@ -32,7 +32,7 @@ class GA360ReportDefinitionTest(unittest.TestCase):
     'metrics': [{'expression': 'ga:goal13Starts', 'alias': 'Goal 13 Starts'},
                 {'expression': 'ga:dbmCost'},
                 {'expression': 'ga:dcmCost', 'formattingType': 'CURRENCY'}],
-    'viewId': '185427540'}
+    'viewId': ''}
 
   DIMENSIONS = [
     "ga:dimension6",
@@ -58,7 +58,7 @@ class GA360ReportDefinitionTest(unittest.TestCase):
     expected.update(self.BASE_EXPECTED)
 
     definition = \
-      ga360.GA360ReportDefinition(view_id='185427540',
+      ga360.GA360ReportDefinition(view_id='',
                                   metrics=self.METRICS,
                                   date_ranges=[
                                     ga360.GA360DateRange(start_date='2021-03-23',
@@ -78,7 +78,7 @@ class GA360ReportDefinitionTest(unittest.TestCase):
     expected.update(self.BASE_EXPECTED)
 
     definition = \
-      ga360.GA360ReportDefinition(view_id='185427540',
+      ga360.GA360ReportDefinition(view_id='',
                                   metrics=self.METRICS,
                                   date_ranges=[
                                     ga360.GA360DateRange(start_date='2021-03-23',
@@ -92,7 +92,7 @@ class GA360ReportDefinitionTest(unittest.TestCase):
 
   def test_bad_report_with_more_than_two_date_ranges(self):
     definition = \
-      ga360.GA360ReportDefinition(view_id='185427540',
+      ga360.GA360ReportDefinition(view_id='',
                                   metrics=self.METRICS,
                                   date_ranges=[
                                     ga360.GA360DateRange(),
@@ -112,7 +112,25 @@ class GA360ReportDefinitionTest(unittest.TestCase):
     }
     expected.update(self.BASE_EXPECTED)
 
-    definition = ga360.GA360ReportDefinition.from_json(json.dumps(self.BASE_EXPECTED))
+    definition = \
+      ga360.GA360ReportDefinition.from_json(json.dumps(self.BASE_EXPECTED))
+    self.assertEqual(expected, definition.report_request)
+
+  def test_load_from_json_and_edit(self):
+    view_id = '00000001'
+    date_range = ga360.GA360DateRange(start_date='30daysAgo',
+                                      end_date='yesterday')
+    updates = {
+      'viewId': view_id,
+      'dateRanges': [date_range.date_range]
+    }
+    expected = {}
+    expected.update(self.BASE_EXPECTED, **updates)
+
+    definition = \
+      ga360.GA360ReportDefinition.from_json(json.dumps(self.BASE_EXPECTED))
+    definition.view_id = view_id
+    definition.date_ranges = [ date_range ]
     self.assertEqual(expected, definition.report_request)
 
 
@@ -157,8 +175,8 @@ class GA360DateRangeTest(unittest.TestCase):
       mock_ga360_date_range(ga360.GA360DateRange(start_date='14daysAgo')),
       mock_ga360_date_range(ga360.GA360DateRange(start_date='1weeksAgo')),
       mock_ga360_date_range(ga360.GA360DateRange(start_date='1monthsAgo')),
-      mock_ga360_date_range(ga360.GA360DateRange(start_date='12monthsAgo')),
-      mock_ga360_date_range(ga360.GA360DateRange(start_date='1yearsAgo')),
+      mock_ga360_date_range(ga360.GA360DateRange(start_date='12MonthsAgo')),
+      mock_ga360_date_range(ga360.GA360DateRange(start_date='1yearsago')),
     ]
 
     self.assertEqual(

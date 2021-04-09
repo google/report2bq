@@ -21,11 +21,10 @@ __author__ = [
 import base64
 import logging
 import os
+import traceback
 
-from flask import Request
-from importlib import import_module, invalidate_caches
-from typing import Any, Dict, List, Optional
-from urllib.parse import unquote_plus as unquote
+from importlib import import_module
+from typing import Any, Dict
 
 from classes.adh import ADH
 from classes.cloud_storage import Cloud_Storage
@@ -33,14 +32,13 @@ from classes.credentials import Credentials
 from classes.dbm_report_runner import DBMReportRunner
 from classes.dcm_report_runner import DCMReportRunner
 from classes.decorators import measure_memory
-from classes.firestore import Firestore
+from classes.ga360_report_runner import GA360ReportRunner
 from classes.gmail import GMail, GMailMessage
 from classes.postprocessor import PostProcessor
 from classes.report2bq import Report2BQ
 from classes.report_type import Type
 from classes.sa360_report_manager import SA360Manager
 from classes.sa360_report_runner import SA360ReportRunner
-from classes.scheduler import Scheduler
 
 from cloud_functions.job_monitor import JobMonitor
 from cloud_functions.run_monitor import RunMonitor
@@ -99,7 +97,7 @@ def report_fetch(event: Dict[str, Any], context=None):
 
     except Exception as e:
       if email := attributes.get('email'):
-        email_error(email=attributes['email'],
+        email_error(email=email,
                     product='Report Fetcher',
                     event=event, error=e)
 
@@ -200,6 +198,13 @@ def report_runner(event: Dict[str, Any], context=None):
           **_base_args,
         }
       },
+      Type.GA360_RPT: {
+        'runner': GA360ReportRunner,
+        'args': {
+          'report_id': attributes.get('report_id'),
+          **_base_args,
+        }
+      },
     }.get(T):
       _command['runner'](**_command['args']).run(unattended=True)
 
@@ -227,11 +232,18 @@ def email_error(email: str,
                 product: str,
                 event: Dict[str, Any],
                 error: Exception) -> None:
+
+  _trace = \
+    ''.join(traceback.TracebackException.from_exception(error).format()) \
+      if error else 'None'
+
   message = GMailMessage(
     to=[email],
     subject=f'Error in {product or "Report2BQ"}',
     body=f'''
 Error: {error if error else 'No exception.'}
+
+Trace: {_trace}
 
 Event data: {event}
 ''',

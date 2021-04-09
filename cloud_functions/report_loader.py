@@ -84,7 +84,9 @@ class ReportLoader(object):
         (Type, Dict[str, Any]) -- Tuple containing the report type as an Enum,
                                   and the report configuration.
     """
-    for config_type in [Type.DV360, Type.CM, Type.SA360, Type.SA360_RPT]:
+    for config_type in [
+        Type.DV360, Type.CM, Type.SA360, Type.SA360_RPT, Type.GA360_RPT,
+      ]:
       if config := self.FIRESTORE.get_report_config(config_type, id):
         return config_type, config
 
@@ -140,10 +142,11 @@ class ReportLoader(object):
     # To avoid breaking existing configs, use table_name if it is present.
     # Net new configs will not have a table_name key, instead having dest_table
     # so use that instead.
+    base_file = file.split('/')[-1].split('.')[0]
     table_name = config.get('table_name',
                             config.get('dest_table',
-                                       csv_helpers.sanitize_string(file)))
-    logging.info('bucket %s{bucket}, table %s{table_name}, %sfile_name {file}',
+                                       csv_helpers.sanitize_string(base_file)))
+    logging.info('bucket %s, table %s, file_name %s',
                  bucket, table_name, file)
 
     # Build the json format schema that the BQ LoadJob requires
@@ -282,7 +285,9 @@ Table has schema:
         Type._ADMIN, 'admin').get('email')
     _cc = [_administrator] if _administrator else []
 
-    if _trace := "".join(traceback.format_exception(error)) if error else None:
+    if _trace := \
+    ''.join(traceback.TracebackException.from_exception(error).format()) \
+      if error else None:
       _trace = 'Error\n\n' + _trace
 
     if _to or _cc:

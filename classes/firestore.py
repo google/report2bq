@@ -45,18 +45,18 @@ class Firestore(object):
         project {str} -- project identifier (default: {None})
         in_cloud {bool} -- is it running in the cloud (default: {True})
     """
-    self.in_cloud = in_cloud
-    self.project = project
-    self.email = email
+    self._in_cloud = in_cloud
+    self._project = project
+    self._email = email
 
   @decorators.lazy_property
   def client(self):
-    return firestore.Client() if self.in_cloud else \
-        firestore.Client(credentials=Credentials(email=self.email,
-                         project=self.project).get_credentials())
+    return firestore.Client() if self._in_cloud else \
+        firestore.Client(credentials=Credentials(email=self._email,
+                         project=self._project).get_credentials())
 
   def get_report_config(self, type: Type, id: str) -> Dict[str, Any]:
-    """Load a config
+    """Loads a config
 
     Load a report's config
 
@@ -69,11 +69,13 @@ class Firestore(object):
     """
     return self.get_document(type, id)
 
-  def store_report_config(self, type: Type, id: str, report_data: Dict[str, Any]):
-    """Store a config
+  def store_report_config(self, type: Type, id: str,
+                          report_data: Dict[str, Any]) -> None:
+    """Stores a config
 
-    Store a report's config in Firestore. They're all stored by Type (DCM/DBM/SA360/ADH)
-    and each one within the type is keyed by the appropriate report id.
+    Store a report's config in Firestore. They're all stored by Type
+    (DCM/DBM/SA360/ADH) and each one within the type is keyed by the
+    appropriate report id.
 
     Arguments:
         type {Type} -- product
@@ -83,7 +85,7 @@ class Firestore(object):
     self.store_document(type=type, id=id, document=report_data)
 
   def get_all_reports(self, type: Type) -> List[Dict[str, Any]]:
-    """List all reports
+    """Lists all reports
 
     List all defined reports for a specific product.
 
@@ -96,14 +98,15 @@ class Firestore(object):
     reports = []
     collection = self.client.collection(type.value).list_documents()
     for document in collection:
-      _doc = document.get().to_dict()
-      _doc['_id'] = document.id
-      reports.append(_doc)
+      doc = document.get().to_dict()
+      doc['_id'] = document.id
+      reports.append(doc)
 
     return reports
 
-  def store_import_job_details(self, report_id: int, job: bigquery.LoadJob):
-    """Save a BQ Import job in Firestore
+  def store_import_job_details(self, report_id: int,
+                               job: bigquery.LoadJob) -> None:
+    """Saves a BQ Import job in Firestore
 
     Arguments:
         report_id {int} -- [description]
@@ -111,8 +114,9 @@ class Firestore(object):
     """
     self.store_document(Type._JOBS, report_id, job.to_api_repr())
 
-  def mark_import_job_complete(self, report_id: int, job: bigquery.LoadJob):
-    """Mark BQ Import job in Firestore done
+  def mark_import_job_complete(self, report_id: int,
+                               job: bigquery.LoadJob) -> None:
+    """Marks a BQ Import job in Firestore done
 
     Moves an import job from 'jobs/' to 'jobs-completed'.
 
@@ -124,7 +128,7 @@ class Firestore(object):
     self.store_document(Type._COMPLETED, report_id, job.to_api_repr())
 
   def get_all_jobs(self) -> List[DocumentReference]:
-    """List all running jobs
+    """Lists all running jobs
 
     Returns:
         jobs {List[DocumentReference]} -- List of all available jobs
@@ -132,7 +136,7 @@ class Firestore(object):
     return self.get_all_documents(Type._JOBS)
 
   def get_all_running(self) -> List[DocumentReference]:
-    """List running reports
+    """Lists all running reports
 
     Lists all running reports
 
@@ -142,7 +146,7 @@ class Firestore(object):
     return self.get_all_documents(Type._RUNNING)
 
   def get_all_documents(self, type: Type) -> List[DocumentReference]:
-    """List documents
+    """Lists all documents
 
     Lists all documents of a given Type
 
@@ -156,16 +160,16 @@ class Firestore(object):
 
     return runners
 
-  def store_report_runner(self, runner: Dict[str, Any]):
-    """Store running report
+  def store_report_runner(self, runner: Dict[str, Any]) -> None:
+    """Stores a running report
 
     Arguments:
         runner {Dict[str, Any]} -- store a running report definition
     """
     self.store_document(Type._RUNNING, runner)
 
-  def remove_report_runner(self, runner: str):
-    """Remove running report
+  def remove_report_runner(self, runner: str) -> None:
+    """Removes a running report
 
     Delete a running report from the list of active reports
 
@@ -174,30 +178,33 @@ class Firestore(object):
     """
     self.delete_document(Type._RUNNING, runner)
 
-  def get_document(self, type: Type, id: str) -> Dict[str, Any]:
-    """Load a document (could be anything, 'type' identifies the root.)
+  def get_document(self, type: Type, id: str,
+                   key: Optional[str]=None) -> Dict[str, Any]:
+    """Loads a document (could be anything, 'type' identifies the root.)
 
     Load a document
 
     Arguments:
         type {Type} -- document type (document root in firestore)
         id {str} -- document id
+        key: Optional(str): the document collection sub-key
 
     Returns:
         Dict[str, Any] -- stored configuration dictionary, or None
                           if not present
     """
-    config = None
+    document = None
 
     if report:= self.client.document(f'{type}/{id}'):
-      config = report.get().to_dict()
+      document = report.get().to_dict()
 
-    return config
+    return document.get(key) if key else document
 
-  def store_document(self, type: Type, id: str, document: Dict[str, Any]):
-    """Store a config.
+  def store_document(self, type: Type, id: str,
+                     document: Dict[str, Any]) -> None:
+    """Stores a document.
 
-    Store a report's config in Firestore. They're all stored by Type
+    Store a document in Firestore. They're all stored by Type
     (DCM/DBM/SA360/ADH) and each one within the type is keyed by the
     appropriate report id.
 
@@ -212,8 +219,9 @@ class Firestore(object):
 
     report.set(document)
 
-  def update_document(self, type: Type, id: str, new_data: Dict[str, Any]):
-    """Update a document.
+  def update_document(self, type: Type, id: str,
+                      new_data: Dict[str, Any]) -> None:
+    """Updates a document.
 
     Update a document in Firestore. If the document is not already there, it
     will be created as a net-new document. If it is, it will be updated.
@@ -230,8 +238,9 @@ class Firestore(object):
         else:
           document_ref.create(new_data)
 
-  def delete_document(self, type: Type, id: str, key: Optional[str]=None):
-    """Delete a document.
+  def delete_document(self, type: Type, id: str,
+                      key: Optional[str]=None) -> None:
+    """Deletes a document.
 
     This removes a document or partial document from the Firestore. If a key is
     supplied, then just that key is removed from the document. If no key is
@@ -250,7 +259,7 @@ class Firestore(object):
           document_ref.delete()
 
   def list_documents(self, report_type: Type, key: str=None) -> List[str]:
-    """List documents in a collection.
+    """Lists documents in a collection.
 
     List all the documents in the collection 'type'. If a key is give, list
     all the sub-documents of that key. For example:

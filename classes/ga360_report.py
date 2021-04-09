@@ -55,7 +55,7 @@ class GA360ReportMetric(object):
   alias: Optional[str] = None
   formatting_type: Optional[GA360MetricType] = None
 
-  @decorators.lazy_property
+  @property
   def metric(self) -> Dict[str, str]:
     metric = { 'expression': self.expression }
     if self.alias:
@@ -64,6 +64,9 @@ class GA360ReportMetric(object):
       metric['formattingType'] = GA360MetricType(self.formatting_type).value
 
     return metric
+
+
+PATTERN = re.compile('(^[0-9]+)([a-z]+s)Ago', re.IGNORECASE)
 
 
 @dataclasses_json.dataclass_json(letter_case=dataclasses_json.LetterCase.CAMEL)
@@ -81,12 +84,12 @@ class GA360DateRange(object):
         o = { 'days': 0 }
       elif d.casefold() == 'yesterday':
         o = { 'days': -1 }
-      elif match := re.match('(^[0-9]+)([a-z]+s)Ago', d):
+      elif match := re.match(PATTERN, d):
           if not (
-            lambda m: m in ['days', 'weeks', 'months', 'years'])(match.group(2)):
+            lambda m: m in [
+              'days', 'weeks', 'months', 'years'])(match.group(2).lower()):
             raise NotImplementedError(f'Unknown date offset type: {d}')
-          k = match.group(2)
-          o = { match.group(2): -1 * int(match.group(1)) }
+          o = { match.group(2).lower(): -1 * int(match.group(1)) }
       else:
         raise NotImplementedError(f'Unknown date offset type: {d}')
 
@@ -98,7 +101,7 @@ class GA360DateRange(object):
   def _now(self) -> date:
     return date.today()
 
-  @decorators.lazy_property
+  @property
   def date_range(self) -> Dict[str, str]:
     dateRange = {}
     dateRange['startDate'] = \
@@ -122,7 +125,7 @@ class GA360ReportDefinition(object):
   page_size: Optional[str] = None
   page_token: Optional[str] = None
 
-  @decorators.lazy_property
+  @property
   def report_request(self) -> Dict[str, str]:
     report_request = {
       'viewId': self.view_id,

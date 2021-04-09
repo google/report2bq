@@ -103,6 +103,7 @@ class DBM(ReportFetcher, Fetcher):
     Returns:
       Report object
     """
+    report = {}
     all_results = self.fetch(
       self.service().reports().listreports,
       **{ 'queryId': report_id }
@@ -114,7 +115,6 @@ class DBM(ReportFetcher, Fetcher):
           lambda item: 'finishTimeMs' in item.get(
             'metadata', {}).get('status', {}),
           all_results['reports']))
-        report = {}
         ordered = sorted(
           results,
           key=lambda k: int(k['metadata']['status']['finishTimeMs']))

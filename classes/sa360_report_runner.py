@@ -69,7 +69,7 @@ class SA360ReportRunner(ReportRunner):
     if unattended:
       return self._unattended_run(sa360=sa360)
     else:
-      return self._attended_run(sa360=sa360)
+      return self._attended_run()
 
   def _unattended_run(self, sa360: SA360Dynamic) -> Dict[str, Any]:
     """_unattended_run.
@@ -128,15 +128,12 @@ class SA360ReportRunner(ReportRunner):
     finally:
       return runner
 
-  def _attended_run(self, sa360: SA360Dynamic) -> None:
+  def _attended_run(self) -> None:
     """_attended_run.
 
     Not implemented for SA360Dynamic.
 
-    Args:
-        sa360 (SA360Dynamic): [description]
-
     Raises:
-        NotImplementedError: [description]
+        NotImplementedError
     """
-    raise NotImplementedError()
+    raise NotImplementedError('Unavailable for SA360 Dynamic reports.')
