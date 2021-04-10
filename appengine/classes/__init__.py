@@ -108,7 +108,9 @@ class ReportRunner(object):
         Type._ADMIN, 'admin').get('email')
     _cc = [_administrator] if _administrator else []
 
-    if _trace := "".join(traceback.format_exception(error)) if error else None:
+    if _trace := \
+    ''.join(traceback.TracebackException.from_exception(error).format()) \
+      if error else None:
       _trace = 'Error\n\n' + _trace
 
     if _to or _cc:

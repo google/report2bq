@@ -39,7 +39,8 @@ app = Flask(__name__)
 # Configure the following environment variables via app.yaml
 # This is used in the push request handler to verify that the request came from
 # pubsub and originated from a trusted source.
-# app.config['PUBSUB_VERIFICATION_TOKEN'] = os.environ['PUBSUB_VERIFICATION_TOKEN']
+# app.config['PUBSUB_VERIFICATION_TOKEN'] = \
+#   os.environ['PUBSUB_VERIFICATION_TOKEN']
 # app.config['PUBSUB_TOPIC'] = os.environ['PUBSUB_TOPIC']
 app.config['GCLOUD_PROJECT'] = os.environ['GOOGLE_CLOUD_PROJECT']
 
@@ -88,7 +89,8 @@ def index():
         _def = Type(_attrs['type'])
         j = {
           'id': job['name'].split('/')[-1],
-          'description': job['description'] if 'description' in job else '-- No description given --',
+          'description': job['description'] if 'description' in \
+            job else '-- No description given --',
           'type': _def,
           'schedule': job['schedule'],
           'timezone': job['timeZone'],
@@ -147,8 +149,15 @@ def switch(report_type: Type, attributes: Dict[str, str]) -> Dict[str, str]:
     Type.GA360_RPT: job_attributes_ga360_report,
   }
   a = {}
-  for _attr in ['force', 'rebuild_schema', 'infer_schema', 'dest_project', 'dest_dataset', 'dest_table']:
-    if extractor := job_attribute_extractor.get('report_type'):
+  for _attr in [
+      'force',
+      'rebuild_schema',
+      'infer_schema',
+      'dest_project',
+      'dest_dataset',
+      'dest_table'
+    ]:
+    if extractor := job_attribute_extractor.get(report_type):
       if _attr in attributes: a[_attr] = attributes[_attr]
       a.update(extractor(attributes))
   return a
