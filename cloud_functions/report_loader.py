@@ -27,11 +27,11 @@ from google.oauth2.credentials import Credentials
 
 from typing import Any, Dict, List, Tuple
 
+from classes import csv_helpers
+from classes import gmail
 from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials as Report2BQCredentials
-from classes import csv_helpers
 from classes.firestore import Firestore
-from classes.gmail import GMail, GMailMessage
 from classes.report_type import Type
 
 
@@ -279,26 +279,22 @@ Table has schema:
                    message: str,
                    email: str=None,
                    error: Exception=None) -> None:
-    _to = [email] if email else []
-    _administrator = \
+    to = [email] if email else []
+    administrator = \
       os.environ.get('ADMINISTRATOR_EMAIL') or self.FIRESTORE.get_document(
         Type._ADMIN, 'admin').get('email')
-    _cc = [_administrator] if _administrator else []
+    cc = [administrator] if administrator else []
+    body=f'{message}{gmail.error_to_trace(error)}',
 
-    if _trace := \
-    ''.join(traceback.TracebackException.from_exception(error).format()) \
-      if error else None:
-      _trace = 'Error\n\n' + _trace
-
-    if _to or _cc:
-      message = GMailMessage(
-        to=_to,
-        cc=_cc,
+    if to or cc:
+      message = gmail.GMailMessage(
+        to=to,
+        cc=cc,
         subject=f'Error in report_loader',
-        body=f'{message}{_trace if _trace else ""}',
+        body=body,
         project=os.environ.get('GCP_PROJECT'))
 
-      GMail().send_message(
+      gmail.send_message(
         message=message,
         credentials=Report2BQCredentials(
           email=email, project=os.environ.get('GCP_PROJECT'))

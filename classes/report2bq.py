@@ -43,6 +43,7 @@ class Report2BQ(object):
     self.email = email
     self.append = append
     self.infer_schema = infer_schema
+    self.in_cloud = unused.get('in_cloud', True)
 
     self.report_id = report_id
 
@@ -99,7 +100,7 @@ class Report2BQ(object):
     if self.dest_dataset: report_data['dest_dataset'] = self.dest_dataset
 
     if self.dest_table:
-      table_name = ("_" + csv_helpers.sanitize_string(self.dest_table))
+      table_name = (csv_helpers.sanitize_string(self.dest_table))
     else:
       table_name = report_data.get("report_name", "unnamed_report")
     report_data['dest_table'] = \

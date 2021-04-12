@@ -166,7 +166,8 @@ class Firestore(object):
     Arguments:
         runner {Dict[str, Any]} -- store a running report definition
     """
-    self.store_document(Type._RUNNING, runner)
+    self.store_document(type=Type._RUNNING,
+                        id=runner['report_id'], document=runner)
 
   def remove_report_runner(self, runner: str) -> None:
     """Removes a running report
@@ -176,7 +177,7 @@ class Firestore(object):
     Arguments:
         runner {Dict[str, Any]} -- [description]
     """
-    self.delete_document(Type._RUNNING, runner)
+    self.delete_document(Type._RUNNING, runner['report_id'])
 
   def get_document(self, type: Type, id: str,
                    key: Optional[str]=None) -> Dict[str, Any]:

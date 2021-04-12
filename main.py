@@ -26,6 +26,7 @@ import traceback
 from importlib import import_module
 from typing import Any, Dict
 
+from classes import gmail
 from classes.adh import ADH
 from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials
@@ -33,7 +34,6 @@ from classes.dbm_report_runner import DBMReportRunner
 from classes.dcm_report_runner import DCMReportRunner
 from classes.decorators import measure_memory
 from classes.ga360_report_runner import GA360ReportRunner
-from classes.gmail import GMail, GMailMessage
 from classes.postprocessor import PostProcessor
 from classes.report2bq import Report2BQ
 from classes.report_type import Type
@@ -233,23 +233,18 @@ def email_error(email: str,
                 event: Dict[str, Any],
                 error: Exception) -> None:
 
-  _trace = \
-    ''.join(traceback.TracebackException.from_exception(error).format()) \
-      if error else 'None'
+  body=(
+    f'\nError: {error if error else "No exception."}\n\n'
+    f'Trace: {gmail.error_to_trace(error)}\n\n'
+    f'Event data: {event}'
+  )
 
-  message = GMailMessage(
-    to=[email],
-    subject=f'Error in {product or "Report2BQ"}',
-    body=f'''
-Error: {error if error else 'No exception.'}
+  message = gmail.GMailMessage(to=[email],
+                               subject=f'Error in {product or "Report2BQ"}',
+                               project=os.environ.get('GCP_PROJECT'),
+                               body=body)
 
-Trace: {_trace}
-
-Event data: {event}
-''',
-    project=os.environ.get('GCP_PROJECT'))
-
-  GMail().send_message(
+  gmail.send_message(
     message=message,
     credentials=Credentials(email=email, project=os.environ.get('GCP_PROJECT'))
   )

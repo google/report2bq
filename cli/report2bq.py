@@ -76,6 +76,7 @@ flags.DEFINE_boolean('append',
 flags.DEFINE_string('partition',
                      None,
                      'Create a partitioned table in BQ.')
+flags.DEFINE_boolean('in_cloud', True, 'All storage is in GCS.')
 flags.DEFINE_boolean('runner', False, 'Runner, not fetcher.')
 
 flags.DEFINE_string('dest_project',
@@ -110,7 +111,7 @@ def main(unused_argv):
     'report_id': FLAGS.report_id,
     'profile': FLAGS.profile,
     'email': FLAGS.email,
-    'in_cloud': True,
+    'in_cloud': FLAGS.in_cloud,
     'append': FLAGS.append,
     'project': FLAGS.project or os.environ.get('GCP_PROJECT'),
     'sa360_url': unquote(FLAGS.sa360_url) if FLAGS.sa360_url else None,
