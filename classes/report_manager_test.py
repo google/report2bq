@@ -123,7 +123,6 @@ class ReportManagerTest(unittest.TestCase):
                    file='bar.list', **STANDARD_ARGS)
 
     self.assertEqual(1, self.mock_firestore.delete_document.call_count)
-    print(mock_scheduler.process.call_args_list)
     self.assertEqual([
       mock.call(**{'action': 'list',
                  'email': 'luke@skywalker.com',

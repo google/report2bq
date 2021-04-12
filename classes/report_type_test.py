@@ -24,8 +24,9 @@ class TypeTest(unittest.TestCase):
   def test_valid_current_enum(self):
     self.assertEqual(Type.DV360, Type('dv360'))
 
-  def test_valid_old_enum(self):
-    self.assertEqual([Type.DV360, Type.CM], [ Type(T) for T in ['dbm', 'dcm'] ])
+  def test_valid_enum_rewrite(self):
+    self.assertEqual([Type.DV360, Type.CM, Type.GA360_RPT],
+                     [ Type(T) for T in ['dbm', 'dcm', 'ga360'] ])
 
   def test_valid_internals(self):
     self.assertEqual([Type._ADMIN, Type._JOBS, Type._RUNNING],

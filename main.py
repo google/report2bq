@@ -71,9 +71,9 @@ def report_fetch(event: Dict[str, Any], context=None):
         'email': attributes['email'],
         'project': attributes['project'],
         'report_id':
-          attributes.get('dv360_id') or \
-            attributes.get('cm_id') or \
-              attributes.get('report_id'),
+          attributes.get('report_id') or \
+            attributes.get('dv360_id') or \
+              attributes.get('cm_id'),
         'profile': attributes.get('profile'),
         'sa360_url': attributes.get('sa360_url'),
         'force': attributes.get('force', False),
