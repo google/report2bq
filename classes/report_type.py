@@ -24,7 +24,6 @@ class Type(Enum):
   ADH = 'adh'
   CM = 'cm'
   DV360 = 'dv360'
-  GA360 = 'ga360'
   GA360_RPT = 'ga360_report'
   SA360 = 'sa360'
   SA360_RPT = 'sa360_report'
@@ -59,6 +58,8 @@ class Type(Enum):
       return cls.DV360
     elif value == 'dcm':
       return cls.CM
+    elif value == 'ga360':
+      return cls.GA360_RPT
     else:
       return cls._UNKNOWN
 
