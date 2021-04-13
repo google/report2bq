@@ -42,15 +42,16 @@ class OAuth(object):
   # Scope definitions here:
   #   https://developers.google.com/identity/protocols/oauth2/scopes
   SCOPES = [
-    'https://www.googleapis.com/auth/adsdatahub', # ADH
-    'https://www.googleapis.com/auth/analytics', # Analytics Reporting
-    'https://www.googleapis.com/auth/bigquery', # BigQuery
-    'https://www.googleapis.com/auth/cloud-platform', # Cloud Platform
-    'https://www.googleapis.com/auth/datastore', # Firestore
-    'https://www.googleapis.com/auth/dfareporting', # DCM Reporting
-    'https://www.googleapis.com/auth/devstorage.read_write', # GCS
-    'https://www.googleapis.com/auth/doubleclickbidmanager', # DBM
-    'https://www.googleapis.com/auth/doubleclicksearch', # Firestore
+    'https://www.googleapis.com/auth/analytics',
+    'https://www.googleapis.com/auth/adsdatahub',
+    'https://www.googleapis.com/auth/bigquery',
+    'https://www.googleapis.com/auth/cloud-platform',
+    'https://www.googleapis.com/auth/datastore',
+    'https://www.googleapis.com/auth/dfareporting',
+    'https://www.googleapis.com/auth/devstorage.read_write',
+    'https://www.googleapis.com/auth/doubleclickbidmanager',
+    'https://www.googleapis.com/auth/doubleclicksearch',
+    'https://www.googleapis.com/auth/gmail.send',
   ]
   project = os.environ['GOOGLE_CLOUD_PROJECT']
   bucket = f'{project}-report2bq-tokens'

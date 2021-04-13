@@ -55,6 +55,19 @@ flags.DEFINE_integer('profile',
                      None,
                      'Campaign Manager profile id. Only needed for CM.')
 
+flags.DEFINE_string('adh_customer',
+                    None,
+                    'ADH customer id')
+flags.DEFINE_string('adh_query',
+                    None,
+                    'ADH query id')
+flags.DEFINE_string('api_key',
+                    None,
+                    'ADH Developer Key')
+flags.DEFINE_integer('days',
+                     60,
+                     'Number of days lookback, default is 60')
+
 flags.DEFINE_string('product',
                     None,
                     'Product type')
@@ -73,9 +86,7 @@ flags.DEFINE_boolean('append',
                      False,
                      ('Append the data to the existing table '
                       'instead of replacing.'))
-flags.DEFINE_string('partition',
-                     None,
-                     'Create a partitioned table in BQ.')
+flags.DEFINE_string('partition', None, 'Create a partitioned table in BQ.')
 flags.DEFINE_boolean('in_cloud', True, 'All storage is in GCS.')
 flags.DEFINE_boolean('runner', False, 'Runner, not fetcher.')
 
@@ -124,6 +135,10 @@ def main(unused_argv):
     'notify_message': FLAGS.notify_message,
     'partition': FLAGS.partition or None,
     'development': FLAGS.development,
+    'adh_customer': FLAGS.adh_customer,
+    'adh_query': FLAGS.adh_query,
+    'api_key': FLAGS.api_key,
+    'days': FLAGS.days,
   }
 
   if FLAGS.product:
@@ -132,10 +147,12 @@ def main(unused_argv):
     attributes['type'] = Type.SA360
   elif attributes.get('profile'):
     attributes['type'] = Type.CM
+  elif attributes['adh_customer']:
+    attributes['type'] = Type.ADH
   else:
     attributes['type'] = Type.DV360
 
-  if Type(FLAGS.product) in [ Type.SA360_RPT, Type.GA360_RPT ]:
+  if attributes['type'] in [ Type.SA360_RPT, Type.GA360_RPT, Type.ADH ]:
     f = report_runner
   else:
     f = report_fetch if not FLAGS.runner else report_runner
