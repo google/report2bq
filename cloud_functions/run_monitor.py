@@ -169,7 +169,7 @@ class RunMonitor(object):
     logging.info('Report %s status: %s.', run_config['report_id'], status)
     if status == 'REPORT_AVAILABLE':
       # Send pubsub to trigger report2bq now
-      topic = f'projects/{self.project}/topics/report2bq-trigger'
+      topic = f'projects/{self.project}/topics/report2bq-fetcher'
       self.pubsub_client.publish(topic=topic, data=b'RUN', **job_attributes)
 
       # Remove job from running
@@ -196,7 +196,7 @@ class RunMonitor(object):
     config = { **run_config, **job_attributes }
 
     # Send pubsub to trigger report2bq now
-    topic = f'projects/{self.project}/topics/report2bq-trigger'
+    topic = f'projects/{self.project}/topics/report2bq-fetcher'
     self.pubsub_client.publish(
       topic=topic, data=b'RUN',
       **config)

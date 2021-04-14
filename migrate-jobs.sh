@@ -29,13 +29,15 @@ for JOB in ${JOBS}; do
   _SPLIT=$(echo ${JOB} | sed -re 's/^([a-z0-9_-]+).* ([A-Z]+)$/\1 \2/')
   IFS=$' ' read NAME STATUS <<< ${_SPLIT}
   echo Job: ${NAME}
-  [[ ${STATUS} == 'PAUSED' ]] && ${DRY_RUN} gcloud --project=${PROJECT} scheduler jobs resume ${NAME}
   if [[ ${NAME} =~ ^run-.* ]]; then
+    [[ ${STATUS} == 'PAUSED' ]] && ${DRY_RUN} gcloud --project=${PROJECT} scheduler jobs resume ${NAME}
     ${DRY_RUN} gcloud --project=${PROJECT} scheduler jobs update pubsub \
       ${NAME} --topic=report2bq-runner
+    [[ ${STATUS} == 'PAUSED' ]] && ${DRY_RUN} gcloud --project=${PROJECT} scheduler jobs pause ${NAME}
   elif [[ ${NAME} =~ ^fetch-.* ]]; then
+    [[ ${STATUS} == 'PAUSED' ]] && ${DRY_RUN} gcloud --project=${PROJECT} scheduler jobs resume ${NAME}
     ${DRY_RUN} gcloud --project=${PROJECT} scheduler jobs update pubsub \
       ${NAME} --topic=report2bq-fetcher
+    [[ ${STATUS} == 'PAUSED' ]] && ${DRY_RUN} gcloud --project=${PROJECT} scheduler jobs pause ${NAME}
   fi
-  [[ ${STATUS} == 'PAUSED' ]] && ${DRY_RUN} gcloud --project=${PROJECT} scheduler jobs pause ${NAME}
 done
