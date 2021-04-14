@@ -13,10 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# __author__ = [
-#   'davidharcombe@google.com (David Harcombe)'
-# ]
-
 # install.sh
 #
 # Install all the base libraries, APIs, datasets and Cloud Functions for Repor2BQ to
@@ -75,10 +71,29 @@ EOF
 function join { local IFS="$1"; shift; echo "$*"; }
 
 function cleanup {
-  gcloud functions list --project ${PROJECT} | grep "^$1" > /dev/null
+  # function
+  gcloud functions list --project ${PROJECT} | grep "$1" > /dev/null
   if [ $? = 0 ]; then
-    echo " ... clean up old version"
+    echo " ... clean up old function"
     ${DRY_RUN} gcloud functions delete "$1" \
+      --project=${PROJECT} \
+      --quiet
+  fi
+
+  # topic
+  gcloud pubsub topics list --project ${PROJECT} | grep "$1" > /dev/null
+  if [ $? = 0 ]; then
+    echo " ... clean up old topic"
+    ${DRY_RUN} gcloud pubsub topics delete "$1" \
+      --project=${PROJECT} \
+      --quiet
+  fi
+
+  # job
+  gcloud scheduler jobs list --project ${PROJECT} | grep "$1" > /dev/null
+  if [ $? = 0 ]; then
+    echo " ... clean up old scheduler"
+    ${DRY_RUN} gcloud scheduler jobs delete "$1" \
       --project=${PROJECT} \
       --quiet
   fi
@@ -317,12 +332,12 @@ if [ ${DEPLOY_TOPICS} -eq 1 ]; then
     ${DRY_RUN} gcloud pubsub topics delete \
       --project=${PROJECT} \
       --quiet \
-      "report2bq-trigger"
+      "report2bq-fetcher"
 
     ${DRY_RUN} gcloud pubsub topics create \
       --project=${PROJECT} \
       --quiet \
-      "report2bq-trigger"
+      "report2bq-fetcher"
   fi
 
   # job-monitor
@@ -330,12 +345,12 @@ if [ ${DEPLOY_TOPICS} -eq 1 ]; then
     ${DRY_RUN} gcloud pubsub topics delete \
       --project=${PROJECT} \
       --quiet \
-      "job-monitor"
+      "report2bq-job-monitor"
 
     ${DRY_RUN} gcloud pubsub topics create \
       --project=${PROJECT} \
       --quiet \
-      "job-monitor"
+      "report2bq-job-monitor"
   fi
 
   # report-runner
@@ -344,12 +359,12 @@ if [ ${DEPLOY_TOPICS} -eq 1 ]; then
     ${DRY_RUN} gcloud pubsub topics delete \
       --project=${PROJECT} \
       --quiet \
-      "report-runner"
+      "report2bq-runner"
 
     ${DRY_RUN} gcloud pubsub topics create \
       --project=${PROJECT} \
       --quiet \
-      "report-runner"
+      "report2bq-runner"
   fi
 
   # run-monitor
@@ -358,12 +373,12 @@ if [ ${DEPLOY_TOPICS} -eq 1 ]; then
     ${DRY_RUN} gcloud pubsub topics delete \
       --project=${PROJECT} \
       --quiet \
-      "run-monitor"
+      "report2bq-run-monitor"
 
     ${DRY_RUN} gcloud pubsub topics create \
       --project=${PROJECT} \
       --quiet \
-      "run-monitor"
+      "report2bq-run-monitor"
   fi
 
   # post-processor
@@ -372,12 +387,12 @@ if [ ${DEPLOY_TOPICS} -eq 1 ]; then
     ${DRY_RUN} gcloud pubsub topics delete \
       --project=${PROJECT} \
       --quiet \
-      "postprocessor"
+      "report2bq-postprocessor"
 
     ${DRY_RUN} gcloud pubsub topics create \
       --project=${PROJECT} \
       --quiet \
-      "postprocessor"
+      "report2bq-postprocessor"
   fi
 
 fi
@@ -387,6 +402,7 @@ _ENV_VARS=(
   "DATASET=${DATASET}"
   "API_KEY=${API_KEY}"
   "GCP_PROJECT=${PROJECT}"
+  "POSTPROCESSOR=report2bq-postprocessor"
   ${_ADMIN}
 )
 ENVIRONMENT=$(join "," ${_ENV_VARS[@]})
@@ -402,7 +418,7 @@ if [ ${DEPLOY_MONITOR} -eq 1 ]; then
     --source=${SOURCE} \
     --runtime python38 \
     --memory=1024MB \
-    --trigger-topic="job-monitor" \
+    --trigger-topic="report2bq-job-monitor" \
     --service-account=$USER \
     --quiet \
     --timeout=240s \
@@ -412,12 +428,12 @@ if [ ${DEPLOY_MONITOR} -eq 1 ]; then
   ${DRY_RUN} gcloud beta scheduler jobs delete \
     --project=${PROJECT} \
     --quiet \
-    "job-monitor"
+    "report2bq-job-monitor"
 
   ${DRY_RUN} gcloud beta scheduler jobs create pubsub \
-    "job-monitor" \
+    "report2bq-job-monitor" \
     --schedule="*/2 * * * *" \
-    --topic="projects/${PROJECT}/topics/job-monitor" \
+    --topic="projects/${PROJECT}/topics/report2bq-job-monitor" \
     --time-zone="America/Toronto" \
     --message-body="RUN" \
     --project=${PROJECT} ${_BG}
@@ -432,7 +448,7 @@ if [ ${DEPLOY_FETCHER} -eq 1 ]; then
     --source=${SOURCE} \
     --runtime=python38 \
     --memory=4096MB \
-    --trigger-topic="report2bq-trigger" \
+    --trigger-topic="report2bq-fetcher" \
     --service-account=$USER \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
@@ -469,7 +485,7 @@ if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
     --source=${SOURCE} \
     --runtime python38 \
     --memory=2048MB \
-    --trigger-topic="report-runner" \
+    --trigger-topic="report2bq-runner" \
     --service-account=$USER \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
@@ -488,7 +504,7 @@ if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
     --source=${SOURCE} \
     --runtime python38 \
     --memory=1024MB \
-    --trigger-topic="run-monitor" \
+    --trigger-topic="report2bq-run-monitor" \
     --service-account=$USER \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
@@ -499,11 +515,11 @@ if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
   ${DRY_RUN} gcloud beta scheduler jobs delete \
     --project=${PROJECT} \
     --quiet \
-    "run-monitor"
+    "report2bq-run-monitor"
 
-  ${DRY_RUN} gcloud beta scheduler jobs create pubsub "run-monitor" \
+  ${DRY_RUN} gcloud beta scheduler jobs create pubsub "report2bq-run-monitor" \
     --schedule="1-59/2 * * * *" \
-    --topic="projects/${PROJECT}/topics/run-monitor" \
+    --topic="projects/${PROJECT}/topics/report2bq-run-monitor" \
     --time-zone="America/Toronto" \
     --message-body="RUN" \
     --project=${PROJECT}
@@ -520,7 +536,7 @@ if [ ${DEPLOY_POSTPROCESSOR} -eq 1 ]; then
     --source=${SOURCE} \
     --runtime python38 \
     --memory=4096MB \
-    --trigger-topic="postprocessor" \
+    --trigger-topic="report2bq-postprocessor" \
     --service-account=$USER \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \

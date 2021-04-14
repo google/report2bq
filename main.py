@@ -63,13 +63,13 @@ def report_fetch(event: Dict[str, Any], context=None):
       event {Dict[str, Any]} -- data sent from the PubSub message
       context {Dict[str, Any]} -- context data. unused
   """
-  if 'attributes' in event:
-    attributes = event['attributes']
+  if attributes := event.get('attributes'):
+    logging.info(attributes)
 
     try:
       kwargs = {
-        'email': attributes['email'],
-        'project': attributes['project'],
+        'email': attributes.get('email'),
+        'project': attributes.get('project'),
         'report_id':
           attributes.get('report_id') or \
             attributes.get('dv360_id') or \

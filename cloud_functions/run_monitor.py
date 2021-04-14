@@ -18,19 +18,17 @@ __author__ = [
   'davidharcombe@google.com (David Harcombe)'
 ]
 
-import json
 import logging
 import os
-import re
 
 from typing import Dict, List, Any
 from contextlib import suppress
 
+from classes import firestore
+from classes import gmail
+from classes.credentials import Credentials as Report2BQCredentials
 from classes.dbm import DBM
 from classes.dcm import DCM
-from classes.sa360_dynamic import SA360Dynamic
-from classes.sa360_web import SA360Web
-from classes.firestore import Firestore
 from classes.report_type import Type
 from classes.scheduler import Scheduler
 
@@ -53,7 +51,7 @@ class RunMonitor(object):
   """
 
   def __init__(self):
-    self.firestore_client = Firestore()
+    self.firestore_client = firestore.Firestore()
     self.pubsub_client = pubsub.PublisherClient()
 
   def process(self, data: Dict[str, Any], context) -> None:
@@ -73,24 +71,24 @@ class RunMonitor(object):
       Type.SA360_RPT: self._check_sa360_report
     }
 
-    try:
-      documents = self.firestore_client.get_all_running()
-      for document in documents:
-        with suppress(ValueError):
-          run_config = document.get().to_dict()
-          T = Type(run_config['type'])
-          (success, job_config) = \
-            self._fetch_schedule(type=T, run_config=run_config)
-          if success:
-            report_checker.get(T, self._invalid_type)(
-              run_config=run_config, job_config=job_config)
-          else:
-            # Invalid job; remove this runner
-            self.firestore_client.remove_report_runner(document.id)
+    documents = self.firestore_client.get_all_running()
+    for document in documents:
+      try:
+        run_config = document.get().to_dict()
+        T = Type(run_config.get('type'))
+        (success, job_config) = \
+          self._fetch_schedule(type=T, run_config=run_config)
+        if success:
+          report_checker.get(T, self._invalid_type)(
+            run_config=run_config, job_config=job_config)
+        else:
+          # Invalid job; remove this runner
+          self.firestore_client.remove_report_runner(document.id)
 
+      except Exception as e:
+        logging.error(gmail.error_to_trace(e))
+        self._email_error(message='Error in run monitor.', error=e)
 
-    except Exception as e:
-      logging.error(e)
 
   def _fetch_schedule(self,
                       type: Type,
@@ -99,9 +97,9 @@ class RunMonitor(object):
     return scheduler.process(**{
         'action': 'get',
         'project': os.environ['GCP_PROJECT'],
-        'email': run_config['email'],
+        'email': run_config.get('email'),
         'html': False,
-        'job_id': type.runner(run_config['report_id'])
+        'job_id': type.runner(run_config.get('report_id'))
       })
 
   def _invalid_type(self,
@@ -129,9 +127,9 @@ class RunMonitor(object):
     """
     job_attributes = job_config['pubsubTarget']['attributes']
     dbm = DBM(email=job_attributes['email'], project=self.project)
-    status = dbm.report_state(job_attributes['report_id'])
+    status = dbm.report_state(run_config['report_id'])
 
-    logging.info('Report %s status: %s', job_attributes['report_id'], status)
+    logging.info('Report %s status: %s', run_config['report_id'], status)
 
     if status == 'DONE':
       # Send pubsub to trigger report2bq now
@@ -143,7 +141,7 @@ class RunMonitor(object):
       )
 
       # Remove job from running
-      self.firestore_client.remove_report_runner(job_attributes['report_id'])
+      self.firestore_client.remove_report_runner(run_config['report_id'])
 
     elif status == 'FAILED':
       # Remove job from running
@@ -163,24 +161,24 @@ class RunMonitor(object):
     dcm = DCM(email=job_attributes['email'],
               project=self.project,
               profile=job_attributes['profile'])
-    response = dcm.report_state(report_id=job_attributes['report_id'],
+    response = dcm.report_state(report_id=run_config['report_id'],
                                 file_id=run_config['file_id'])
     status = \
       response['status'] if response and  'status' in response else 'UNKNOWN'
 
-    logging.info('Report %s status: %s.', job_attributes['report_id'], status)
+    logging.info('Report %s status: %s.', run_config['report_id'], status)
     if status == 'REPORT_AVAILABLE':
       # Send pubsub to trigger report2bq now
       topic = f'projects/{self.project}/topics/report2bq-trigger'
       self.pubsub_client.publish(topic=topic, data=b'RUN', **job_attributes)
 
       # Remove job from running
-      self.firestore_client.remove_report_runner(job_attributes['report_id'])
+      self.firestore_client.remove_report_runner(run_config['report_id'])
 
     elif status == 'FAILED' or status =='CANCELLED':
       # Remove job from running
-      logging.error('Report %s failed!', job_attributes['report_id'])
-      self.firestore_client.remove_report_runner(job_attributes['report_id'])
+      logging.error('Report %s failed!', run_config['report_id'])
+      self.firestore_client.remove_report_runner(run_config['report_id'])
 
   def _check_sa360_report(self,
                           job_config: Dict[str, Any],
@@ -202,3 +200,28 @@ class RunMonitor(object):
     self.pubsub_client.publish(
       topic=topic, data=b'RUN',
       **config)
+
+  def _email_error(self,
+                   message: str,
+                   email: str=None,
+                   error: Exception=None) -> None:
+    to = [email] if email else []
+    administrator = \
+      os.environ.get('ADMINISTRATOR_EMAIL') or \
+        self.FIRESTORE.get_document(Type._ADMIN, 'admin').get('email')
+    cc = [administrator] if administrator else []
+    body=f'{message}{gmail.error_to_trace(error)}'
+
+    if to or cc:
+      message = gmail.GMailMessage(
+        to=to,
+        cc=cc,
+        subject=f'Error in run-monitor',
+        body=body,
+        project=os.environ.get('GCP_PROJECT'))
+
+      gmail.send_message(
+        message=message,
+        credentials=Report2BQCredentials(
+          email=email or administrator, project=os.environ.get('GCP_PROJECT'))
+      )

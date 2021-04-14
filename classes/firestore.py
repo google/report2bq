@@ -177,7 +177,7 @@ class Firestore(object):
     Arguments:
         runner {Dict[str, Any]} -- [description]
     """
-    self.delete_document(Type._RUNNING, runner['report_id'])
+    self.delete_document(Type._RUNNING, runner)
 
   def get_document(self, type: Type, id: str,
                    key: Optional[str]=None) -> Dict[str, Any]:

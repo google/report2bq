@@ -149,9 +149,9 @@ class DBM(ReportFetcher, Fetcher):
     request = self.service.reports().listreports(queryId=report_id)
     results = request.execute()
 
-    if results:
+    if reports := results.get('reports'):
       ordered = \
-        sorted(results['reports'],
+        sorted(reports,
                key=lambda k: int(k['metadata']['reportDataStartTimeMs']))
       return ordered[-1]['metadata']['status']['state']
 

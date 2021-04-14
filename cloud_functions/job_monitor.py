@@ -139,7 +139,7 @@ class JobMonitor(object):
   def notify(self,
              report_type: Type,
              config: Dict[str, Any],
-             job: LoadJob, id: str):
+             job: LoadJob, id: str) -> None:
     columns = ';'.join([ field['name'] for field in config['schema'] ])
 
     attributes = {
@@ -156,13 +156,15 @@ class JobMonitor(object):
     try:
       project = config.get('dest_project') or os.environ.get('GCP_PROJECT')
       client.publish(
-        f"projects/{project}/topics/{config['notifier']['topic']}",
-        f"{config['notifier'].get('message', 'RUN')}".encode('utf-8'),
+        ( f"projects/{project}/topics/"
+          f"{os.environ.get('POSTPROCESSOR', 'report2bq-postprocessor')}"),
+        f"{config['notifier'].get('message', 'report2bq_unknown')}" \
+          .encode('utf-8'),
         **attributes
       )
-      logging.info('Notifying %s of completed job %s.',
-                   config['notifier']['topic'], attributes['id'])
+      logging.info('Notifying postprocessor of completed job %s.',
+                   attributes['id'])
 
     except Exception as e:
-      logging.error('Failed to notify %s of completed job %s.',
-                    config['notifier']['topic'], attributes['id'])
+      logging.error('Failed to notify postprocessor of completed job %s.',
+                    attributes['id'])

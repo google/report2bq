@@ -87,6 +87,6 @@ def error_to_trace(error: Exception=None) -> str:
   if error:
     tb = traceback.TracebackException.from_exception(error).format()
     if tb:
-      trace = '\n\Trace:\n\n' + ''.join(tb)
+      trace = '\n\nTrace:\n\n' + ''.join(tb)
 
   return f'{trace}'

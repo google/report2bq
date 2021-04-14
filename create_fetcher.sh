@@ -134,7 +134,7 @@ PROJECT=                            # Project id
 FORCE=                              # Force an install overwrite of objects
 FETCHER=                            # 'Fetcher' name
 REBUILD_SCHEMA=                     # issue a --rebuild_schema directive. Use with care
-TRIGGER="report2bq-trigger"         # Name of the trigger PubSub queue
+TRIGGER="report2bq-fetcher"         # Name of the trigger PubSub queue
 let "TIMER=$RANDOM % 59"            # Random minute timer
 APPEND=                             # Set to make the installed fetcher append to existing data in BQ
 HOUR=""                             # Hour at which to run
@@ -337,7 +337,7 @@ fi
 
 if [ "x${ADH_CUSTOMER}" != "x" ]; then
   FETCHER="run-adh-${ADH_CUSTOMER}-${ADH_QUERY}"
-  TRIGGER="report-runner"
+  TRIGGER="report2bq-runner"
   parameters=(
     ${parameters[@]}
     "adh_customer=${ADH_CUSTOMER}"
@@ -353,7 +353,7 @@ elif [ "x${SA360_URL}" != "x" ]; then
   [[ ${SA360_URL} =~ $id_regex ]]
   ID=${BASH_REMATCH[1]}
   FETCHER="fetch-sa360-${ID}"
-  TRIGGER="report2bq-trigger"
+  TRIGGER="report2bq-fetcher"
   parameters=(
     ${parameters[@]}
     "sa360_url=${SA360_URL}"
@@ -363,7 +363,7 @@ elif [ "x${SA360_URL}" != "x" ]; then
   set_hour 3
 elif [ ! -z ${SA360_ID} ]; then
 # SA360 dynamic report
-  TRIGGER="report-runner"
+  TRIGGER="report2bq-runner"
   NAME="run"
   set_hour "*"
   FETCHER="${NAME}-sa360_report-${SA360_ID}"
@@ -376,11 +376,11 @@ elif [ ! -z ${SA360_ID} ]; then
 elif [ "x${PROFILE}" == "x" ]; then
   # DV360
   if [[ ${IS_RUNNER} -eq 1 ]]; then
-    TRIGGER="report-runner"
+    TRIGGER="report2bq-runner"
     NAME="run"
     set_hour 1
   else
-    TRIGGER="report2bq-trigger"
+    TRIGGER="report2bq-fetcher"
     NAME="fetch"
     HOUR="*"
     parameters=(
@@ -398,11 +398,11 @@ elif [ "x${PROFILE}" == "x" ]; then
 else
   # CM
   if [[ ${IS_RUNNER} -eq 1 ]]; then
-    TRIGGER="report-runner"
+    TRIGGER="report2bq-runner"
     NAME="run"
     set_hour 1
   else
-    TRIGGER="report2bq-trigger"
+    TRIGGER="report2bq-fetcher"
     NAME="fetch"
     HOUR="*"
     parameters=(

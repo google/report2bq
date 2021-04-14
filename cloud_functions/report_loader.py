@@ -284,7 +284,7 @@ Table has schema:
       os.environ.get('ADMINISTRATOR_EMAIL') or self.FIRESTORE.get_document(
         Type._ADMIN, 'admin').get('email')
     cc = [administrator] if administrator else []
-    body=f'{message}{gmail.error_to_trace(error)}',
+    body=f'{message}{gmail.error_to_trace(error)}'
 
     if to or cc:
       message = gmail.GMailMessage(
