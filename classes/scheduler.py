@@ -173,7 +173,7 @@ class Scheduler(Fetcher):
         product = _type = 'sa360'
         hour = kwargs.get('hour') if kwargs.get('hour') else '3'
         action = 'fetch'
-        topic = 'report2bq-trigger'
+        topic = 'report2bq-fetcher'
         _attrs.update({
           'sa360_url': kwargs.get('sa360_url'),
           'type': Type.SA360.value,
@@ -183,7 +183,7 @@ class Scheduler(Fetcher):
         product = _type = Type.SA360_RPT.value
         hour = kwargs.get('hour', '*')
         action = 'run'
-        topic = 'report-runner'
+        topic = 'report2bq-runner'
         _attrs.update({
           'report_id': kwargs.get('report_id'),
           'type': Type.SA360_RPT.value,
@@ -193,7 +193,7 @@ class Scheduler(Fetcher):
         product = _type = Type.ADH.value
         hour = kwargs.get('hour') if kwargs.get('hour') else '2'
         action = 'run'
-        topic = 'report2bq-trigger'
+        topic = 'report2bq-runner'
         _attrs.update({
           'adh_customer': kwargs.get('adh_customer'),
           'adh_query': kwargs.get('adh_query'),
@@ -206,7 +206,7 @@ class Scheduler(Fetcher):
         product = _type = Type.GA360_RPT.value
         hour = kwargs.get('hour', '*')
         action = 'run'
-        topic = 'report-runner'
+        topic = 'report2bq-runner'
         _attrs.update({
           'report_id': kwargs.get('report_id'),
           'type': Type.GA360_RPT.value,
@@ -216,11 +216,11 @@ class Scheduler(Fetcher):
         if kwargs.get('runner'):
           hour = kwargs.get('hour') if kwargs.get('hour') else '1'
           action = 'run'
-          topic = 'report-runner'
+          topic = 'report2bq-runner'
         else:
           hour = '*'
           action = 'fetch'
-          topic = 'report2bq-trigger'
+          topic = 'report2bq-fetcher'
 
         if kwargs.get('profile'):
           product = 'cm'

@@ -32,7 +32,8 @@ class GA360ReportDefinitionTest(unittest.TestCase):
     'metrics': [{'expression': 'ga:goal13Starts', 'alias': 'Goal 13 Starts'},
                 {'expression': 'ga:dbmCost'},
                 {'expression': 'ga:dcmCost', 'formattingType': 'CURRENCY'}],
-    'viewId': ''}
+    'viewId': '',
+    'samplingLevel': 'LARGE'}
 
   DIMENSIONS = [
     "ga:dimension6",
@@ -60,6 +61,7 @@ class GA360ReportDefinitionTest(unittest.TestCase):
     definition = \
       ga360.GA360ReportDefinition(view_id='',
                                   metrics=self.METRICS,
+                                  sampling_level=ga360.GA360SamplingLevel.LARGE,
                                   date_ranges=[
                                     ga360.GA360DateRange(start_date='2021-03-23',
                                                          end_date='2021-03-29')
@@ -79,6 +81,7 @@ class GA360ReportDefinitionTest(unittest.TestCase):
 
     definition = \
       ga360.GA360ReportDefinition(view_id='',
+                                  sampling_level=ga360.GA360SamplingLevel.LARGE,
                                   metrics=self.METRICS,
                                   date_ranges=[
                                     ga360.GA360DateRange(start_date='2021-03-23',
@@ -93,6 +96,7 @@ class GA360ReportDefinitionTest(unittest.TestCase):
   def test_bad_report_with_more_than_two_date_ranges(self):
     definition = \
       ga360.GA360ReportDefinition(view_id='',
+                                  sampling_level=ga360.GA360SamplingLevel.LARGE,
                                   metrics=self.METRICS,
                                   date_ranges=[
                                     ga360.GA360DateRange(),

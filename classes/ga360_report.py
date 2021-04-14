@@ -18,6 +18,7 @@ import enum
 import re
 
 import dataclasses_json
+from dataclasses_json.undefined import Undefined
 
 from classes import decorators
 
@@ -48,7 +49,25 @@ class GA360MetricType(enum.Enum):
     return cls.METRIC_TYPE_UNSPECIFIED
 
 
-@dataclasses_json.dataclass_json(letter_case=dataclasses_json.LetterCase.CAMEL)
+class GA360SamplingLevel(enum.Enum):
+  DEFAULT = 'DEFAULT'
+  SMALL = 'SMALL'
+  LARGE = 'LARGE'
+  @classmethod
+  def _missing_(cls, value):
+    """Fix bad types
+
+    Args:
+        value (str): enum string value requested
+
+    Returns:
+        DEFAULT: if invalid
+    """
+    return cls.DEFAULT
+
+
+@dataclasses_json.dataclass_json(letter_case=dataclasses_json.LetterCase.CAMEL,
+                                 undefined=Undefined.EXCLUDE)
 @dataclasses.dataclass
 class GA360ReportMetric(object):
   expression: str
@@ -69,7 +88,8 @@ class GA360ReportMetric(object):
 PATTERN = re.compile('(^[0-9]+)([a-z]+s)Ago', re.IGNORECASE)
 
 
-@dataclasses_json.dataclass_json(letter_case=dataclasses_json.LetterCase.CAMEL)
+@dataclasses_json.dataclass_json(letter_case=dataclasses_json.LetterCase.CAMEL,
+                                 undefined=Undefined.EXCLUDE)
 @dataclasses.dataclass
 class GA360DateRange(object):
   start_date: Optional[str] = None
@@ -113,7 +133,8 @@ class GA360DateRange(object):
     return dateRange
 
 
-@dataclasses_json.dataclass_json(letter_case=dataclasses_json.LetterCase.CAMEL)
+@dataclasses_json.dataclass_json(letter_case=dataclasses_json.LetterCase.CAMEL,
+                                 undefined=Undefined.EXCLUDE)
 @dataclasses.dataclass
 class GA360ReportDefinition(object):
   view_id: str
@@ -124,20 +145,24 @@ class GA360ReportDefinition(object):
   date_ranges: Optional[List[GA360DateRange]] = None
   page_size: Optional[str] = None
   page_token: Optional[str] = None
+  sampling_level: Optional[GA360SamplingLevel] = None
 
   @property
   def report_request(self) -> Dict[str, str]:
     report_request = {
       'viewId': self.view_id,
       'dimensions': [ { 'name': d } for d in self.dimensions ],
-      'metrics': [  m.metric for m in self.metrics ]
+      'metrics': [  m.metric for m in self.metrics ],
     }
 
+    if self.sampling_level:
+      report_request['samplingLevel'] = self.sampling_level.value
+
     if self.page_size:
-      report_request['page_size'] = self.page_size
+      report_request['pageSize'] = self.page_size
 
     if self.page_token:
-      report_request['page_token'] = self.page_token
+      report_request['pageToken'] = self.page_token
 
     if self.date_ranges:
       if (num := len(self.date_ranges)) > 2:

@@ -53,6 +53,8 @@ Deployment directives:
     --deploy-trigger  (Re)Deploy triggers
     --deploy-job-manager
                       (Re)Deploy the job manager for listing creating and deleting scheduled jobs
+    --deploy-ga360-mamaner
+                      (Re)Deploy the report manager for dynamic GA360 reports
     --deploy-sa360-mamaner
                       (Re)Deploy the report manager for dynamic SA360 reports
 
@@ -118,6 +120,7 @@ DEPLOY_RUN_MONITOR=0
 DEPLOY_STORAGE=0
 DEPLOY_TRIGGER=0
 DEPLOY_POSTPROCESSOR=0
+DEPLOY_GA360_MANAGER=0
 DEPLOY_SA360_MANAGER=0
 DEPLOY_TOPICS=1
 STORE_API_KEY=0
@@ -150,6 +153,7 @@ while [[ $1 == -* ]] ; do
       DEPLOY_STORAGE=1
       DEPLOY_TRIGGER=1
       DEPLOY_POSTPROCESSOR=1
+      DEPLOY_GA360_MANAGER=1
       DEPLOY_SA360_MANAGER=1
       ;;
     --deploy-bigquery)
@@ -181,6 +185,9 @@ while [[ $1 == -* ]] ; do
       ;;
     --deploy-postprocessor)
       DEPLOY_POSTPROCESSOR=1
+      ;;
+    --deploy-ga360-manager)
+      DEPLOY_GA360_MANAGER=1
       ;;
     --deploy-sa360-manager)
       DEPLOY_SA360_MANAGER=1
@@ -232,6 +239,7 @@ if [ ${ACTIVATE_APIS} -eq 1 ]; then
   # Check for active APIs
   APIS_USED=(
     "adsdatahub"
+    "analyticsreporting"
     "appengine"
     "bigquery"
     "cloudbuild"
@@ -551,11 +559,31 @@ if [ ${DEPLOY_SA360_MANAGER} -eq 1 ]; then
 
   ${DRY_RUN} gcloud functions deploy "report2bq-sa360-manager" \
     --service-account=$USER \
-    --entry-point=sa360_report_manager \
+    --entry-point=report_manager \
     --source=${SOURCE} \
     --runtime python38 \
     --memory=4096MB \
     --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-sa360-manager" \
+    --trigger-event="google.storage.object.finalize" \
+    --service-account=$USER \
+    --set-env-vars=${ENVIRONMENT} \
+    --quiet \
+    --timeout=240s \
+    --project=${PROJECT} ${_BG}
+fi
+
+if [ ${DEPLOY_GA360_MANAGER} -eq 1 ]; then
+  # Deploy cloud function
+  echo "ga360 manager"
+  cleanup ga360-manager
+
+  ${DRY_RUN} gcloud functions deploy "report2bq-ga360-manager" \
+    --service-account=$USER \
+    --entry-point=report_manager \
+    --source=${SOURCE} \
+    --runtime python38 \
+    --memory=4096MB \
+    --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-ga360-manager" \
     --trigger-event="google.storage.object.finalize" \
     --service-account=$USER \
     --set-env-vars=${ENVIRONMENT} \

@@ -135,7 +135,7 @@ class GA360ReportRunner(ReportRunner):
               BytesIO(output_buffer.getvalue().encode('utf-8')))
         schema = \
           csv_helpers.create_table_schema(column_headers=headers,
-                                          column_types=types)
+                                          column_types=None)
         runner['schema'] = schema
         self.firestore.update_document(self.report_type, self._report_id,
                                        runner)
