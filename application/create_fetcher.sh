@@ -101,10 +101,7 @@ Options:
                     --partition=timestamp
                   will cause the system to partition on 'ingestion' time; see the Big Query
                   documentation for an explanation for this.
-    --infer-schema
-                  [BETA] Guess the column types based on a sample of the report's first slice.
-    --topic       [BETA] Topic to send a PubSub message to on completion of import job
-    --message     [BETA] Message to send; this should be the name of the custom function to be
+    --message     Message to send; this should be the name of the custom function to be
                   executed. Attributes of dataset, table name, report id and report type will always
                   be sent along with this as part of the message.
     --usage       Show this text
@@ -146,7 +143,6 @@ DEST_TABLE=                         # Destination table name
 TIMEZONE=                           # Timezone
 INFER_SCHEMA=                       # Guess the report's schema
 SA360_ID=                           # ID of the SA360 report to schedule
-TOPIC=                              # Notifier topic for post import processing
 MESSAGE=                            # Notifier message
 PARTITION=                          # Create a BQ Partitioned table
 
@@ -250,9 +246,6 @@ while [[ $1 == -* ]] ; do
     --time-zone*)
       IFS="=" read _cmd TIMEZONE <<< "$1" && [ -z "${TIMEZONE}" ] && shift && TIMEZONE="$1"
       ;;
-    --topic*)
-      IFS="=" read _cmd TOPIC <<< "$1" && [ -z "${TOPIC}" ] && shift && TOPIC="$1"
-      ;;
     --message*)
       IFS="=" read _cmd MESSAGE <<< "$1" && [ -z "${MESSAGE}" ] && shift && MESSAGE="$1"
       ;;
@@ -296,7 +289,6 @@ fi
 [ -z "${DEST_PROJECT}" ] || _DEST_PROJECT="dest_project=${DEST_PROJECT}"
 [ -z "${DEST_DATASET}" ] || _DEST_DATASET="dest_dataset=${DEST_DATASET}"
 [ -z "${DEST_TABLE}" ] || _DEST_TABLE="dest_table=${DEST_TABLE//[^0-9a-zA-Z_]/_}"
-[ -z "${TOPIC}" ] || _NOTIFIER_TOPIC="notify_topic=${TOPIC}"
 [ -z "${MESSAGE}" ] || _NOTIFIER_MESSAGE="notify_message=${MESSAGE}"
 
 # partitioning tables
@@ -320,7 +312,6 @@ parameters=(
   "${_DEST_PROJECT}"
   "${_DEST_DATASET}"
   "${_DEST_TABLE}"
-  "${_NOTIFIER_TOPIC}"
   "${_NOTIFIER_MESSAGE}"
   "${_PARTITION}"
 )

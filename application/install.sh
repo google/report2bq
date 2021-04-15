@@ -328,6 +328,9 @@ if [ ${DEPLOY_CODE} -eq 1 ]; then
     exit
   fi
   SOURCE="gs://${PROJECT}-report2bq/report2bq.zip"
+  gsutil cp postprocessors/report2bq_unknown.py \
+    gs://${PROJECT}-report2bq-postprocessor 2>&1 > /dev/null
+
 else
   SOURCE="."
 fi
