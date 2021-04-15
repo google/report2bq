@@ -53,6 +53,7 @@ class GA360SamplingLevel(enum.Enum):
   DEFAULT = 'DEFAULT'
   SMALL = 'SMALL'
   LARGE = 'LARGE'
+
   @classmethod
   def _missing_(cls, value):
     """Fix bad types

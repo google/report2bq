@@ -74,9 +74,9 @@ def report_fetch(event: Dict[str, Any], context=None) -> None:
           'email': attributes.get('email'),
           'project': attributes.get('project'),
           'report_id':
-          attributes.get('report_id') or
-          attributes.get('dv360_id') or
-          attributes.get('cm_id'),
+              attributes.get('report_id') or
+              attributes.get('dv360_id') or
+              attributes.get('cm_id'),
           'profile': attributes.get('profile'),
           'sa360_url': attributes.get('sa360_url'),
           'force': attributes.get('force', False),
@@ -198,13 +198,13 @@ def report_runner(event: Dict[str, Any], context=None) -> None:
         Type.ADH: {
             'runner': ADH,
             'args': {
-            'adh_customer': lambda: attributes['adh_customer'],
-                'adh_query': lambda: attributes['adh_query'],
-                'api_key': lambda: attributes['api_key'],
-                'days': attributes.get('days', 60),
-                'dest_project': attributes.get('dest_project', None),
-                'dest_dataset': attributes.get('dest_dataset', None),
-                **_base_args,
+            'adh_customer': attributes.get('adh_customer'),
+            'adh_query': attributes.get('adh_query'),
+            'api_key': attributes.get('api_key'),
+            'days': attributes.get('days', 60),
+            'dest_project': attributes.get('dest_project', None),
+            'dest_dataset': attributes.get('dest_dataset', None),
+            **_base_args,
             }
         },
         Type.GA360_RPT: {

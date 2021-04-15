@@ -89,5 +89,6 @@ class GA360ReportManager(ReportManager):
                           f'view_id {runner.get("view_id")}.')
           runner['description'] = description
 
+        runner['hour'] = runner.get('hour') or '1'
         results.append(self._schedule_job(project=project,
                                           runner=runner, id=id))

@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import random
+import uuid
 
 from typing import Any, Dict, List
 
@@ -322,6 +323,7 @@ class ReportManager(object):
 
 
   def _schedule_job(self, project: str, runner: Dict[str, Any], id: str) -> str:
+    random.seed(uuid.uuid4())
     job_id = f"run-{self.report_type}-{id}"
 
     args = {
