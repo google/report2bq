@@ -1,0 +1,210 @@
+// Copyright 2021 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.```
+{
+  // Sample VSCode launch targets for the CLI and test_harness functions
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "DV360",
+      "type": "python",
+      "request": "launch",
+      "program": "[absolute path to report2bq git clone]/application/cli/report2bq.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "GCP_PROJECT": "[project id]",
+        "GOOGLE_APPLICATION_CREDENTIALS":
+          "[absolute path to service account json file]",
+        "ADMINISTRATOR_EMAIL": "[admin email address for errors]",
+        "API_KEY": "[API Key]"
+      },
+      "args": [
+        // Your parameters here
+        "--report_id=[report id]",
+        "--email=[report owner authenticated email]",
+        "--force"   // A good idea in test, a bad idea in production!
+      ]
+    },
+    {
+      "name": "SA360 Dynamic Report",
+      "type": "python",
+      "request": "launch",
+      "program": "[absolute path to report2bq git clone]/application/cli/report2bq.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "GCP_PROJECT": "[project id]",
+        "GOOGLE_APPLICATION_CREDENTIALS":
+          "[absolute path to service account json file]",
+        "ADMINISTRATOR_EMAIL": "[admin email address for errors]",
+        "API_KEY": "[API Key]"
+      },
+      "args": [
+        "--report_id=[Firestore SA360 Report Id]",
+        "--product=sa360_report",
+        "--force",
+        "--email=[report owner authenticated email]",
+        "--force"   // A good idea in test, a bad idea in production!
+      ]
+    },
+    {
+      "name": "CM",
+      "type": "python",
+      "request": "launch",
+      "program": "[absolute path to report2bq git clone]/application/cli/report2bq.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "GCP_PROJECT": "[project id]",
+        "GOOGLE_APPLICATION_CREDENTIALS":
+          "[absolute path to service account json file]",
+        "API_KEY": "[API Key]",
+        "ADMINISTRATOR_EMAIL": "[admin email address for errors]"
+      },
+      "args": [
+        "--email=[report owner authenticated email]",
+        "--report_id=[report id]",
+        "--profile=[report owner cm profile id]",
+        "--force"
+      ]
+    },
+    {
+      "name": "JobMonitor",
+      "type": "python",
+      "request": "launch",
+      "program": "[absolute path to report2bq git clone]/application/test_harness/job_monitor.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "GCP_PROJECT": "[project id]",
+        "GOOGLE_APPLICATION_CREDENTIALS":
+          "[absolute path to service account json file]",
+        "ADMINISTRATOR_EMAIL": "[admin email address for errors]",
+        "API_KEY": "[API Key]"
+      }
+    },
+    {
+      "name": "RunMonitor",
+      "type": "python",
+      "request": "launch",
+      "program": "[absolute path to report2bq git clone]/application/test_harness/run_monitor.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "GCP_PROJECT": "[project id]",
+        "GOOGLE_APPLICATION_CREDENTIALS":
+          "[absolute path to service account json file]",
+        "ADMINISTRATOR_EMAIL": "[admin email address for errors]",
+        "API_KEY": "[API Key]"
+      }
+    },
+    {
+      "name": "Create Token",
+      "type": "python",
+      "request": "launch",
+      "program": "[absolute path to report2bq git clone]/application/cli/create_token.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "GCP_PROJECT": "[project id]",
+        "GOOGLE_APPLICATION_CREDENTIALS":
+          "[absolute path to service account json file]",
+        "ADMINISTRATOR_EMAIL": "[admin email address for errors]",
+        "API_KEY": "[API Key]"
+      },
+      "args": []
+    },
+    {
+      "name": "sa360",
+      "type": "python",
+      "request": "launch",
+      "program": "[absolute path to report2bq git clone]/application/cli/report2bq.py",
+      "console": "integratedTerminal",
+      "args": [
+        "--sa360_url=[url encoded web downloadable report url]",
+        "--product=sa360"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "GCP_PROJECT": "[project id]",
+        "GOOGLE_APPLICATION_CREDENTIALS":
+          "[absolute path to service account json file]",
+        "ADMINISTRATOR_EMAIL": "[admin email address for errors]",
+        "API_KEY": "[API Key]"
+      }
+    },
+    {
+      "name": "Report Manager",
+      "type": "python",
+      "request": "launch",
+      "program": "[absolute path to report2bq git clone]/application/cli/report_manager.py",
+      "console": "integratedTerminal",
+      "args": [
+        "--product=[sg]a360",
+        "--list"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "GCP_PROJECT": "[project id]",
+        "GOOGLE_APPLICATION_CREDENTIALS":
+          "[absolute path to service account json file]",
+        "ADMINISTRATOR_EMAIL": "[admin email address for errors]",
+        "API_KEY": "[API Key]"
+      }
+    },
+    {
+      "name": "Report Loader",
+      "type": "python",
+      "request": "launch",
+      "program": "[absolute path to report2bq git clone]/application/cli/csv_loader.py",
+      "console": "integratedTerminal",
+      "args": [
+        "--name=[csv file name]",
+        "--bucket=[csv bucket name]"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "GCP_PROJECT": "[project id]",
+        "GOOGLE_APPLICATION_CREDENTIALS":
+          "[absolute path to service account json file]",
+        "ADMINISTRATOR_EMAIL": "[admin email address for errors]",
+        "API_KEY": "[API Key]"
+      }
+    },
+    {
+      "name": "Post Processor Test",
+      "type": "python",
+      "request": "launch",
+      "program": "[absolute path to report2bq git clone]/application/cli/postprocessor.py",
+      "console": "integratedTerminal",
+      "args": [
+        "--name=postprocessor_template",
+        "--project=report2bq-zz9-plural-z-alpha",
+        "--report_id=bmo_185427540",
+        "--product=ga360",
+        "--table=bmo_185427540",
+        "--rows=1000",
+        "--columns=col1;col2;col3;col4"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "GCP_PROJECT": "[project id]",
+        "GOOGLE_APPLICATION_CREDENTIALS":
+          "[absolute path to service account json file]",
+        "ADMINISTRATOR_EMAIL": "[admin email address for errors]",
+        "API_KEY": "[API Key]"
+      }
+    }
+  ]
+}

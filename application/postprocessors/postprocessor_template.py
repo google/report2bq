@@ -20,7 +20,6 @@ __author__ = [
 
 import logging
 
-from contextlib import suppress
 from typing import Any, Dict, Mapping
 
 from classes.postprocessor import PostProcessor
@@ -37,4 +36,5 @@ class Processor(PostProcessor):
     logging.info('Template post-processor')
 
   def run(self,  context, **attributes: Mapping[str, str]) -> Dict[str, Any]:
-    logging.info('Post-process code here')
+    logging.info('Attributes received: %s', attributes)
+    logging.info('Post-process code here.')

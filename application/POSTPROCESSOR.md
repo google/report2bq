@@ -86,6 +86,32 @@ folder.
    function and seeing how much memory it uses). If you do use them, you will
    need access to the GCP Stackdriver logs as that is where the output goes.
 
+## TESTING YOUR `POSTPROCESSOR`
+
+1. Deploy the `postprocessor` file (see below). It **MUST** be deployed in the correct
+   production bucket. `Postprocessor`s will only ever be loaded from there, even
+   in test.
+1. Run the `postprocessor.py` file in the cli folder
+   * Take careful note of the parameters listed.
+   * You will **NEED** to pass in the values that the system would normally
+     populate for you from the successful job import. These are:
+     * `name` - this is the name of your `postprocessor` file, without the '.py'
+     * `project` - the project id
+     * `dataset` - the dataset containing the imported table, defaults to `report2bq`
+     * `table` - the imported table
+     * `report_id` - the report that created the import file
+     * `product` - one of dv360, cm, adh, ga360, sa360, sa360_report
+     * `rows` - number of rows imported
+     * `columns` - names of the columns in the created table, '`;`' separated
+   * `name`, `dataset`, and `table` are pretty much essential. The others really
+    are up to you, and will depend upon what your `postprocessor` needs. They are,
+    however, all passed from the import job and as such are always available to your
+    `postprocessor`.
+   * Your `postprocessor` also has access to Firestore, so can access the configuration
+     of the job if it knows the `product` and `report_id`. This however is beyond
+     the scope of a simple doc like this; you should look into the `report2bq` code
+     itself for further details.
+
 ## DEPLOYING A `POSTPROCESSOR`
 
 Copy the python file to the `[project]-report2bq-postprocessor` bucket.
