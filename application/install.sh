@@ -430,6 +430,7 @@ if [ ${DEPLOY_MONITOR} -eq 1 ]; then
     --runtime python38 \
     --memory=1024MB \
     --trigger-topic="report2bq-job-monitor" \
+    --set-env-vars=${ENVIRONMENT} \
     --service-account=$USER \
     --quiet \
     --timeout=240s \

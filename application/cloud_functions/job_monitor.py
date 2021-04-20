@@ -154,7 +154,7 @@ class JobMonitor(object):
 
     client = pubsub.PublisherClient()
     try:
-      project = config.get('dest_project') or os.environ.get('GCP_PROJECT')
+      project = os.environ.get('GCP_PROJECT')
       client.publish(
         ( f"projects/{project}/topics/"
           f"{os.environ.get('POSTPROCESSOR', 'report2bq-postprocessor')}"),

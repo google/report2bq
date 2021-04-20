@@ -84,7 +84,6 @@ def report_fetch(event: Dict[str, Any], context=None) -> None:
           'infer_schema': attributes.get('infer_schema', False),
           'dest_project': attributes.get('dest_project'),
           'dest_dataset': attributes.get('dest_dataset', 'report2bq'),
-          'notify_topic': attributes.get('notify_topic'),
           'notify_message': attributes.get('notify_message'),
           'partition': attributes.get('partition')
       }

@@ -35,8 +35,8 @@ class Report2BQ(object):
     report_id: str=None, profile: str=None, sa360_url: str=None,
     force: bool=False, append: bool=False, infer_schema: bool=False,
     dest_project: str=None, dest_dataset: str='report2bq', dest_table: str=None,
-    notify_topic: str=None, notify_message: str=None,
-    file_id: str=None, partition: str=None, **unused):
+    notify_message: str=None, file_id: str=None, partition: str=None,
+     **unused) -> Report2BQ:
     self.product = product
 
     self.force = force
@@ -58,7 +58,6 @@ class Report2BQ(object):
     self.dest_dataset = dest_dataset
     self.dest_table = dest_table
 
-    self.notify_topic = notify_topic
     self.notify_message = notify_message
     self.partition = partition
 
@@ -106,12 +105,10 @@ class Report2BQ(object):
     report_data['dest_table'] = \
       f'{fetcher.report_type}_{self.report_id}_{table_name}'
 
-    if self.notify_topic:
+    if self.notify_message:
       report_data['notifier'] = {
-        'topic': self.notify_topic,
+        'message': self.notify_message,
       }
-      if self.notify_message:
-        report_data['notifier']['message'] = self.notify_message
 
     if report_object:
       csv_header, csv_types = fetcher.read_header(report_data)
@@ -149,12 +146,11 @@ class Report2BQ(object):
       table_suffix = ''
     report_data['dest_table'] = f'{Type.SA360}_{id}{table_suffix}'
 
-    if self.notify_topic:
+    if self.notify_message:
       report_data['notifier'] = {
-        'topic': self.notify_topic,
+        'message': self.notify_message,
       }
-      if self.notify_message:
-        report_data['notifier']['message'] = self.notify_message
+
     csv_header, csv_types = sa360.stream_to_gcs(
       bucket=f'{self.project}-report2bq-upload',
       report_details=report_data)

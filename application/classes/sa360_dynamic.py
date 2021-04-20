@@ -93,12 +93,8 @@ class SA360Dynamic(ReportFetcher):
           report_config['dest_project'] = run_config['dest_project']
         if 'dest_dataset' in run_config:
           report_config['dest_dataset'] = run_config['dest_dataset']
-        if 'notify_topic' in run_config:
-          report_config['notifier'] = {
-            'topic': run_config['notify_topic'],
-          }
-          if 'notify_message' in run_config:
-            report_config['notifier']['message'] = run_config['notify_message']
+        if 'notify_message' in run_config:
+          report_config['notifier']['message'] = run_config['notify_message']
 
         # update the report details please...
         self.firestore.update_document(Type.SA360_RPT, run_config['report_id'],
