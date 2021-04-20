@@ -232,16 +232,18 @@ def post_processor(event: Dict[str, Any], context=None) -> None:
       event (Dict[str, Any]): the pubsub event
       context ([type], optional): the pubsub context. unused.
   """
-  if 'data' in event:
-    postprocessor = base64.b64decode(event['data']).decode('utf-8')
-    logging.info(f'Loading and running "{postprocessor}"')
+
+  logging.info('Postprocessor invoked')
+  if postprocessor := event.get('data'):
+    name = base64.b64decode(postprocessor).decode('utf-8')
+    logging.info('Loading and running %s', name)
     PostProcessor.install_postprocessor()
 
     if attributes := event.get('attributes'):
-      _import = f'import classes.postprocessor.{postprocessor}'
+      _import = f'import classes.postprocessor.{name}'
       exec(_import)
       Processor = getattr(
-          import_module(f'classes.postprocessor.{postprocessor}'), 'Processor')
+          import_module(f'classes.postprocessor.{name}'), 'Processor')
       Processor().run(context=context, **attributes)
 
   else:

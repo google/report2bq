@@ -152,6 +152,8 @@ class JobMonitor(object):
       'columns': columns
     }
 
+    logging.info('Notifying postprocessor of completed job %s.',
+                  attributes['id'])
     client = pubsub.PublisherClient()
     try:
       project = os.environ.get('GCP_PROJECT')
@@ -162,8 +164,6 @@ class JobMonitor(object):
           .encode('utf-8'),
         **attributes
       )
-      logging.info('Notifying postprocessor of completed job %s.',
-                   attributes['id'])
 
     except Exception as e:
       logging.error('Failed to notify postprocessor of completed job %s.',
