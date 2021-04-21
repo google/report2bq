@@ -103,9 +103,13 @@ def report_fetch(event: Dict[str, Any], context=None) -> None:
 
     except Exception as e:
       if email := attributes.get('email'):
-        email_error(email=email,
-                    product='Report Fetcher',
-                    event=event, error=e)
+        message = gmail.create_error_email(email=email,
+                                           product='Report Fetcher',
+                                           event=event, error=e)
+        gmail.send_message(message,
+                           credentials=Credentials(
+                             project=os.environ['GCP_PROJECT']),
+                             email=attributes.get('email'))
 
       logging.fatal(f'Error: {e}')
       return
@@ -248,43 +252,6 @@ def post_processor(event: Dict[str, Any], context=None) -> None:
 
   else:
     logging.fatal('No postprocessor specified')
-
-def email_error(email: str,
-                product: str,
-                event: Dict[str, Any],
-                error: Exception) -> None:
-  """Emails any errors.
-
-  This emails any error messages to the job owner and the administrator (if
-  defined). The error will be converted to a full Python stack trace if
-  possible.
-
-  Args:
-      email (str): job owner email.
-      product (str): product name.
-      event (Dict[str, Any]): pubsub event.
-      error (Exception): error to send.
-  """
-  body = (
-      f'\nError: {error if error else "No exception."}\n\n'
-      f'{gmail.error_to_trace(error)}'
-      f'Event data: {event}'
-  )
-  administrator = \
-    os.environ.get('ADMINISTRATOR_EMAIL') or \
-      firestore.Firestore.get_document(Type._ADMIN, 'admin').get('email')
-  cc = [administrator] if administrator else []
-
-  message = gmail.GMailMessage(to=[email],
-                               subject=f'Error in {product or "Report2BQ"}',
-                               project=os.environ.get('GCP_PROJECT'),
-                               body=body)
-
-  gmail.send_message(
-      message=message,
-      credentials=Credentials(email=email,
-                              project=os.environ.get('GCP_PROJECT'))
-  )
 
 def report_manager(event: Dict[str, Any], context=None) -> None:
   """Processes files added to the ga360_report_manager bucket.

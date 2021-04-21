@@ -93,6 +93,15 @@ class RunMonitor(object):
   def _fetch_schedule(self,
                       type: Type,
                       run_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Fetches the job schedule.
+
+    Args:
+        type (Type): the typ(product) of the job.
+        run_config (Dict[str, Any]): the configuration.
+
+    Returns:
+        Dict[str, Any]: the schedule details.
+    """
     scheduler = Scheduler()
     return scheduler.process(**{
         'action': 'get',
@@ -205,6 +214,16 @@ class RunMonitor(object):
                    message: str,
                    email: str=None,
                    error: Exception=None) -> None:
+    """Emails the error details.
+
+    Emails an error and the stack trace to the job owner and the administrator,
+    if they are defined.
+
+    Args:
+        message (str): a text message.
+        email (str, optional): the job owner's email. Defaults to None.
+        error (Exception, optional): an exception. Defaults to None.
+    """
     to = [email] if email else []
     administrator = \
       os.environ.get('ADMINISTRATOR_EMAIL') or \

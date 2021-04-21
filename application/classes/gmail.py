@@ -19,6 +19,8 @@ import traceback
 
 from classes import credentials
 from classes import discovery
+from classes import firestore
+from classes import report_type
 from classes import services
 
 from base64 import urlsafe_b64encode
@@ -60,11 +62,12 @@ class GMailMessage(object):
     return body
 
 
-def send_message(message: str, credentials: credentials.Credentials) -> None:
+def send_message(message: GMailMessage,
+                 credentials: credentials.Credentials) -> None:
   """Sends a message via the Gmail API.
 
   Args:
-      message (str): the message.
+      message (GMailMessage): the message.
       credentials (Credentials): credentials valid for the gmail scope.
   """
   gmail = discovery.get_service(service=services.Service.GMAIL,
@@ -90,3 +93,40 @@ def error_to_trace(error: Exception=None) -> str:
       trace = '\n\nTrace:\n\n' + ''.join(tb)
 
   return f'{trace}'
+
+def create_error_email(email: str,
+                       product: str,
+                       event: Dict[str, Any],
+                       error: Exception) -> GMailMessage:
+  """Creates an error email message.
+
+  This emails any error messages to the job owner and the administrator (if
+  defined). The error will be converted to a full Python stack trace if
+  possible.
+
+  Args:
+      email (str): job owner email.
+      product (str): product name.
+      event (Dict[str, Any]): pubsub event.
+      error (Exception): error to send.
+
+  Returns:
+      the GMailMessage with the error in.
+  """
+  body = (
+      f'\nError: {error if error else "No exception."}\n\n'
+      f'{error_to_trace(error)}'
+      f'Event data: {event}'
+  )
+  administrator = \
+    os.environ.get('ADMINISTRATOR_EMAIL') or \
+      firestore.Firestore.get_document(report_type.Type._ADMIN, 'admin').get('email')
+  cc = [administrator] if administrator else []
+
+  message = GMailMessage(to=[email],
+                         cc=cc,
+                         subject=f'Error in {product or "Report2BQ"}',
+                         project=os.environ.get('GCP_PROJECT'),
+                         body=body)
+
+  return message
