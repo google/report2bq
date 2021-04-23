@@ -13,105 +13,96 @@
 # limitations under the License.
 from __future__ import annotations
 
+import base64
 import json
 
-import google.auth.transport.requests
-import google.oauth2.credentials
-
-from classes import decorators
-from classes import files
-from classes.cloud_storage import Cloud_Storage
+from google.oauth2 import credentials
 from typing import Any, Dict
 
+from classes import decorators
+from classes.abstract_credentials import AbstractCredentials
+from classes.abstract_datastore import AbstractDatastore
+from classes.cloud_storage import Cloud_Storage
+from classes.report_type import Type
 
-class Credentials(object):
-  """Credentials handler
+
+class Credentials(AbstractCredentials):
+  """Cloud connected credentials handler
+
+  This extends and implements the AbstractCredentials for credentials held
+  in Firestore or GCS on the cloud.
   """
+  def __init__(self, email: str=None, project: str=None) -> Credentials:
+      self._email=email,
+      self._project=project
+
   @decorators.lazy_property
-  def bucket(self) -> str:
-    return f'{self.project}-report2bq-tokens'
+  def datastore(self) -> AbstractDatastore:
+    """The datastore property."""
+    from classes.firestore import Firestore
+    return Firestore()
 
   @decorators.lazy_property
   def project_credentials(self) -> Dict[str, Any]:
-    c = None
-    if self.in_cloud:
-      c = json.loads(Cloud_Storage.fetch_file(bucket=self.bucket,
-                                              file='client_secrets.json'))
-    else:
-      with open(f'{files.get_file_path("tokens")}/client_secrets.json',
-                'r') as token_file:
-        c = json.loads(token_file.read())
+    """The project credentials.
 
-    return c
-
-  @property
-  def client_token(self) -> str:
-    return f'{self.email}_user_token.json'
+    TODO: Remove the GCS check when fully migrated to Firestore."""
+    return self.datastore.get_document(type=Type._ADMIN,
+                                       id='auth', key='client_secret') or \
+      json.loads(Cloud_Storage.fetch_file(bucket=self.bucket,
+                                          file='client_secrets.json'))
 
   @property
   def token_details(self) -> Dict[str, Any]:
-    c = None
-    if self.in_cloud:
-      c = json.loads(Cloud_Storage.fetch_file(bucket=self.bucket,
-                                              file=self.client_token))
-    else:
-      with open(f'{files.get_file_path("tokens")}/{self.client_token}',
-                'r') as token_file:
-        c = json.loads(token_file.read())
+    """The users's refresh and access token."""
+    # TODO: Remove the GCS check when fully migrated to Firestore.
+    return self.datastore.get_document(type=Type._ADMIN, id='auth',
+                                       key=self.key) or \
+      json.loads(Cloud_Storage.fetch_file(bucket=self.bucket,
+                                          file=self.client_token))
 
-    return c
+  @decorators.lazy_property
+  def bucket(self) -> str:
+    """The GCS bucket containing credentials."""
+    # TODO: Remove when fully migrated to Firestore.
+    return f'{self._project}-report2bq-tokens'
 
-  def __init__(self,
-               in_cloud: bool=True,
-               email: str=None,
-               project: str=None) -> Credentials:
+  @decorators.lazy_property
+  def client_token(self) -> str:
+    """The name of the token file in GCS."""
+    # TODO: Remove when fully migrated to Firestore.
+    return f'{self._email}_user_token.json'
+
+  @decorators.lazy_property
+  def key(self) -> str:
+    """The key to use in Firestore
+
+    Converts an email address to a base64 version to use as a key since
+    Firestore can only have [A-Za-z0-9] in keys. Stripping the '=' padding is
+    fine as the value will never have to be translated back.
+
+    Returns:
+        str: base64 representation of the key value.
     """
-    Initialize Credential Class
-    """
-    self.project = project
-    self.email = email
-    self.in_cloud = in_cloud
+    _key = \
+      base64.b64encode(self._email.encode('utf-8')).decode('utf-8').rstrip('=')
+    return _key
 
-  def _refresh_credentials(self) -> google.oauth2.credentials.Credentials:
-    secrets = \
-      self.project_credentials.get('web') or \
-        self.project_credentials.get('installed')
+  def store_credentials(self, creds: credentials.Credentials) -> None:
+    """Stores the credentials.
 
-    creds = google.oauth2.credentials.Credentials(
-        None,
-        refresh_token = self.token_details['refresh_token'],
-        token_uri = "https://accounts.google.com/o/oauth2/token",
-        client_id = secrets['client_id'],
-        client_secret = secrets['client_secret']
-    )
+    This function uses the datastore to store the user credentials for later.
 
-    creds.refresh(google.auth.transport.requests.Request())
+    Args:
+        creds (credentials.Credentials): the user credentials."""
+    # TODO: Remove the GCS write when fully migrated to Firestore.
     refresh_token_details = {
       'access_token': creds.token,
       'refresh_token': creds.refresh_token
     }
-
+    self.datastore.update_document(type=Type._ADMIN, id='auth',
+                                   new_data={self.key: refresh_token_details})
     Cloud_Storage.write_file(
       bucket=self.bucket, file=self.client_token,
       data=json.dumps(refresh_token_details).encode('utf-8'))
-
     return creds
-
-  def get_credentials(self) -> google.oauth2.credentials.Credentials:
-    """
-    Return credentials
-    Returns:
-       credential object
-    """
-    return self._refresh_credentials()
-
-  def get_auth_headers(self) -> Dict[str, Any]:
-    """
-    Returns authorized http headers
-    Returns:
-      OAuth authenticated headers
-    """
-    oauth2_header = {}
-    self._refresh_credentials().apply(oauth2_header)
-
-    return oauth2_header

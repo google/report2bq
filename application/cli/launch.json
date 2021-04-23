@@ -11,15 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.```
+//
+// Sample VSCode launch targets for the CLI and test_harness functions
 {
-  // Sample VSCode launch targets for the CLI and test_harness functions
   "version": "0.2.0",
   "configurations": [
     {
       "name": "DV360",
       "type": "python",
       "request": "launch",
-      "program": "[absolute path to report2bq git clone]/application/cli/report2bq.py",
+      "program": "${workspacefolder}/application/cli/report2bq.py",
       "console": "integratedTerminal",
       "env": {
         "PYTHONPATH": "${workspaceFolder}",
@@ -40,7 +41,7 @@
       "name": "SA360 Dynamic Report",
       "type": "python",
       "request": "launch",
-      "program": "[absolute path to report2bq git clone]/application/cli/report2bq.py",
+      "program": "${workspacefolder}/application/cli/report2bq.py",
       "console": "integratedTerminal",
       "env": {
         "PYTHONPATH": "${workspaceFolder}",
@@ -62,7 +63,7 @@
       "name": "CM",
       "type": "python",
       "request": "launch",
-      "program": "[absolute path to report2bq git clone]/application/cli/report2bq.py",
+      "program": "${workspacefolder}/application/cli/report2bq.py",
       "console": "integratedTerminal",
       "env": {
         "PYTHONPATH": "${workspaceFolder}",
@@ -83,7 +84,7 @@
       "name": "JobMonitor",
       "type": "python",
       "request": "launch",
-      "program": "[absolute path to report2bq git clone]/application/test_harness/job_monitor.py",
+      "program": "${workspacefolder}/application/test_harness/job_monitor.py",
       "console": "integratedTerminal",
       "env": {
         "PYTHONPATH": "${workspaceFolder}",
@@ -98,7 +99,7 @@
       "name": "RunMonitor",
       "type": "python",
       "request": "launch",
-      "program": "[absolute path to report2bq git clone]/application/test_harness/run_monitor.py",
+      "program": "${workspacefolder}/application/test_harness/run_monitor.py",
       "console": "integratedTerminal",
       "env": {
         "PYTHONPATH": "${workspaceFolder}",
@@ -113,7 +114,7 @@
       "name": "Create Token",
       "type": "python",
       "request": "launch",
-      "program": "[absolute path to report2bq git clone]/application/cli/create_token.py",
+      "program": "${workspacefolder}/application/cli/create_token.py",
       "console": "integratedTerminal",
       "env": {
         "PYTHONPATH": "${workspaceFolder}",
@@ -129,7 +130,7 @@
       "name": "sa360",
       "type": "python",
       "request": "launch",
-      "program": "[absolute path to report2bq git clone]/application/cli/report2bq.py",
+      "program": "${workspacefolder}/application/cli/report2bq.py",
       "console": "integratedTerminal",
       "args": [
         "--sa360_url=[url encoded web downloadable report url]",
@@ -148,7 +149,7 @@
       "name": "Report Manager",
       "type": "python",
       "request": "launch",
-      "program": "[absolute path to report2bq git clone]/application/cli/report_manager.py",
+      "program": "${workspacefolder}/application/cli/report_manager.py",
       "console": "integratedTerminal",
       "args": [
         "--product=[sg]a360",
@@ -167,7 +168,7 @@
       "name": "Report Loader",
       "type": "python",
       "request": "launch",
-      "program": "[absolute path to report2bq git clone]/application/cli/csv_loader.py",
+      "program": "${workspacefolder}/application/cli/csv_loader.py",
       "console": "integratedTerminal",
       "args": [
         "--name=[csv file name]",
@@ -186,7 +187,7 @@
       "name": "Post Processor Test",
       "type": "python",
       "request": "launch",
-      "program": "[absolute path to report2bq git clone]/application/cli/postprocessor.py",
+      "program": "${workspacefolder}/application/cli/postprocessor.py",
       "console": "integratedTerminal",
       "args": [
         "--name=postprocessor_template",
