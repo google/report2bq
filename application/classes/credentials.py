@@ -33,7 +33,7 @@ class Credentials(AbstractCredentials):
   in Firestore or GCS on the cloud.
   """
   def __init__(self, email: str=None, project: str=None) -> Credentials:
-      self._email=email,
+      self._email=email
       self._project=project
 
   @decorators.lazy_property

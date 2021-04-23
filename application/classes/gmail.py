@@ -118,10 +118,11 @@ def create_error_email(email: str,
       f'{error_to_trace(error)}'
       f'Event data: {event}'
   )
-  administrator = \
-    os.environ.get('ADMINISTRATOR_EMAIL') or \
-      firestore.Firestore.get_document(type=report_type.Type._ADMIN,
-                                       id='admin').get('email')
+  if not (administrator := os.environ.get('ADMINISTRATOR_EMAIL')):
+    if firestore_admin := \
+      firestore.Firestore().get_document(type=report_type.Type._ADMIN,
+                                       id='admin'):
+      administrator = firestore_admin.get('email')
   cc = [administrator] if administrator else []
 
   message = GMailMessage(to=[email],
