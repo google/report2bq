@@ -34,7 +34,6 @@ flags.DEFINE_string('name', None, 'filename')
 flags.DEFINE_string('bucket', None, 'bucket')
 
 
-# Stub main()
 def main(unused_argv):
   event = {
     'name': FLAGS.name,

@@ -54,15 +54,15 @@ class ADH(object):
     Setus up the ADH helper
 
     Arguments:
-        email {str} -- authenticated user email (for the token)
-        project {str} -- GCP project
-        adh_customer {str} -- ADH customer id, 9-digit number, NO DASHES
-        adh_query {str} -- ADH query id
-        api_key {str} -- API Key (has to be set up in APIs and Libraries in GCP)
-        days {int} -- Lookback window (default: 60)
-        dest_project {str} -- target GCP project for results
-        dest_dataset {str} -- target BQ dataset for results
-        dest_table {str} -- target table override
+        email (str):  authenticated user email (for the token)
+        project (str):  GCP project
+        adh_customer (str):  ADH customer id, 9-digit number, NO DASHES
+        adh_query (str):  ADH query id
+        api_key (str):  API Key (has to be set up in APIs and Libraries in GCP)
+        days (int):  Lookback window (default: 60)
+        dest_project (str):  target GCP project for results
+        dest_dataset (str):  target BQ dataset for results
+        dest_table (str):  target table override
     """
     self.email = email
     self.project = project
@@ -90,7 +90,7 @@ class ADH(object):
     Returns:
         Cloud_Storage: storage client
     """
-    return Cloud_Storage(email=self.email, project=self.project)
+    return Cloud_Storage()
 
   @decorators.lazy_property
   def firestore(self) -> Firestore:
@@ -99,7 +99,7 @@ class ADH(object):
     Returns:
         Firestore: firestore client
     """
-    return Firestore(email=self.email, project=self.project)
+    return Firestore()
 
   def run(self, unattended: bool=True):
     """Run the ADH query
@@ -110,7 +110,7 @@ class ADH(object):
     an hourly run - check with ADH.
 
     Keyword Arguments:
-        unattended {bool} -- run unattended. Unused, but there for compatibility (default: {True})
+        unattended (bool):  run unattended. Unused, but there for compatibility (default: {True})
     """
     query_details = self.fetch_query_details()
     if query_details:
@@ -131,17 +131,12 @@ class ADH(object):
       query_details['table_name'] = \
         csv_helpers._sanitize_string(query_details['title'])
 
-      self.firestore.store_report_config(
-        type=Type.ADH,
-        report_data=report,
-        id=self.adh_query)
+      self.firestore.store_document(type=Type.ADH, document=report,
+                                    id=self.adh_query)
 
       result = self.run_query(report)
-      report['last_run'] = result
-      self.firestore.store_report_config(
-        type=Type.ADH,
-        report_data=report,
-        id=self.adh_query)
+      self.firestore.update_document(type=Type.ADH, id=self.adh_query,
+                                     new_data={'last_run': result})
 
       logging.info('Result: {result}'.format(result=result))
 
@@ -152,7 +147,7 @@ class ADH(object):
     Use the discovery API to create the ADH service
 
     Returns:
-        Resource -- ADH service
+        Resource: ADH service
     """
     adh_service = \
       discovery.get_service(service=Service.ADH,
@@ -163,7 +158,7 @@ class ADH(object):
     """Get the Query details
 
     Returns:
-        Dict[str, Any] -- [description]
+        Dict[str, Any]: [description]
     """
     service = self._get_adh_service()
 
@@ -178,10 +173,10 @@ class ADH(object):
     """Run the ADH query
 
     Arguments:
-        query_details {Dict[str, Any]} -- the details of the query job
+        query_details (Dict[str, Any]):  the details of the query job
 
     Returns:
-        Dict[str, Any] -- result of the query run directive
+        Dict[str, Any]: result of the query run directive
     """
     yesterday = datetime.now(tz=pytz.timezone('US/Eastern')) - timedelta(days=1)
     earliest = yesterday - timedelta(days=60)

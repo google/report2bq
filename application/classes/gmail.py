@@ -120,7 +120,8 @@ def create_error_email(email: str,
   )
   administrator = \
     os.environ.get('ADMINISTRATOR_EMAIL') or \
-      firestore.Firestore.get_document(report_type.Type._ADMIN, 'admin').get('email')
+      firestore.Firestore.get_document(type=report_type.Type._ADMIN,
+                                       id='admin').get('email')
   cc = [administrator] if administrator else []
 
   message = GMailMessage(to=[email],

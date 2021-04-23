@@ -81,7 +81,7 @@ class SA360Dynamic(ReportFetcher):
       report = request.execute()
 
       if report['isReportReady']:
-        report_config = self.firestore.get_report_config(
+        report_config = self.firestore.get_document(
           type=Type.SA360_RPT, id=run_config['report_id'])
 
         csv_header, _ = self.read_header(report)
@@ -128,8 +128,8 @@ class SA360Dynamic(ReportFetcher):
     """Multi-threaded stream to GCS
 
     Arguments:
-        bucket {str} -- GCS Bucket
-        report_details {dict} -- Report definition
+        bucket (str):  GCS Bucket
+        report_details (dict):  Report definition
     """
     queue = Queue()
 

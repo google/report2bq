@@ -39,9 +39,9 @@ class Cloud_Storage(object):
     """constructor
 
     Keyword Arguments:
-        in_cloud {bool} --  (default: {True})
-        email {str} -- email address for the token (default: {None})
-        project {str} -- GCP project name (default: {None})
+        in_cloud (bool):   (default: {True})
+        email (str):  email address for the token (default: {None})
+        project (str):  GCP project name (default: {None})
     """
     self.in_cloud = in_cloud
     self.email = email
@@ -65,8 +65,8 @@ class Cloud_Storage(object):
     The destination file name is the report's id.
 
     Arguments:
-        bucket_name {str} -- destination bucket name
-        report {Dict[str, Any]} -- report definition
+        bucket_name (str):  destination bucket name
+        report (Dict[str, Any]):  report definition
     """
     client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
 
@@ -95,10 +95,10 @@ class Cloud_Storage(object):
     essentially no limit on the maximum size of file we can rename.
 
     Arguments:
-        bucket {str} -- destination bucket name
-        source {str} -- current name
-        destination {str} -- new name
-        credentials {Credentials} -- authentication, if needed
+        bucket (str):  destination bucket name
+        source (str):  current name
+        destination (str):  new name
+        credentials (Credentials):  authentication, if needed
     """
     client = storage.Client(
       credentials=(credentials.get_credentials() if credentials else None))
@@ -119,11 +119,11 @@ class Cloud_Storage(object):
     """fetch a file from GCS
 
     Arguments:
-      bucket {str} -- bucket name
-      file {str} -- file name
+      bucket (str):  bucket name
+      file (str):  file name
 
     Returns:
-      {str} -- file content
+      (str):  file content
     """
     client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
 
@@ -182,13 +182,13 @@ class Cloud_Storage(object):
     so we can drop out the footer.
 
     Arguments:
-        report {dict} -- [description]
+        report (dict):  [description]
 
     Keyword Arguments:
-        credentials {credentiala} -- [description] (default: {None})
+        credentials (credentiala):  [description] (default: {None})
 
     Returns:
-        str -- [description]
+        str: [description]
     """
     client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
 

@@ -19,21 +19,21 @@ __author__ = [
 ]
 
 from contextlib import suppress
-import json
 import logging
 import os
 import re
 
-from typing import Any, Dict
-from classes.cloud_storage import Cloud_Storage
+from classes import credentials
+from classes import decorators
+from classes.abstract_datastore import AbstractDatastore
 from classes.firestore import Firestore
 from classes.report_type import Type
 
-from google.oauth2.credentials import Credentials
 from google.cloud import bigquery
 from google.cloud import pubsub
 from google.cloud import storage
 from google.cloud.bigquery import LoadJob
+from typing import Any, Dict
 
 
 class JobMonitor(object):
@@ -45,49 +45,29 @@ class JobMonitor(object):
   file from Cloud Storage. If this job is not run, the last file will remain
   in GCS.
   """
-
+  @decorators.lazy_property
+  def firestore(self) -> AbstractDatastore:
+    return Firestore()
 
   def process(self, data: Dict[str, Any], context):
     """Check all the running jobs
 
     Arguments:
-      event {Dict[str, Any]} -- data sent from the PubSub message
-      context {Dict[str, Any]} -- context data. unused
+      event (Dict[str, Any]):  data sent from the PubSub message
+      context (Dict[str, Any]):  context data. unused
     """
-    if attributes := data.get('attributes'):
-      firestore = Firestore(
-        project=attributes.get('project') or os.environ.get('GCP_PROJECT'),
-        email=attributes.get('email'))
-
-    else:
-      firestore = Firestore()
-
-    documents = firestore.get_all_jobs()
+    attributes = data.get('attributes')
+    documents = self.firestore.get_all_documents(Type._JOBS)
 
     for document in documents:
       for product in [ T for T in Type ]:
-        if config := firestore.get_report_config(product, document.id):
+        if config := self.firestore.get_document(product, document.id):
           if config.get('dest_project'):
-            # authenticate against supplied project with supplied key
-            project = \
-              config.get('dest_project') or os.environ.get('GCP_PROJECT')
-            client_key = json.loads(Cloud_Storage.fetch_file(
-              bucket=f"{project}-report2bq-tokens",
-              file=f"{config['email']}_user_token.json"
-            ))
-            server_key = json.loads(Cloud_Storage.fetch_file(
-              bucket=f"{project}-report2bq-tokens",
-              file='client_secrets.json'
-            ))
-            client_key['client_id'] = \
-              (server_key.get('web') or \
-                server_key.get('installed')).get('client_id')
-            client_key['client_secret'] = \
-              (server_key.get('web') or \
-                server_key.get('installed')).get('client_secret')
-            logging.info(client_key)
-            creds = Credentials.from_authorized_user_info(client_key)
-            bq = bigquery.Client(project=project, credentials=creds)
+            user_creds = \
+              credentials.Credentials(email=config['email'],
+                                      project=config['dest_project'])
+            bq = bigquery.Client(project=config['dest_project'],
+                                 credentials=user_creds.get_credentials())
 
           else:
             bq = bigquery.Client()
@@ -105,7 +85,7 @@ class JobMonitor(object):
                 self._handle_finished(job=job, config=config)
                 ('notifier' in config) and self.notify(
                   report_type=product, config=config, job=job, id=document.id)
-                firestore.mark_import_job_complete(document.id, job,)
+                self._mark_import_job_complete(document.id, job,)
 
             except Exception as e:
               logging.error(
@@ -119,7 +99,7 @@ class JobMonitor(object):
     When we find a completed job, delete the source CSV from GCS.
 
     Arguments:
-        job {LoadJob} -- Big Query import job
+        job (LoadJob):  Big Query import job
     """
     for source in job.source_uris:
       match = re.match(r'gs://([^/]+)/(.*)', source)
@@ -132,9 +112,21 @@ class JobMonitor(object):
       with suppress(Exception):
         if config.get('development'):
           return
-
         source_blob.delete()
         logging.info('File %s removed from %s.', blob_name, bucket_name)
+
+  def _mark_import_job_complete(self, report_id: int,
+                               job: bigquery.LoadJob) -> None:
+    """Marks a BQ Import job in Firestore done
+
+    Moves an import job from 'jobs/' to 'jobs-completed'.
+
+    Arguments:
+        report_id (int): [description]
+        job (bigquery.LoadJob): [description]
+    """
+    self.firestore.delete_document(Type._JOBS, report_id)
+    self.firestore.store_document(Type._COMPLETED, report_id, job.to_api_repr())
 
   def notify(self,
              report_type: Type,

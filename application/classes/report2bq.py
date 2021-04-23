@@ -36,7 +36,7 @@ class Report2BQ(object):
     force: bool=False, append: bool=False, infer_schema: bool=False,
     dest_project: str=None, dest_dataset: str='report2bq', dest_table: str=None,
     notify_message: str=None, file_id: str=None, partition: str=None,
-     **unused) -> Report2BQ:
+    **unused) -> Report2BQ:
     self.product = product
 
     self.force = force
@@ -80,7 +80,7 @@ class Report2BQ(object):
       fetcher.fetch_report_config(
         report_object=report_object, report_id=self.report_id)
     last_report = \
-      self.firestore.get_report_config(fetcher.report_type, self.report_id)
+      self.firestore.get_document(fetcher.report_type, self.report_id)
 
     if last_report:
       if report_data['last_updated'] == \
@@ -118,8 +118,8 @@ class Report2BQ(object):
 
         fetcher.stream_to_gcs(f'{self.project}-report2bq-upload', report_data)
 
-    self.firestore.store_report_config(
-      fetcher.report_type, self.report_id, report_data)
+    self.firestore.store_document(type=fetcher.report_type, id=self.report_id,
+                                  document=report_data)
 
   def handle_sa360(self):
     sa360 = SA360Web(
@@ -129,7 +129,7 @@ class Report2BQ(object):
       append=self.append)
     logging.info(self.sa360_url)
     id = re.match(r'^.*rid=([0-9]+).*$', self.sa360_url).group(1)
-    report_data = self.firestore.get_report_config(Type.SA360, id)
+    report_data = self.firestore.get_document(Type.SA360, id)
 
     if not report_data:
       report_data = {
@@ -158,7 +158,7 @@ class Report2BQ(object):
     self._handle_partitioning(
       report_data=report_data, csv_header=csv_header, csv_types=csv_types)
 
-    self.firestore.store_report_config(Type.SA360, id, report_data)
+    self.firestore.store_document(type=Type.SA360, id=id, document=report_data)
 
   def handle_sa360_report(self):
     sa360 = SA360Dynamic(

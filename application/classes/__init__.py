@@ -71,8 +71,8 @@ class ReportFetcher(object):
     """Streams the report CSV to Cloud Storage.
 
     Args:
-      bucket {str} -- GCS Bucket
-      report_data {dict} -- Report definition
+      bucket (str):  GCS Bucket
+      report_data (dict):  Report definition
     """
     pass
 

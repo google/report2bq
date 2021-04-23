@@ -38,7 +38,7 @@ class Firestore(AbstractDatastore):
     Lists all documents of a given Type
 
     Returns:
-        documents (List[Dict[str, Any]]) -- list of all documents
+        documents (List[Dict[str, Any]]): list of all documents
     """
     documents = []
     collection = self.client.collection(type.value).list_documents()
@@ -54,12 +54,12 @@ class Firestore(AbstractDatastore):
     Load a document
 
     Arguments:
-        type (Type) -- document type (document root in firestore)
-        id (str) -- document id
+        type (Type): document type (document root in firestore)
+        id (str): document id
         key: Optional(str): the document collection sub-key
 
     Returns:
-        Dict[str, Any] -- stored configuration dictionary, or None
+        Dict[str, Any]: stored configuration dictionary, or None
                           if not present
     """
     document = None
@@ -78,9 +78,9 @@ class Firestore(AbstractDatastore):
     appropriate report id.
 
     Arguments:
-        type (Type) -- product
-        id (str) -- report id
-        report_data (Dict[str, Any]) -- report configuration
+        type (Type): product
+        id (str): report id
+        report_data (Dict[str, Any]): report configuration
     """
     report = self.client.document(f'{type}/{id}')
     if report:

@@ -19,7 +19,6 @@ __author__ = [
 import json
 import logging
 import os
-import traceback
 
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
@@ -28,10 +27,11 @@ from google.oauth2.credentials import Credentials
 from typing import Any, Dict, List, Tuple
 
 from classes import csv_helpers
+from classes import decorators
 from classes import gmail
+from classes.abstract_datastore import AbstractDatastore
 from classes.cloud_storage import Cloud_Storage
 from classes.credentials import Credentials as Report2BQCredentials
-from classes.firestore import Firestore
 from classes.report_type import Type
 
 
@@ -48,7 +48,11 @@ class ReportLoader(object):
   stored in Firestore, under the 'jobs' key. This is then monitored for
   completion by JobMonitor.
   """
-  FIRESTORE = Firestore()   # uses default service account credentials
+
+  @decorators.lazy_property
+  def firestore(self) -> AbstractDatastore:
+    from classes import firestore
+    return firestore.Firestore()
 
   def process(self, data: Dict[str, Any], context):
     """Process an added file
@@ -56,8 +60,8 @@ class ReportLoader(object):
     This is the entry point for the Cloud Function to create the BQ import job.
 
     Arguments:
-        event {Dict[str, Any]} -- data sent from the PubSub message
-        context {Dict[str, Any]} -- context data. unused
+        event (Dict[str, Any]):  data sent from the PubSub message
+        context (Dict[str, Any]):  context data. unused
     """
     bucket_name = data['bucket']
     file_name = data['name']
@@ -78,16 +82,16 @@ class ReportLoader(object):
     type and config as a tuple
 
     Arguments:
-        id {int} -- Report Id, aka CSV file name
+        id (int):  Report Id, aka CSV file name
 
     Returns:
-        (Type, Dict[str, Any]) -- Tuple containing the report type as an Enum,
+        (Type, Dict[str, Any]): Tuple containing the report type as an Enum,
                                   and the report configuration.
     """
     for config_type in [
         Type.DV360, Type.CM, Type.SA360, Type.SA360_RPT, Type.GA360_RPT,
       ]:
-      if config := self.FIRESTORE.get_report_config(config_type, id):
+      if config := self.firestore.get_document(config_type, id):
         return config_type, config
 
     return None, None
@@ -98,8 +102,8 @@ class ReportLoader(object):
     Work out which type of job it is and send it to the appropriate uploader
 
     Arguments:
-        bucket_name {str} -- name of the source bucket
-        file_name {str} -- name of the CSV file
+        bucket_name (str):  name of the source bucket
+        file_name (str):  name of the CSV file
     """
     # Load config file. Must be present to continue
     report_id = file_name.split('/')[-1].split('.')[0]
@@ -114,7 +118,8 @@ class ReportLoader(object):
                                   file=file_name,
                                   config_type=config_type,
                                   config=config):
-       self.FIRESTORE.store_import_job_details(report_id, job)
+       self.firestore.store_document(type=Type._JOBS, id=report_id,
+                                     document=job)
 
   def _import_report(self,
                      bucket: str,
@@ -126,10 +131,10 @@ class ReportLoader(object):
     Create and start the Big Query import job.
 
     Arguments:
-        bucket {str} -- GCS bucket name
-        file {str} -- CSV file name
-        config)_type {Type} -- report type
-        config {Dict[str, Any]} -- report config
+        bucket (str):  GCS bucket name
+        file (str):  CSV file name
+        config)_type (Type):  report type
+        config (Dict[str, Any]):  report config
 
     Returns:
         bigquery.LoadJob
@@ -169,9 +174,8 @@ class ReportLoader(object):
         try :
           bq.delete_table(table_ref)
         finally:
-          self.FIRESTORE.store_document(type=config_type,
-                                        id=config['id'],
-                                        document=config)
+          self.firestore.update_document(type=config_type, id=config['id'],
+                                         new_data=config)
 
       # Default action is to completely replace the table each time. If
       # requested, however then we can do an append for (say) huge jobs where
@@ -281,8 +285,8 @@ Table has schema:
                    error: Exception=None) -> None:
     to = [email] if email else []
     administrator = \
-      os.environ.get('ADMINISTRATOR_EMAIL') or self.FIRESTORE.get_document(
-        Type._ADMIN, 'admin').get('email')
+      self.firestore.get_document(Type._ADMIN, 'admin').get('email') or \
+        os.environ.get('ADMINISTRATOR_EMAIL')
     cc = [administrator] if administrator else []
     body=f'{message}{gmail.error_to_trace(error)}'
 

@@ -20,6 +20,7 @@ import random
 import uuid
 
 from typing import Any, Dict, List
+from classes import firestore
 
 from classes.cloud_storage import Cloud_Storage
 from classes.decorators import lazy_property
@@ -55,6 +56,10 @@ class ReportManager(object):
         Firestore: the wrapper
     """
     return Firestore()
+
+  @firestore.setter
+  def firestore(self, f: Any) -> None:
+    self._lazy_firestore = f
 
   def manage(self, **kwargs: Dict[str, Any]) -> Any:
     """The control function

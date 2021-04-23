@@ -119,7 +119,8 @@ class SA360ReportRunner(ReportRunner):
         'email': self.email,
         'file_id': response['id']
       }
-      self.firestore.store_report_runner(runner)
+      self.firestore.store_document(type=Type._RUNNING,
+                                    id=runner['report_id'], document=runner)
 
     except Exception as e:
       self._email_error(email=self.email, error=e, report_config=report_config,

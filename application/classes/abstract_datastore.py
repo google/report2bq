@@ -32,14 +32,7 @@ class AbstractDatastore(object):
 
   All unimplemented functions raise a NotImplementedError() rather than
   simply 'pass'.
-
-  TODO: investigate removing the helpers in the code to slim this down.
-        -- David Harcombe, 2021-04-23
   """
-
-  # #########################################
-  # To BE IMPLEMENTED
-  # #########################################
   def get_document(self, type: Type, id: str,
                    key: Optional[str]=None) -> Dict[str, Any]:
     """Fetches a document (could be anything, 'type' identifies the root.)
@@ -52,7 +45,7 @@ class AbstractDatastore(object):
         key: Optional(str): the document collection sub-key
 
     Returns:
-        Dict[str, Any] -- stored configuration dictionary, or None
+        Dict[str, Any]: stored configuration dictionary, or None
                           if not present
     """
     raise NotImplementedError('Must be implemented by child class.')
@@ -118,106 +111,3 @@ class AbstractDatastore(object):
         runners (List[Dict[str, Any]]): contents of all documents
     """
     raise NotImplementedError('Must be implemented by child class.')
-
-  # #########################################
-  # HELPERS
-  # #########################################
-  def get_report_config(self, type: Type, id: str) -> Dict[str, Any]:
-    """Loads a config.
-
-    Arguments:
-        type (Type): report type
-        id (str): report id
-
-    Returns:
-        config (Dict[str, Any]): stored configuration dictionary
-    """
-    return self.get_document(type, id)
-
-  def store_report_config(self, type: Type, id: str,
-                          report_data: Dict[str, Any]) -> None:
-    """Stores a config
-
-    Store a report's config in Firestore. They're all stored by Type
-    (DCM/DBM/SA360/ADH) and each one within the type is keyed by the
-    appropriate report id.
-
-    Arguments:
-        type (Type): product
-        id (str): report id
-        report_data (Dict[str, Any]): report configuration
-    """
-    self.store_document(type=type, id=id, document=report_data)
-
-  def get_all_reports(self, type: Type) -> List[Dict[str, Any]]:
-    """Lists all reports
-
-    List all defined reports for a specific product.
-
-    Arguments:
-        type (Type): product type
-
-    Returns:
-        reports (List[Dict[str, Any]]): list of all reports for a given project
-    """
-    raise self.get_all_documents(type=type)
-
-  def store_import_job_details(self, report_id: int,
-                               job: bigquery.LoadJob) -> None:
-    """Saves a BQ Import job in Firestore
-
-    Arguments:
-        report_id (int): [description]
-        job (bigquery.LoadJob): [description]
-    """
-    self.store_document(Type._JOBS, report_id, job.to_api_repr())
-
-  def mark_import_job_complete(self, report_id: int,
-                               job: bigquery.LoadJob) -> None:
-    """Marks a BQ Import job in Firestore done
-
-    Moves an import job from 'jobs/' to 'jobs-completed'.
-
-    Arguments:
-        report_id (int): [description]
-        job (bigquery.LoadJob): [description]
-    """
-    self.delete_document(Type._JOBS, report_id)
-    self.store_document(Type._COMPLETED, report_id, job.to_api_repr())
-
-  def get_all_jobs(self) -> List[Dict[str, Any]]:
-    """Lists all running jobs
-
-    Returns:
-        jobs (List[DocumentReference]): List of all available jobs
-    """
-    return self.get_all_documents(Type._JOBS)
-
-  def get_all_running(self) -> List[Dict[str, Any]]:
-    """Lists all running reports
-
-    Lists all running reports
-
-    Returns:
-        runners (List[DocumentReference]): list of all running reports
-    """
-    return self.get_all_documents(Type._RUNNING)
-
-  def store_report_runner(self, runner: Dict[str, Any]) -> None:
-    """Stores a running report
-
-    Arguments:
-        runner (Dict[str, Any]): store a running report definition
-    """
-    self.store_document(type=Type._RUNNING,
-                        id=runner['report_id'], document=runner)
-
-  def remove_report_runner(self, runner: str) -> None:
-    """Removes a running report
-
-    Delete a running report from the list of active reports
-
-    Arguments:
-        runner (Dict[str, Any]): [description]
-    """
-    self.delete_document(Type._RUNNING, runner)

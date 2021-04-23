@@ -117,4 +117,5 @@ class DCMReportRunner(ReportRunner):
         'profile': self.cm_profile,
         'file_id': response['id']
       }
-      self.firestore.store_report_runner(runner)
+      self.firestore.store_document(type=Type._RUNNING,
+                                    id=runner['report_id'], document=runner)

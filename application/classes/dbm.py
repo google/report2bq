@@ -182,8 +182,8 @@ class DBM(ReportFetcher, Fetcher):
     """Streams the report CSV to Cloud Storage.
 
     Arguments:
-        bucket {str} -- GCS Bucket
-        report_details {dict} -- Report definition
+        bucket (str):  GCS Bucket
+        report_details (dict):  Report definition
     """
     if not 'current_path' in report_details:
       return

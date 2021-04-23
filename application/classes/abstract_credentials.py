@@ -82,7 +82,7 @@ class AbstractCredentials(object):
     """Fetches the credentials.
 
     Returns:
-       {google.oauth2.credentials.Credentials}: the credentials
+       (google.oauth2.credentials.Credentials):  the credentials
     """
     return self._refresh_credentials()
 
@@ -94,7 +94,7 @@ class AbstractCredentials(object):
     dict needed for some HTTP requests.
 
     Returns:
-      oauth2_headers {Dict[str, Any]}: the OAuth headers
+      oauth2_headers (Dict[str, Any]):  the OAuth headers
     """
     oauth2_header = {}
     self.get_credentials().apply(oauth2_header)

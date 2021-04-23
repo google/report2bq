@@ -37,10 +37,10 @@ def get_column_types(data: io.BytesIO) \
   in general
 
   Arguments:
-      data {io.BytesIO} -- sample of the CSV file
+      data (io.BytesIO):  sample of the CSV file
 
   Returns:
-      (List[str], List[str]) -- tuple of list of header names and list of
+      (List[str], List[str]): tuple of list of header names and list of
                                 column types
   """
   table_set = messytables.CSVTableSet(data)
@@ -59,10 +59,10 @@ def sanitize_string(original: str) -> str:
   non-alphanumerics to a simple '_' character. This matches what BQ expects.
 
   Arguments:
-      original {str} -- original string
+      original (str):  original string
 
   Returns:
-      str -- sanitized string
+      str: sanitized string
   """
   return re.sub('[^a-zA-Z0-9,]', '_', original)
 
@@ -77,11 +77,11 @@ def create_table_schema(column_headers: List[str] = None,
   TODO: Also accept the column types and create the schema that way
 
   Keyword Arguments:
-      column_headers {list} -- header column names (default: {None})
-      column_types {list} -- column types (default: {None})
+      column_headers (list):  header column names (default: {None})
+      column_types (list):  column types (default: {None})
 
   Returns:
-      List[Dict[str, str]] -- json format schema
+      List[Dict[str, str]]: json format schema
   """
   def _sql_field(T):
     R = None

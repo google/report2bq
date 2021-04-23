@@ -19,7 +19,6 @@ import os
 from importlib import import_module
 from typing import Any, Dict
 
-from classes import firestore
 from classes import gmail
 from classes.adh import ADH
 from classes.cloud_storage import Cloud_Storage
@@ -63,8 +62,8 @@ def report_fetch(event: Dict[str, Any], context=None) -> None:
   stored in the 'event' object.
 
   Arguments:
-      event {Dict[str, Any]} -- data sent from the PubSub message
-      context {Dict[str, Any]} -- context data. unused.
+      event (Dict[str, Any]):  data sent from the PubSub message
+      context (Dict[str, Any]):  context data. unused.
   """
   if attributes := event.get('attributes'):
     logging.info(attributes)
@@ -124,8 +123,8 @@ def job_monitor(event: Dict[str, Any], context=None):
   in GCS.
 
   Arguments:
-      event {Dict[str, Any]} -- data sent from the PubSub message
-      context {Dict[str, Any]} -- context data. unused
+      event (Dict[str, Any]):  data sent from the PubSub message
+      context (Dict[str, Any]):  context data. unused
   """
   JobMonitor().process(event, context)
 
@@ -144,8 +143,8 @@ def run_monitor(event: Dict[str, Any], context=None):
   takes the "fetcher"'s place.
 
   Arguments:
-      event {Dict[str, Any]} -- data sent from the PubSub message
-      context {Dict[str, Any]} -- context data. unused
+      event (Dict[str, Any]):  data sent from the PubSub message
+      context (Dict[str, Any]):  context data. unused
   """
   try:
     RunMonitor().process({}, None)
@@ -163,8 +162,8 @@ def report_runner(event: Dict[str, Any], context=None) -> None:
   enabled.
 
   Arguments:
-      event {Dict[str, Any]} -- data sent from the PubSub message
-      context {Dict[str, Any]} -- context data. unused
+      event (Dict[str, Any]):  data sent from the PubSub message
+      context (Dict[str, Any]):  context data. unused
   """
   email = None
 
@@ -257,8 +256,8 @@ def report_manager(event: Dict[str, Any], context=None) -> None:
   """Processes files added to the ga360_report_manager bucket.
 
   Arguments:
-      event {Dict[str, Any]} -- data sent from the PubSub message
-      context {Dict[str, Any]} -- context data. unused
+      event (Dict[str, Any]):  data sent from the PubSub message
+      context (Dict[str, Any]):  context data. unused
   """
   logging.info(event)
   project = os.environ.get('GCP_PROJECT')

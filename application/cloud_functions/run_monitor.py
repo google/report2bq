@@ -18,12 +18,14 @@ __author__ = [
   'davidharcombe@google.com (David Harcombe)'
 ]
 
+from classes.abstract_datastore import AbstractDatastore
 import logging
 import os
 
 from typing import Dict, List, Any
 from contextlib import suppress
 
+from classes import decorators
 from classes import firestore
 from classes import gmail
 from classes.credentials import Credentials as Report2BQCredentials
@@ -50,18 +52,32 @@ class RunMonitor(object):
   takes the "fetcher"'s place.
   """
 
-  def __init__(self):
-    self.firestore_client = firestore.Firestore()
-    self.pubsub_client = pubsub.PublisherClient()
+  @decorators.lazy_property
+  def firestore_client(self) -> AbstractDatastore:
+    """The Firestore client."""
+    return firestore.Firestore()
+
+  @decorators.lazy_property
+  def pubsub_client(self) -> pubsub.PublisherClient:
+    """The pubsub client"""
+    return pubsub.PublisherClient()
+
+  def remove_report_runner(self, id: str) -> None:
+    """Deletes a report runner from the datastore
+
+    Args:
+        id (str): the report runner's id
+    """
+    self.firestore_client.delete_document(Type._RUNNING, id=id)
 
   def process(self, data: Dict[str, Any], context) -> None:
     """Execute the run_monitor.
 
     Arguments:
-        data {Dict[str, Any]} -- Data passed in from the calling function,
+        data (Dict[str, Any]):  Data passed in from the calling function,
                                  containing the attributes from the
                                  calling PubSub message
-        context {} -- unused
+        context ():  unused
     """
     self.project = os.environ['GCP_PROJECT']
     report_checker = {
@@ -71,7 +87,7 @@ class RunMonitor(object):
       Type.SA360_RPT: self._check_sa360_report
     }
 
-    documents = self.firestore_client.get_all_running()
+    documents = self.firestore_client.get_all_documents(Type._RUNNING)
     for document in documents:
       try:
         run_config = document.get().to_dict()
@@ -83,7 +99,7 @@ class RunMonitor(object):
             run_config=run_config, job_config=job_config)
         else:
           # Invalid job; remove this runner
-          self.firestore_client.remove_report_runner(document.id)
+          self.remove_report_runner(document.id)
 
       except Exception as e:
         logging.error(gmail.error_to_trace(e))
@@ -150,12 +166,12 @@ class RunMonitor(object):
       )
 
       # Remove job from running
-      self.firestore_client.remove_report_runner(run_config['report_id'])
+      self.remove_report_runner(run_config['report_id'])
 
     elif status == 'FAILED':
       # Remove job from running
       logging.error(f'Report %s failed!', run_config['report_id'])
-      self.firestore_client.remove_report_runner(run_config['report_id'])
+      self.remove_report_runner(run_config['report_id'])
 
   def _check_cm_report(self,
                        job_config: Dict[str, Any],
@@ -182,12 +198,12 @@ class RunMonitor(object):
       self.pubsub_client.publish(topic=topic, data=b'RUN', **job_attributes)
 
       # Remove job from running
-      self.firestore_client.remove_report_runner(run_config['report_id'])
+      self.remove_report_runner(run_config['report_id'])
 
     elif status == 'FAILED' or status =='CANCELLED':
       # Remove job from running
       logging.error('Report %s failed!', run_config['report_id'])
-      self.firestore_client.remove_report_runner(run_config['report_id'])
+      self.remove_report_runner(run_config['report_id'])
 
   def _check_sa360_report(self,
                           job_config: Dict[str, Any],

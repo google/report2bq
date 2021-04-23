@@ -21,7 +21,6 @@ from classes import ReportRunner
 from classes.dbm import DBM
 from classes.report2bq import Report2BQ
 from classes.report_type import Type
-from classes.firestore import Firestore
 from io import StringIO
 
 
@@ -111,6 +110,7 @@ class DBMReportRunner(ReportRunner):
         'report_id': self.dbm_id,
         'email': self.email,
       }
-      self.firestore.store_report_runner(runner)
+      self.firestore.store_document(type=Type._RUNNING,
+                                    id=runner['report_id'], document=runner)
 
 

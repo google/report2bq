@@ -225,8 +225,8 @@ class DCM(ReportFetcher, Fetcher):
     """Streams the report CSV to Cloud Storage.
 
     Arguments:
-        bucket {str} -- GCS Bucket
-        report_data {dict} -- Report definition
+        bucket (str):  GCS Bucket
+        report_data (dict):  Report definition
     """
     if not 'report_file' in report_data:
       return
