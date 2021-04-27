@@ -18,11 +18,12 @@ import io
 import logging
 
 
-from classes import Fetcher, ReportFetcher
 from classes import credentials
 from classes import csv_helpers
 from classes import decorators
+from classes import Fetcher, ReportFetcher
 from classes.cloud_storage import Cloud_Storage
+from classes.report_config import ReportConfig
 from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
 from classes.report_type import Type
 from classes.services import Service
@@ -159,7 +160,8 @@ class DBM(ReportFetcher, Fetcher):
       return 'UNKNOWN'
 
   def read_header(self,
-                  report_details: dict) -> Tuple[List[str], List[CellType]]:
+                  report_details: ReportConfig) -> Tuple[List[str],
+                                                         List[CellType]]:
     """Reads the header of the report CSV file.
 
     Args:
@@ -168,7 +170,7 @@ class DBM(ReportFetcher, Fetcher):
     Returns:
         Tuple[List[str], List[CellType]]: the csv headers and column types
     """
-    if path := report_details.get('current_path'):
+    if path := report_details.current_path:
       with closing(urlopen(path)) as report:
         data = report.read(self.chunk_multiplier * 1024 * 1024)
         bytes_io = io.BytesIO(data)
@@ -178,19 +180,19 @@ class DBM(ReportFetcher, Fetcher):
       return (None, None)
 
   @decorators.measure_memory
-  def stream_to_gcs(self, bucket: str, report_details: Dict[str, Any]) -> None:
+  def stream_to_gcs(self, bucket: str, report_details: ReportConfig) -> None:
     """Streams the report CSV to Cloud Storage.
 
     Arguments:
         bucket (str):  GCS Bucket
         report_details (dict):  Report definition
     """
-    if not 'current_path' in report_details:
+    if not report_details.current_path:
       return
 
     queue = Queue()
 
-    report_id = report_details['id']
+    report_id = report_details.id
     chunk_size = self.chunk_multiplier * 1024 * 1024
     out_file = io.BytesIO()
 
@@ -205,7 +207,7 @@ class DBM(ReportFetcher, Fetcher):
         streamer_queue=queue)
     streamer.start()
 
-    with closing(urlopen(report_details['current_path'])) as _report:
+    with closing(urlopen(report_details.current_path)) as _report:
       _downloaded = 0
       chunk_id = 1
       _report_size = int(_report.headers['content-length'])
@@ -224,7 +226,8 @@ class DBM(ReportFetcher, Fetcher):
 
           # if we don't find it, there's no footer.
           if blank_line_pos == -1:
-            logging.error('No footer delimiter found. Writing entire final chunk as is.')
+            logging.info(('No footer delimiter found. Writing entire '
+                          'final chunk as is.'))
             queue.put(chunk)
 
           else:

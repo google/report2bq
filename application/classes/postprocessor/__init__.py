@@ -133,7 +133,14 @@ class PostProcessor(object):
 
     Args:
         context ([type], optional): Cloud Function context. Defaults to None.
-        **attributes: list of attributes passed from the Cloud Function
+        **attributes: list of attributes passed to the postprocessor. These are:
+            * project - the project id
+            * dataset - the dataset containing the imported table
+            * table - the imported table
+            * report_id - the report that created the import file
+            * product - one of dv360, cm, adh, ga360, sa360, sa360_report
+            * rows - number of rows imported
+            * columns - names of the columns in the table, ';' separated
 
     Returns:
         Dict[str, Any]: return value

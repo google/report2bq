@@ -1,26 +1,24 @@
-"""
-Copyright 2020 Google LLC
+# Copyright 2021 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+from __future__ import annotations
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+import immutabledict
+import enum
 
-    https://www.apache.org/licenses/LICENSE-2.0
+from classes.ga360_report import GA360ReportDefinition
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-__author__ = [
-  'davidharcombe@google.com (David Harcombe)'
-]
-
-from enum import Enum
-
-class Type(Enum):
+class Type(enum.Enum):
   ADH = 'adh'
   CM = 'cm'
   DV360 = 'dv360'
@@ -38,7 +36,7 @@ class Type(Enum):
   _UNKNOWN = 'unknown'
 
   @classmethod
-  def _missing_(cls, value):
+  def _missing_(cls, value) -> Type:
     """Backward compatilbility for old enums.
 
     If the old product names are still in use in some Firestore or other confguration
@@ -63,14 +61,14 @@ class Type(Enum):
     else:
       return cls._UNKNOWN
 
-  def runner(self, report_id: str):
+  def runner(self, report_id: str) -> str:
     return {
       Type._JOBS: None,
       Type._RUNNING: None,
       Type._ADMIN: None,
     }.get(self, f'run-{self.value}-{report_id}')
 
-  def __str__(self):
+  def __str__(self) -> str:
     return str(self.value)
 
   def __repr__(self) -> str:

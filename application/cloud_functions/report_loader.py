@@ -73,7 +73,8 @@ class ReportLoader(object):
         self._handle_csv(bucket_name, file_name)
 
       except Exception as e:
-        logging.error('Error processing file %s\n%s', file_name, e)
+        logging.error('Error processing file %s\n%s', file_name,
+                      gmail.error_to_trace(e))
 
   def _get_report_config(self, id: str) -> Tuple[Type, Dict[str, Any]]:
     """Fetch the report configuration
@@ -119,7 +120,7 @@ class ReportLoader(object):
                                   config_type=config_type,
                                   config=config):
        self.firestore.store_document(type=Type._JOBS, id=report_id,
-                                     document=job)
+                                     document=job.to_api_repr())
 
   def _import_report(self,
                      bucket: str,
@@ -141,16 +142,27 @@ class ReportLoader(object):
     """
     bq = self._find_client(config)
 
+    # Use 'dest_dataset' if it is set specifically for this table. If not,
+    # then use the project environment version (again, if set) and failing all
+    # that, fall back to 'report2bq'.
     dataset = \
-      config.get('dest_dataset') or os.environ.get('BQ_DATASET') or 'report2bq'
+      config.get('dest_dataset') \
+        or os.environ.get('BQ_DATASET') \
+          or 'report2bq'
 
-    # To avoid breaking existing configs, use table_name if it is present.
-    # Net new configs will not have a table_name key, instead having dest_table
-    # so use that instead.
+    # Split up the file and find the base name, without extension. If the
+    # uri is 'gs://my-project-report2bq-upload/my_file.csv', then the file name
+    # is 'my_file'.
     base_file = file.split('/')[-1].split('.')[0]
-    table_name = config.get('table_name',
-                            config.get('dest_table',
-                                       csv_helpers.sanitize_string(base_file)))
+
+    # To avoid breaking existing configs, use 'table_name' if it is present.
+    # Net new configs will not have a 'table_name' key, instead having
+    # dest_table' so use that instead. Failing that, just use the file name.
+    table_name = \
+      config.get('table_name') or \
+        config.get('dest_table') or \
+          csv_helpers.sanitize_string(base_file)
+
     logging.info('bucket %s, table %s, file_name %s',
                  bucket, table_name, file)
 

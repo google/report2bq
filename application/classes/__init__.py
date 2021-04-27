@@ -16,8 +16,8 @@ import os
 
 from googleapiclient.discovery import Resource
 from googleapiclient.errors import HttpError
-from messytables import types
-from typing import Any, Dict, List, Mapping, Tuple
+from messytables.types import CellType
+from typing import Any, Dict, Iterable, List, Mapping, Tuple
 
 from classes import credentials
 from classes import decorators
@@ -26,6 +26,8 @@ from classes import firestore
 from classes import gmail
 from classes import report_type
 from classes import services
+from classes.report_config import ReportConfig
+
 
 class Fetcher(object):
   @decorators.retry(exceptions=HttpError, tries=3, backoff=2)
@@ -55,8 +57,8 @@ class ReportFetcher(object):
       credentials=credentials.Credentials(email=self.email,
                                           project=self.project))
 
-  def read_header(self, report_details: dict) \
-    -> Tuple[List[str], List[types.CellType]]:
+  def read_header(self, report_details: ReportConfig) -> Tuple[List[str],
+                                                               List[CellType]]:
     """Reads the header of the report CSV file.
 
     Args:
@@ -67,7 +69,7 @@ class ReportFetcher(object):
     """
     pass
 
-  def stream_to_gcs(self, bucket: str, report_details: Dict[str, Any]) -> None:
+  def stream_to_gcs(self, bucket: str, report_details: ReportConfig) -> None:
     """Streams the report CSV to Cloud Storage.
 
     Args:
@@ -200,3 +202,22 @@ class ReportRunner(object):
       gmail.send_message(message=message,
                          credentials=credentials.Credentials(
                            email=email, project=self.project))
+
+def strip_nulls(value: Iterable) -> Iterable:
+    """Removes null values from iterables.
+
+    Recursively remove all None values from dictionaries and lists, and returns
+    the result as a new dictionary or list.
+
+    Args:
+      value (Any): any list or dict to have empty values removed.
+    """
+    if isinstance(value, list):
+      return [strip_nulls(x) for x in value if x is not None]
+    elif isinstance(value, dict):
+      return {
+        key: strip_nulls(val)
+          for key, val in value.items() if val is not None
+      }
+    else:
+      return value

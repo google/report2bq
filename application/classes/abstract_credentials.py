@@ -13,6 +13,8 @@
 # limitations under the License.
 from __future__ import annotations
 
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from google.auth.transport import requests
 from google.oauth2 import credentials
 
@@ -34,49 +36,30 @@ class AbstractCredentials(object):
   credentials.
   """
 
-  @decorators.lazy_property
   def datastore(self) -> AbstractDatastore:
     """The datastore property."""
     pass
 
-  @datastore.setter
   def datastore(self, f: AbstractDatastore) -> None:
     """Sets the datastore property."""
     self._datastore = f
 
-  @decorators.lazy_property
   def project_credentials(self) -> Dict[str, Any]:
     """The project credentials."""
     pass
 
-  @property
   def token_details(self) -> Dict[str, Any]:
     """The users's refresh and access token."""
     pass
 
-  def _refresh_credentials(self) -> credentials.Credentials:
+  def _refresh_credentials(self, creds: credentials.Credentials) -> None:
     """Refreshes the Google OAuth credentials.
 
     Returns:
         google.oauth2.credentials.Credentials: the credentials
     """
-    secrets = \
-      self.project_credentials.get('web') or \
-        self.project_credentials.get('installed')
-
-    creds = \
-      credentials.Credentials(
-        None,
-        refresh_token = self.token_details['refresh_token'],
-        token_uri = 'https://accounts.google.com/o/oauth2/token',
-        client_id = secrets['client_id'],
-        client_secret = secrets['client_secret']
-    )
-
     creds.refresh(requests.Request())
     self.store_credentials(creds)
-
-    return creds
 
   def get_credentials(self) -> credentials.Credentials:
     """Fetches the credentials.
@@ -84,7 +67,30 @@ class AbstractCredentials(object):
     Returns:
        (google.oauth2.credentials.Credentials):  the credentials
     """
-    return self._refresh_credentials()
+    secrets = \
+      self.project_credentials.get('web') or \
+        self.project_credentials.get('installed')
+
+    expiry = datetime.now() + relativedelta(days=7)
+    if self.token_details.get('access_token'):
+      creds = credentials.Credentials.from_authorized_user_info({
+        'token': self.token_details['access_token'],
+        'refresh_token': self.token_details['refresh_token'],
+        'client_id': secrets['client_id'],
+        'client_secret': secrets['client_secret'],
+        'expiry': expiry.strftime("%Y-%m-%dT%H:%M:%S"),
+      })
+      self._refresh_credentials(creds=creds)
+
+    else:
+      creds = \
+        credentials.Credentials.from_authorized_user_info(self.token_details)
+      if creds.expired:
+        creds.expiry = expiry
+        self._refresh_credentials(creds=creds)
+
+
+    return creds
 
   def get_auth_headers(self) -> Dict[str, Any]:
     """Returns authorized http headers.

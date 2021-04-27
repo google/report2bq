@@ -49,10 +49,10 @@ class JobMonitor(object):
   def firestore(self) -> AbstractDatastore:
     return Firestore()
 
-  def process(self, data: Dict[str, Any], context):
-    """Check all the running jobs
+  def process(self, data: Dict[str, Any], context) -> None:
+    """Checks all the running jobs.
 
-    Arguments:
+    Args:
       event (Dict[str, Any]):  data sent from the PubSub message
       context (Dict[str, Any]):  context data. unused
     """
@@ -93,12 +93,12 @@ class JobMonitor(object):
 
           break
 
-  def _handle_finished(self, job: LoadJob, config: Dict[str, Any]):
-    """Deal with completed jobs
+  def _handle_finished(self, job: LoadJob, config: Dict[str, Any]) -> None:
+    """Deals with completed jobs.
 
     When we find a completed job, delete the source CSV from GCS.
 
-    Arguments:
+    Args:
         job (LoadJob):  Big Query import job
     """
     for source in job.source_uris:
@@ -117,11 +117,11 @@ class JobMonitor(object):
 
   def _mark_import_job_complete(self, report_id: int,
                                job: bigquery.LoadJob) -> None:
-    """Marks a BQ Import job in Firestore done
+    """Marks a BQ Import job in Firestore done.
 
     Moves an import job from 'jobs/' to 'jobs-completed'.
 
-    Arguments:
+    Args:
         report_id (int): [description]
         job (bigquery.LoadJob): [description]
     """
@@ -132,6 +132,16 @@ class JobMonitor(object):
              report_type: Type,
              config: Dict[str, Any],
              job: LoadJob, id: str) -> None:
+    """Notifies the postprocessor.
+
+    Kicks the approriate postprocessor into action.
+
+    Args:
+        report_type (Type): the report type
+        config (Dict[str, Any]): the report config
+        job (LoadJob): the BQ load job config
+        id (str): the BQ job id
+    """
     columns = ';'.join([ field['name'] for field in config['schema'] ])
 
     attributes = {

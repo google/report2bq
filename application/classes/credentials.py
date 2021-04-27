@@ -52,7 +52,7 @@ class Credentials(AbstractCredentials):
       json.loads(Cloud_Storage.fetch_file(bucket=self.bucket,
                                           file='client_secrets.json'))
 
-  @property
+  @decorators.lazy_property
   def token_details(self) -> Dict[str, Any]:
     """The users's refresh and access token."""
     # TODO: Remove the GCS check when fully migrated to Firestore.
@@ -84,8 +84,11 @@ class Credentials(AbstractCredentials):
     Returns:
         str: base64 representation of the key value.
     """
-    _key = \
-      base64.b64encode(self._email.encode('utf-8')).decode('utf-8').rstrip('=')
+    if self._email:
+      _key = \
+        base64.b64encode(self._email.encode('utf-8')).decode('utf-8').rstrip('=')
+    else:
+      _key = 'unknown_email_address'
     return _key
 
   def store_credentials(self, creds: credentials.Credentials) -> None:
@@ -96,13 +99,15 @@ class Credentials(AbstractCredentials):
     Args:
         creds (credentials.Credentials): the user credentials."""
     # TODO: Remove the GCS write when fully migrated to Firestore.
-    refresh_token_details = {
-      'access_token': creds.token,
-      'refresh_token': creds.refresh_token
-    }
-    self.datastore.update_document(type=Type._ADMIN, id='auth',
-                                   new_data={self.key: refresh_token_details})
-    Cloud_Storage.write_file(
-      bucket=self.bucket, file=self.client_token,
-      data=json.dumps(refresh_token_details).encode('utf-8'))
-    return creds
+    if self._email:
+      refresh_token_details = {
+        'access_token': creds.token,
+        'refresh_token': creds.refresh_token,
+        '_key': self.key
+      }
+      self.datastore.update_document(type=Type._ADMIN, id='auth',
+                                     new_data={ self.key:
+                                                  json.loads(creds.to_json())})
+      Cloud_Storage.write_file(
+        bucket=self.bucket, file=self.client_token,
+        data=json.dumps(refresh_token_details).encode('utf-8'))

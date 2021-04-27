@@ -63,7 +63,8 @@ class GMailMessage(object):
 
 
 def send_message(message: GMailMessage,
-                 credentials: credentials.Credentials) -> None:
+                 credentials: credentials.Credentials,
+                 **unused) -> None:
   """Sends a message via the Gmail API.
 
   Args:

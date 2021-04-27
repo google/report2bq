@@ -52,10 +52,9 @@ def get_service(service: Service,
       NotImplementedError: if an invalid service is requested.
   """
   if definition := service.definition:
-    credentials.get_credentials()
     _credentials = \
-      AccessTokenCredentials(credentials.token_details['access_token'],
-                            user_agent='report2bq')
+      AccessTokenCredentials(credentials.get_credentials().token,
+                             user_agent='report2bq')
     auth_https = _credentials.authorize(discovery.httplib2.Http())
     service = discovery.build(http=auth_https,
                               cache_discovery=False,

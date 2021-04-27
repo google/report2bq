@@ -24,11 +24,12 @@ from queue import Queue
 
 from messytables.types import CellType
 
-from classes import Fetcher, ReportFetcher
 from classes import credentials
-from classes.cloud_storage import Cloud_Storage
 from classes import csv_helpers
+from classes import Fetcher, ReportFetcher
+from classes.cloud_storage import Cloud_Storage
 from classes.decorators import retry
+from classes.report_config import ReportConfig
 from classes.services import Service
 from classes.report_type import Type
 from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
@@ -188,9 +189,10 @@ class DCM(ReportFetcher, Fetcher):
     start = data.find(HEADER_MARKER) + len(HEADER_MARKER)
     return start
 
-  def _read_data_chunk(self, report_data: dict, chunk: int=16384) -> bytes:
-    report_id = report_data['id']
-    file_id = report_data['report_file']['id']
+  def _read_data_chunk(self, report_data: ReportConfig,
+                       chunk: int=16384) -> bytes:
+    report_id = report_data.id
+    file_id = report_data.report_file.id
     request = self.service.files().get_media(
       reportId=report_id, fileId=file_id)
 
@@ -202,7 +204,8 @@ class DCM(ReportFetcher, Fetcher):
     return out_file.getvalue()
 
   def read_header(self,
-                  report_details: dict) -> Tuple[List[str], List[CellType]]:
+                  report_details: ReportConfig) -> Tuple[List[str],
+                                                         List[CellType]]:
     """Reads the header of the report CSV file.
 
     Args:
@@ -211,7 +214,7 @@ class DCM(ReportFetcher, Fetcher):
     Returns:
         Tuple[List[str], List[CellType]]: the csv headers and column types
     """
-    if report_details.get('report_file'):
+    if report_details.report_file:
       data = self._read_data_chunk(report_details, 163840)
       bytes_io = io.BytesIO(data)
       csv_start = self._find_first_data_byte(bytes_io.getvalue())
@@ -221,20 +224,20 @@ class DCM(ReportFetcher, Fetcher):
     else:
       return (None, None)
 
-  def stream_to_gcs(self, bucket: str, report_data: dict):
+  def stream_to_gcs(self, bucket: str, report_data: ReportConfig):
     """Streams the report CSV to Cloud Storage.
 
     Arguments:
         bucket (str):  GCS Bucket
         report_data (dict):  Report definition
     """
-    if not 'report_file' in report_data:
+    if report_data.report_file:
       return
 
     queue = Queue()
 
-    report_id = report_data['id']
-    file_id = report_data['report_file']['id']
+    report_id = report_data.id
+    file_id = report_data.report_file.id
 
     chunk_size = self.chunk_multiplier * 1024 * 1024
     out_file = io.BytesIO()

@@ -108,9 +108,9 @@ def report_fetch(event: Dict[str, Any], context=None) -> None:
         gmail.send_message(message,
                            credentials=Credentials(
                              project=os.environ['GCP_PROJECT']),
-                             email=attributes.get('email'))
+                             email=email)
 
-      logging.fatal(f'Error: {e}')
+      logging.fatal(f'Error: {gmail.error_to_trace(error=e)}')
       return
 
 def job_monitor(event: Dict[str, Any], context=None):
@@ -247,7 +247,11 @@ def post_processor(event: Dict[str, Any], context=None) -> None:
       exec(_import)
       Processor = getattr(
           import_module(f'classes.postprocessor.{name}'), 'Processor')
-      Processor().run(context=context, **attributes)
+      try:
+        Processor().run(context=context, **attributes)
+
+      except Exception as e:
+        logging.error('Exception in postprocessor: %s', gmail.error_to_trace(e))
 
   else:
     logging.fatal('No postprocessor specified')

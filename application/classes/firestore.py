@@ -32,19 +32,15 @@ class Firestore(AbstractDatastore):
     self._project = project
     self._email = email
 
-  def get_all_documents(self, type: Type) -> List[Dict[str, Any]]:
+  def get_all_documents(self, type: Type) -> List[firestore.DocumentReference]:
     """Lists all documents
 
     Lists all documents of a given Type
 
     Returns:
-        documents (List[Dict[str, Any]]): list of all documents
+        documents (List[DocumentReference]): list of all documents
     """
-    documents = []
-    collection = self.client.collection(type.value).list_documents()
-    for document in collection:
-      documents.append(document.get().to_dict())
-
+    documents = self.client.collection(type.value).list_documents()
     return documents
 
   def get_document(self, type: Type, id: str,
@@ -64,7 +60,8 @@ class Firestore(AbstractDatastore):
     """
     document = None
 
-    if report:= self.client.document(f'{type}/{id}'):
+    if report := self.client.document(f'{type}/{id}'):
+
       document = report.get().to_dict()
 
     return document.get(key) if key and document else document
@@ -83,9 +80,6 @@ class Firestore(AbstractDatastore):
         report_data (Dict[str, Any]): report configuration
     """
     report = self.client.document(f'{type}/{id}')
-    if report:
-      report.delete()
-
     report.set(document)
 
   def update_document(self, type: Type, id: str,
