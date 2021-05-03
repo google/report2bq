@@ -21,7 +21,6 @@ from absl import flags
 from contextlib import suppress
 from datetime import datetime
 
-from classes.firestore import Firestore
 from classes.report_type import Type
 
 
@@ -37,15 +36,42 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('key', None, 'Key to create/update')
 flags.DEFINE_string('file', None, 'File containing json data')
 flags.DEFINE_bool('encode_key', False, 'Encode the key (for tokens).')
+flags.DEFINE_bool('local_store', False, 'Local storage.')
 flags.mark_flags_as_required(['file'])
 
 
-def upload(key: str, file: str, encode_key: bool) -> None:
-  def _encode() -> str:
-    _key = \
-      base64.b64encode(k.encode('utf-8')).decode('utf-8').rstrip('=')
-    return _key
+def encode(key: str) -> str:
+  """The key to use in Firestore
 
+  Converts an string to a base64 version to use as a key since
+  Firestore can only have [A-Za-z0-9] in keys. Stripping the '=' padding is
+  fine as the value will never have to be translated back.
+
+  Args:
+      key (Str): the key to be encoded.
+
+  Returns:
+      str: base64 representation of the key value.
+  """
+  if key:
+    try:
+      _key = \
+        base64.b64encode(key.encode('utf-8')).decode('utf-8').rstrip('=')
+    except Exception:
+      _key = 'invalid_key'
+  else:
+    _key = 'unknown_key'
+  return _key
+
+def upload(key: str, file: str, encode_key: bool, local_store: bool) -> None:
+  """Uploads data to firestore.
+
+  Args:
+      key (str): the data key.
+      file (str): the file containing the data.
+      encode_key (bool): should the key be encoded (eg is it an email).
+      local_store (bool): local storage (True) or Firestore (False).
+  """
   data = None
 
   if file:
@@ -56,19 +82,27 @@ def upload(key: str, file: str, encode_key: bool) -> None:
     data = {}
     for (k, v) in src_data.items():
       v["_key"] = k
-      data[_encode()] = v
+      data[encode(k)] = v
 
   else:
     data = src_data
 
-  f = Firestore()
+  if local_store:
+    from classes.local_datastore import LocalDatastore
+    f = LocalDatastore()
+
+  else:
+    from classes.firestore import Firestore
+    f = Firestore()
+
   f.update_document(Type._ADMIN, id=key, new_data=data)
 
 def main(unused_argv):
   event = {
     'key': FLAGS.key,
     'file': FLAGS.file,
-    'encode_key': FLAGS.encode_key
+    'encode_key': FLAGS.encode_key,
+    'local_store': FLAGS.local_store,
   }
   upload(**event)
 

@@ -13,7 +13,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-import base64
 import json
 
 from google.oauth2 import credentials
@@ -57,7 +56,7 @@ class Credentials(AbstractCredentials):
     """The users's refresh and access token."""
     # TODO: Remove the GCS check when fully migrated to Firestore.
     return self.datastore.get_document(type=Type._ADMIN, id='auth',
-                                       key=self.key) or \
+                                       key=self.encode_key(self._email)) or \
       json.loads(Cloud_Storage.fetch_file(bucket=self.bucket,
                                           file=self.client_token))
 
@@ -73,24 +72,6 @@ class Credentials(AbstractCredentials):
     # TODO: Remove when fully migrated to Firestore.
     return f'{self._email}_user_token.json'
 
-  @decorators.lazy_property
-  def key(self) -> str:
-    """The key to use in Firestore
-
-    Converts an email address to a base64 version to use as a key since
-    Firestore can only have [A-Za-z0-9] in keys. Stripping the '=' padding is
-    fine as the value will never have to be translated back.
-
-    Returns:
-        str: base64 representation of the key value.
-    """
-    if self._email:
-      _key = \
-        base64.b64encode(self._email.encode('utf-8')).decode('utf-8').rstrip('=')
-    else:
-      _key = 'unknown_email_address'
-    return _key
-
   def store_credentials(self, creds: credentials.Credentials) -> None:
     """Stores the credentials.
 
@@ -99,15 +80,16 @@ class Credentials(AbstractCredentials):
     Args:
         creds (credentials.Credentials): the user credentials."""
     # TODO: Remove the GCS write when fully migrated to Firestore.
+    key = self.encode_key(self._email)
     if self._email:
       refresh_token_details = {
         'access_token': creds.token,
         'refresh_token': creds.refresh_token,
-        '_key': self.key
+        '_key': key
       }
       self.datastore.update_document(type=Type._ADMIN, id='auth',
-                                     new_data={ self.key:
-                                                  json.loads(creds.to_json())})
+                                     new_data={ key:
+                                                json.loads(creds.to_json())})
       Cloud_Storage.write_file(
         bucket=self.bucket, file=self.client_token,
         data=json.dumps(refresh_token_details).encode('utf-8'))

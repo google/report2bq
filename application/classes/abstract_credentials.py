@@ -13,6 +13,8 @@
 # limitations under the License.
 from __future__ import annotations
 
+import base64
+
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from google.auth.transport import requests
@@ -120,3 +122,23 @@ class AbstractCredentials(object):
         creds (credentials.Credentials): [description]
     """
     pass
+
+  def encode_key(self, key: str) -> str:
+    """Creates the key to use in Firestore.
+
+    Converts an string to a base64 version to use as a key since
+    Firestore can only have [A-Za-z0-9] in keys. Stripping the '=' padding is
+    fine as the value will never have to be translated back.
+
+    Returns:
+        str: base64 representation of the key value.
+    """
+    if key:
+      try:
+        _key = \
+          base64.b64encode(self.key.encode('utf-8')).decode('utf-8').rstrip('=')
+      except Exception:
+        _key = 'invalid_key'
+    else:
+      _key = 'unknown_key'
+    return _key

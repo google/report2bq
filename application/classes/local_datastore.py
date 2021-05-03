@@ -13,33 +13,50 @@
 # limitations under the License.
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+import json
 
+from classes import decorators
+from classes import report_type
+from classes.abstract_datastore import AbstractDatastore
 from classes.report_type import Type
 
-from google.cloud import bigquery
+from functools import wraps
+from typing import Any, Callable, Dict, List, Mapping, Optional
+
+DATASTORE_FILE = 'datastore.json'
 
 
-class AbstractDatastore(object):
-  """Abstract Datastore.
+def persist(f: Callable) -> Any:
+  def f_persist(*args: Mapping[str, Any], **kw: Mapping[str, Any]) -> Any:
+    datastore = args[0].datastore
+    try:
+      return f(*args, **kw)
+    finally:
+      with open(DATASTORE_FILE, 'w') as storage:
+        storage.write(json.dumps(datastore, indent=2))
+  return f_persist
 
-  This is the Datastore contract to be fufilled by any storage method. It
-  contains the functions to be implemented by the concrete versions, as well as
-  helpers (that are used throughought the system) which simply recall the more
-  generic functions - for example 'remove_report_runner(id)' is the same as
-  'delete_document(Type._RUNNER, id)' but in the context of where it is used
-  is clearer than the latter.
+class LocalDatastore(AbstractDatastore):
+  @decorators.lazy_property
+  def datastore(self) -> Dict[str, Any]:
+    try:
+      with open(DATASTORE_FILE, 'r') as store:
+        if data := store.read():
+          return json.loads(data)
+        else:
+          return {}
+    except FileNotFoundError:
+      return {}
 
-  All unimplemented functions raise a NotImplementedError() rather than
-  simply 'pass'.
-  """
+  def __init__(self, email: str=None, project: str=None) -> AbstractDatastore:
+    self._project = project
+    self._email = email
+
   def get_document(self, type: Type, id: str,
                    key: Optional[str]=None) -> Dict[str, Any]:
-    """Fetches a document (could be anything, 'type' identifies the root.)
+    """Loads a document (could be anything, 'type' identifies the root.)
 
-    Fetch a document
-
-    Arguments:
+    Args:
         type (Type): document type (document root in firestore)
         id (str): document id
         key: Optional(str): the document collection sub-key
@@ -48,8 +65,18 @@ class AbstractDatastore(object):
         Dict[str, Any]: stored configuration dictionary, or None
                           if not present
     """
-    raise NotImplementedError('Must be implemented by child class.')
+    if document := self.datastore.get(type.value):
+      parent = document.get(id)
+      if parent:
+        if key:
+          value = parent.get(key)
+          return {key: value} if value else None
+        else:
+          return {id: parent}
+    else:
+      return None
 
+  @persist
   def store_document(self, type: Type, id: str,
                      document: Dict[str, Any]) -> None:
     """Stores a document.
@@ -58,13 +85,14 @@ class AbstractDatastore(object):
     (DCM/DBM/SA360/ADH) and each one within the type is keyed by the
     appropriate report id.
 
-    Arguments:
+    Args:
         type (Type): product
         id (str): report id
         report_data (Dict[str, Any]): report configuration
     """
-    raise NotImplementedError('Must be implemented by child class.')
+    self.datastore.update({type.value: {id: document}})
 
+  @persist
   def update_document(self, type: Type, id: str,
                       new_data: Dict[str, Any]) -> None:
     """Updates a document.
@@ -77,24 +105,39 @@ class AbstractDatastore(object):
         id (str): the id of the document within the collection.
         new_data (Dict[str, Any]): the document content.
     """
-    raise NotImplementedError('Must be implemented by child class.')
+    root = self.datastore.get(type.value, {})
+    if document := root.get(id):
+      document.update(new_data)
+    else:
+      root[id] = new_data
 
+  @persist
   def delete_document(self, type: Type, id: str,
                       key: Optional[str]=None) -> None:
     """Deletes a document.
 
     This removes a document or partial document from the Firestore. If a key is
     supplied, then just that key is removed from the document. If no key is
-    given, the entire document will be removed from the collection.
+    given, the entire document will be removed from the collection. If neither
+    key is present, nothing will happen.
 
     Args:
         type (Type): the document type, which is the collection.
         id (str): the id of the document within the collection.
         key (str, optional): the key to remove. Defaults to None.
     """
-    raise NotImplementedError('Must be implemented by child class.')
+    try:
+      if key:
+        if doc := self.datastore.get(type.value, {}).get(id):
+          doc.pop(key)
+      else:
+        self.datastore.get(type.value, {}).pop(id)
 
-  def list_documents(self, report_type: Type, key: str=None) -> List[str]:
+    except KeyError:
+      None
+
+  def list_documents(self, report_type: Type,
+                     key: Optional[str]=None) -> List[str]:
     """Lists documents in a collection.
 
     List all the documents in the collection 'type'. If a key is give, list
@@ -111,17 +154,22 @@ class AbstractDatastore(object):
     Returns:
         List[str]: the list
     """
-    raise NotImplementedError('Must be implemented by child class.')
+    if docs := self.datastore.get(report_type.value):
+      if key:
+        if sub_docs := docs.get(key):
+          keys = sub_docs.keys()
+      else:
+        keys = docs.keys()
+    else:
+      keys = None
+    return keys
 
   def get_all_documents(self, type: Type) -> List[Dict[str, Any]]:
-    """Fetches all documents
+    """Lists all documents
 
-    Fetches all documents of a given Type.
-
-    Args:
-        type (Type): the document type, which is the collection.
+    Lists all documents of a given Type
 
     Returns:
-        runners (List[Dict[str, Any]]): contents of all documents
+        documents (List[DocumentReference]): list of all documents
     """
-    raise NotImplementedError('Must be implemented by child class.')
+    return self.list_documents(report_type=type)
