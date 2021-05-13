@@ -45,7 +45,7 @@ class ReportFetcher(object):
   project = None
   profile = None
 
-  @decorators.lazy_property
+  @property
   def service(self) -> Resource:
     """Creates the API service for the product.
 

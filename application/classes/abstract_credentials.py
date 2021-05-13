@@ -133,12 +133,4 @@ class AbstractCredentials(object):
     Returns:
         str: base64 representation of the key value.
     """
-    if key:
-      try:
-        _key = \
-          base64.b64encode(self.key.encode('utf-8')).decode('utf-8').rstrip('=')
-      except Exception:
-        _key = 'invalid_key'
-    else:
-      _key = 'unknown_key'
-    return _key
+    return base64.b64encode(key.encode('utf-8')).decode('utf-8').rstrip('=')

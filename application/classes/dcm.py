@@ -290,7 +290,7 @@ class DCM(ReportFetcher, Fetcher):
     queue.join()
     streamer.stop()
 
-  @retry(Exception, tries=3, delay=15, backoff=2)
+  @retry(Exception, tries=3, delay=5, backoff=2)
   def run_report(self, report_id: int, synchronous: bool=False):
     request = self.service.reports().run(
       reportId=report_id, profileId=self.profile, synchronous=synchronous)
@@ -298,7 +298,7 @@ class DCM(ReportFetcher, Fetcher):
 
     return result
 
-  @retry(Exception, tries=3, delay=15, backoff=2)
+  @retry(Exception, tries=3, delay=5, backoff=2)
   def report_state(self, report_id: int, file_id: int):
     request = self.service.reports().files().get(
       reportId=report_id, fileId=file_id, profileId=self.profile)

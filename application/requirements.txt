@@ -10,7 +10,6 @@ cryptography>=3.4.6
 dataclasses-json>=0.5.2
 decorator>=4.4.2
 discovery
-Flask>=1.1.2
 futures>=3.1.1
 gcs-oauth2-boto-plugin>=2.7
 gcsfs>=0.7.2

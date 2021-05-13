@@ -434,6 +434,7 @@ if [ ${DEPLOY_MONITOR} -eq 1 ]; then
     --service-account=$USER \
     --quiet \
     --timeout=240s \
+    --max-instances=1 \
     --project=${PROJECT} ${_BG}
 
   # Create scheduled job
@@ -521,6 +522,7 @@ if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
     --timeout=240s \
+    --max-instances=1 \
     --project=${PROJECT} ${_BG}
 
   # Create scheduled job

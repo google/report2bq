@@ -1,34 +1,27 @@
-"""
-Copyright 2020 Google LLC
+# Copyright 2021 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-__author__ = [
-  'davidharcombe@google.com (David Harcombe)'
-]
-
-from classes.abstract_datastore import AbstractDatastore
+import datetime
 import logging
 import os
 
 from typing import Dict, List, Any
-from contextlib import suppress
 
 from classes import decorators
 from classes import firestore
 from classes import gmail
-from classes.credentials import Credentials as Report2BQCredentials
+from classes.abstract_datastore import AbstractDatastore
 from classes.dbm import DBM
 from classes.dcm import DCM
 from classes.report_type import Type
@@ -70,6 +63,20 @@ class RunMonitor(object):
     """
     self.firestore_client.delete_document(Type._RUNNING, id=id)
 
+  def update_report_runner(self, id: str, status: str) -> None:
+    """Updates a report runner in the datastore
+
+    Args:
+        id (str): the report runner's id
+    """
+    self.firestore_client.update_document(
+        Type._RUNNING,
+        id=id,
+        new_data={
+            'status': status,
+            'date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S%z')
+        })
+
   def process(self, data: Dict[str, Any], context) -> None:
     """Execute the run_monitor.
 
@@ -81,30 +88,36 @@ class RunMonitor(object):
     """
     self.project = os.environ['GCP_PROJECT']
     report_checker = {
-      Type.DV360: self._check_dv360_report,
-      Type.CM: self._check_cm_report,
-      Type.SA360: self._check_sa360_report,
-      Type.SA360_RPT: self._check_sa360_report
+        Type.DV360: self._check_dv360_report,
+        Type.CM: self._check_cm_report,
+        Type.SA360: self._check_sa360_report,
+        Type.SA360_RPT: self._check_sa360_report
     }
 
-    documents = self.firestore_client.get_all_documents(Type._RUNNING)
+    documents = list(self.firestore_client.get_all_documents(Type._RUNNING))
+    logging.info('To process: %s', ','.join([d.id for d in documents]))
     for document in documents:
-      try:
-        run_config = document.get().to_dict()
-        T = Type(run_config.get('type'))
-        (success, job_config) = \
+      run_config = document.get().to_dict()
+      T = Type(run_config.get('type'))
+      (success, job_config) = \
           self._fetch_schedule(type=T, run_config=run_config)
+
+      try:
         if success:
+          logging.info('Processing job %s', run_config['report_id'])
           report_checker.get(T, self._invalid_type)(
-            run_config=run_config, job_config=job_config)
+              run_config=run_config, job_config=job_config)
         else:
           # Invalid job; remove this runner
           self.remove_report_runner(document.id)
 
       except Exception as e:
         logging.error(gmail.error_to_trace(e))
-        self._email_error(message='Error in run monitor.', error=e)
-
+        self._email_error(
+            message=(
+                f'Error in run monitor for job {run_config["report_id"]}. Report'
+                f' config is: {job_config}'),
+            error=e)
 
   def _fetch_schedule(self,
                       type: Type,
@@ -125,7 +138,7 @@ class RunMonitor(object):
         'email': run_config.get('email'),
         'html': False,
         'job_id': type.runner(run_config.get('report_id'))
-      })
+    })
 
   def _invalid_type(self,
                     job_config: Dict[str, Any],
@@ -151,7 +164,7 @@ class RunMonitor(object):
         run_config (Dict[str, Any]): current run configuration
     """
     job_attributes = job_config['pubsubTarget']['attributes']
-    dbm = DBM(email=job_attributes['email'], project=self.project)
+    dbm = DBM(email=job_attributes['email'], project=job_attributes['project'])
     status = dbm.report_state(run_config['report_id'])
 
     logging.info('Report %s status: %s', run_config['report_id'], status)
@@ -160,9 +173,9 @@ class RunMonitor(object):
       # Send pubsub to trigger report2bq now
       topic = job_config['pubsubTarget']['topicName']
       self.pubsub_client.publish(
-        topic=topic,
-        data=b'RUN',
-        **job_attributes
+          topic=topic,
+          data=b'RUN',
+          **job_attributes
       )
 
       # Remove job from running
@@ -172,6 +185,9 @@ class RunMonitor(object):
       # Remove job from running
       logging.error(f'Report %s failed!', run_config['report_id'])
       self.remove_report_runner(run_config['report_id'])
+
+    else:
+      self.update_report_runner(run_config['report_id'], status)
 
   def _check_cm_report(self,
                        job_config: Dict[str, Any],
@@ -184,12 +200,12 @@ class RunMonitor(object):
     """
     job_attributes = job_config['pubsubTarget']['attributes']
     dcm = DCM(email=job_attributes['email'],
-              project=self.project,
+              project=job_attributes['project'],
               profile=job_attributes['profile'])
     response = dcm.report_state(report_id=run_config['report_id'],
                                 file_id=run_config['file_id'])
     status = \
-      response['status'] if response and  'status' in response else 'UNKNOWN'
+        response['status'] if response and 'status' in response else 'UNKNOWN'
 
     logging.info('Report %s status: %s.', run_config['report_id'], status)
     if status == 'REPORT_AVAILABLE':
@@ -200,10 +216,13 @@ class RunMonitor(object):
       # Remove job from running
       self.remove_report_runner(run_config['report_id'])
 
-    elif status == 'FAILED' or status =='CANCELLED':
+    elif status == 'FAILED' or status == 'CANCELLED':
       # Remove job from running
       logging.error('Report %s failed!', run_config['report_id'])
       self.remove_report_runner(run_config['report_id'])
+
+    else:
+      self.update_report_runner(run_config['report_id'], status)
 
   def _check_sa360_report(self,
                           job_config: Dict[str, Any],
@@ -216,15 +235,15 @@ class RunMonitor(object):
     """
     # Merge configs
     job_attributes = \
-      job_config['pubsubTarget']['attributes'] \
+        job_config['pubsubTarget']['attributes'] \
         if 'pubsubTarget' in job_config else {}
-    config = { **run_config, **job_attributes }
+    config = {**run_config, **job_attributes}
 
     # Send pubsub to trigger report2bq now
     topic = f'projects/{self.project}/topics/report2bq-fetcher'
     self.pubsub_client.publish(
-      topic=topic, data=b'RUN',
-      **config)
+        topic=topic, data=b'RUN',
+        **config)
 
   def _email_error(self,
                    message: str,

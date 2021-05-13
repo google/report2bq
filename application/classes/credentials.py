@@ -35,13 +35,13 @@ class Credentials(AbstractCredentials):
       self._email=email
       self._project=project
 
-  @decorators.lazy_property
+  @property
   def datastore(self) -> AbstractDatastore:
     """The datastore property."""
     from classes.firestore import Firestore
     return Firestore()
 
-  @decorators.lazy_property
+  @property
   def project_credentials(self) -> Dict[str, Any]:
     """The project credentials.
 
@@ -51,7 +51,7 @@ class Credentials(AbstractCredentials):
       json.loads(Cloud_Storage.fetch_file(bucket=self.bucket,
                                           file='client_secrets.json'))
 
-  @decorators.lazy_property
+  @property
   def token_details(self) -> Dict[str, Any]:
     """The users's refresh and access token."""
     # TODO: Remove the GCS check when fully migrated to Firestore.
@@ -60,13 +60,13 @@ class Credentials(AbstractCredentials):
       json.loads(Cloud_Storage.fetch_file(bucket=self.bucket,
                                           file=self.client_token))
 
-  @decorators.lazy_property
+  @property
   def bucket(self) -> str:
     """The GCS bucket containing credentials."""
     # TODO: Remove when fully migrated to Firestore.
     return f'{self._project}-report2bq-tokens'
 
-  @decorators.lazy_property
+  @property
   def client_token(self) -> str:
     """The name of the token file in GCS."""
     # TODO: Remove when fully migrated to Firestore.
