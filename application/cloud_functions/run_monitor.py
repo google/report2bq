@@ -18,6 +18,7 @@ import os
 
 from typing import Dict, List, Any
 
+from classes import credentials
 from classes import decorators
 from classes import firestore
 from classes import gmail
@@ -276,6 +277,6 @@ class RunMonitor(object):
 
       gmail.send_message(
         message=message,
-        credentials=Report2BQCredentials(
+        credentials=credentials.Credentials(
           email=email or administrator, project=os.environ.get('GCP_PROJECT'))
       )

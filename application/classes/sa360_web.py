@@ -17,6 +17,7 @@ limitations under the License.
 __author__ = ['davidharcombe@google.com (David Harcombe)']
 
 # Python Imports
+from classes.report_config import ReportConfig
 from classes import ReportFetcher
 import csv
 import logging
@@ -72,9 +73,9 @@ class SA360Web(ReportFetcher):
     self.bucket = f'{self.project}-report2bq-upload'
 
   @measure_memory
-  def stream_to_gcs(self, bucket: str, report_details: Dict[str, Any]) \
+  def stream_to_gcs(self, bucket: str, report_details: ReportConfig) \
     -> Tuple[List[str], List[str]]:
-    report_url = report_details['url']
+    report_url = report_details.url
     remainder = b''
     queue = Queue()
     output_buffer = StringIO()
@@ -91,7 +92,7 @@ class SA360Web(ReportFetcher):
       creds=credentials.Credentials(
         email=self.email, project=self.project).get_credentials(),
       bucket_name=bucket,
-      blob_name='{id}.csv'.format(id=report_details['id']),
+      blob_name=f'{report_details.id}.csv',
       chunk_size=chunk_size,
       streamer_queue=queue)
     streamer.daemon = True
@@ -162,7 +163,8 @@ class SA360Web(ReportFetcher):
 
         if first:
           _, fieldtypes = \
-            csv_helpers.get_column_types(BytesIO(output_buffer.getvalue().encode('utf-8')))
+            csv_helpers.get_column_types(
+              BytesIO(output_buffer.getvalue().encode('utf-8')))
 
         queue.put(output_buffer.getvalue().encode('utf-8'))
         chunk_id += 1
@@ -174,7 +176,7 @@ class SA360Web(ReportFetcher):
       logging.info(f'SA360 report length: {source_size:,} bytes')
       queue.join()
       streamer.stop()
-      report_details['schema'] = \
+      report_details.schema = \
         csv_helpers.create_table_schema(fieldnames, fieldtypes)
 
       return fieldnames, fieldtypes
