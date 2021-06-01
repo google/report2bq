@@ -23,7 +23,7 @@ import time
 import tracemalloc
 
 from functools import wraps
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Tuple, Union
 
 
 def timeit(f: Callable):
@@ -54,7 +54,8 @@ def measure_memory(f: Callable) -> Any:
   return decorate
 
 
-def retry(exceptions, tries: int = 4, delay: int = 5, backoff: int = 2):
+def retry(exceptions: Union[Exception, Tuple[Exception]],
+          tries: int = 4, delay: int = 5, backoff: int = 2):
   """Retry calling the decorated function using an exponential backoff.
 
     Args:

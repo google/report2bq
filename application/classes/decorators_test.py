@@ -38,7 +38,7 @@ class RetryTest(unittest.TestCase):
   @mock.patch.object(logging, 'warning', autospec=True)
   def test_retry_and_fail(self, mock_logger):
 
-    @decorators.retry((Exception,), backoff=2, delay=1)
+    @decorators.retry(Exception, backoff=2, delay=1)
     def _test_retry_and_fail(mock_function):
       # mock_function is set to raise an exception on each call, but each will
       # log the attempt, with the third and final exception being propagated.
@@ -53,13 +53,31 @@ class RetryTest(unittest.TestCase):
 
   @mock.patch.object(logging, 'warning', autospec=True)
   def test_retry_and_succeed(self, mock_logger):
-    @decorators.retry((Exception,), backoff=2, delay=1)
+    @decorators.retry(Exception, backoff=2, delay=1)
     def _test_retry_and_succeed(mock_function):
       mock_function()
 
     mock_foo = mock.create_autospec(
         self.dummy_function_for_mocking, side_effect=[EXCEPTION, ''])
     _test_retry_and_succeed(mock_foo)
+    self.assertEqual(mock_foo.call_count, 2)
+    self.assertEqual(mock_logger.call_count, 1)
+    mock_logger.assert_called_once_with(
+      'Try %d: "%s" - retrying in %d seconds...',
+      MockValidator(lambda x: isinstance(x, int)),
+      MockValidator(lambda x: isinstance(x, Exception)),
+      MockValidator(lambda x: isinstance(x, int)))
+
+  @mock.patch.object(logging, 'warning', autospec=True)
+  def test_retry_and_fail_unexpected(self, mock_logger):
+    @decorators.retry(ValueError, backoff=2, delay=1)
+    def _test_retry(mock_function):
+      mock_function()
+
+    mock_foo = mock.create_autospec(
+        self.dummy_function_for_mocking, side_effect=[ValueError(), EXCEPTION, ''])
+    with self.assertRaises(Exception):
+      _test_retry(mock_foo)
     self.assertEqual(mock_foo.call_count, 2)
     self.assertEqual(mock_logger.call_count, 1)
     mock_logger.assert_called_once_with(

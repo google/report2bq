@@ -80,8 +80,8 @@ class Credentials(AbstractCredentials):
     Args:
         creds (credentials.Credentials): the user credentials."""
     # TODO: Remove the GCS write when fully migrated to Firestore.
-    key = self.encode_key(self._email)
     if self._email:
+      key = self.encode_key(self._email)
       refresh_token_details = {
         'access_token': creds.token,
         'refresh_token': creds.refresh_token,

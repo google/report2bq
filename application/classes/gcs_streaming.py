@@ -295,7 +295,7 @@ class ThreadedGCSObjectStreamUpload(GCSStreamingUploader, threading.Thread):
         continue
 
       try:
-        logging.info('%s Grabbing chunk of %s bytes', self.streamer_type,
+        logging.info('%s receiving %s bytes', self.streamer_type,
                      f'{len(chunk):,}')
         self.write(chunk)
 
