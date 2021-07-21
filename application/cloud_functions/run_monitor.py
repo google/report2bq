@@ -172,7 +172,7 @@ class RunMonitor(object):
 
     if status == 'DONE':
       # Send pubsub to trigger report2bq now
-      topic = job_config['pubsubTarget']['topicName']
+      topic = f'projects/{self.project}/topics/report2bq-fetcher'
       self.pubsub_client.publish(
           topic=topic,
           data=b'RUN',
