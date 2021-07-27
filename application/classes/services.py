@@ -86,7 +86,7 @@ SERVICE_DEFINITIONS = \
     Service.BQ:
       ServiceDefinition(version='v2', name='bigquery'),
     Service.CM:
-      ServiceDefinition(name='dfareporting', version='v3.4'),
+      ServiceDefinition(name='dfareporting', version='v3.5'),
     Service.DV360:
       ServiceDefinition(name='doubleclickbidmanager', version='v1.1'),
     Service.GA360:

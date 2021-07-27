@@ -38,25 +38,25 @@ And allow it to update
 1. Check out the code \
   `git clone https://github.com/google/report2bq`
 
-####Before we start to install
+#### Before we start to install
 
 1. Navigate to [API & Services > Credentials](https://console.cloud.google.com/apis/credentials)
 
-1. You will need an API key. Click "CREATE CREDENTIALS", and you will see this:  
-![](screenshots/3a-CreateAPIKey.png)  
+1. You will need an API key. Click "CREATE CREDENTIALS", and you will see this:
+![](screenshots/3a-CreateAPIKey.png)
 Select "API Key", set name to“Report2BQ API Key” \
 Note the API Key's value, you will need it for the next step
 
-####Install the application
+#### Install the application
 
 1. Run the installer \
-`./install.sh --project=<PROJECT ID> --dataset=<DATASET NAME> --api-key=<API 
-KEY> --create-service-account --activate-apis --deploy-all` \
- * _`<PROJECT ID>` comes from the [GCP dashboard](https://console.cloud.google.com/home/dashboard):_ \
+`./install.sh --project=<PROJECT ID> --dataset=<DATASET NAME> --api-key=<API
+KEY> --create-service-account --activate-apis --deploy-all`
+   * _`<PROJECT ID>` comes from the [GCP dashboard](https://console.cloud.google.com/home/dashboard):_ \
 ![](screenshots/1-project_id.png) \
- * _`<DATASET NAME>` will default to `report2bq` if you don't choose your own._
- * _`<API KEY>`  is the value from the API Key you created in the previous step_ \
- * _`--dry-run` simply shows what the code is _going_ to do, without actually doing
+   * _`<DATASET NAME>` will default to `report2bq` if you don't choose your own._
+   * _`<API KEY>`  is the value from the API Key you created in the previous step_ \
+   * _`--dry-run` simply shows what the code is _going_ to do, without actually doing
  anything._  ] \
 For detailed directions on what the installer can do, please see later or check
  out the script's own help with `./installer.sh --help` \
@@ -73,7 +73,7 @@ sense to you. (***NOTE the region. You will need it in a few steps.)
 \
 ![](screenshots/firestore-to-native-mode-1.png)
 
-####Authentication
+#### Authentication
 
 1. Create the server's OAuth Id \
 *(Note: You may need to "[Configure Consent Screen](https://console.cloud.google.com/apis/credentials/consent)" first. User type is likely "Internal", App name should be some variation on "`[Solution Name]` - Report2BQ"). User your email address for the email address fields. Don't worry about any non-required fields.)*\
