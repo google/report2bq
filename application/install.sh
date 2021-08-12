@@ -64,6 +64,19 @@ Deployment directives:
 General switches:
   --administrator   EMail address of the administrator for error messages
   --store-api-key   Store the API key in the GCS tokens bucket for use later
+
+  --no-[ adh | cm | dv360 | ga360 | sa360 ]
+                    These keys will not enable access to the named product.
+                    If you choose to do this, you will still be able to
+                    create runners and fetchers for the product, but Report2BQ
+                    will not be able to execute them. Any combination of these
+                    can be used. For example: --no-adh --no-ga360  will not
+                    enable ADH or GA360, but will enable CM, DV360 and SA360
+                    for Report2BQ to use.
+                    If the Google Cloud Project already has the APIs enabled,
+                    that status will NOT change, regardless of the switch.
+                    The default is that all will be enabled.
+
   --dry-run         Don't do anything, just print the commands you would otherwise run. Useful
                     for testing.
   --usage           Show this text
@@ -124,6 +137,13 @@ DEPLOY_GA360_MANAGER=0
 DEPLOY_SA360_MANAGER=0
 DEPLOY_TOPICS=1
 STORE_API_KEY=0
+
+ADH=1
+CM=1
+DV360=1
+GA360=1
+SA360=1
+
 USERNAME=0
 ADMIN=
 
@@ -210,6 +230,21 @@ while [[ $1 == -* ]] ; do
     --no-code)
       DEPLOY_CODE=0
       ;;
+    --no-adh)
+      ADH=0
+      ;;
+    --no-cm)
+      CM=0
+      ;;
+    --no-dv360)
+      DV360=0
+      ;;
+    --no-ga360)
+      GA360=0
+      ;;
+    --no-sa360)
+      SA360=0
+      ;;
     *)
       usage
       echo ""
@@ -235,26 +270,28 @@ if [ ! -z ${ADMIN} ]; then
   _ADMIN="ADMINISTRATOR_EMAIL=${ADMIN}"
 fi
 
+# Check for active APIs
 if [ ${ACTIVATE_APIS} -eq 1 ]; then
-  # Check for active APIs
+  # Support APIs - all these are required
   APIS_USED=(
-    "adsdatahub"
-    "analyticsreporting"
     "appengine"
     "bigquery"
     "cloudbuild"
     "cloudfunctions"
     "cloudscheduler"
-    "dfareporting"
-    "doubleclickbidmanager"
-    "doubleclicksearch"
     "firestore"
     "gmail"
     "pubsub"
     "storage-api"
   )
+
+  (( ADH )) && APIS_USED+=("adsdatahub")
+  (( GA360 )) && APIS_USED+=("analyticsreporting")
+  (( CM )) && APIS_USED+=("dfareporting")
+  (( DV360 )) && APIS_USED+=("doubleclickbidmanager")
+  (( SA360 )) && APIS_USED+=("doubleclicksearch")
+
   ACTIVE_SERVICES="$(gcloud --project=${PROJECT} services list | cut -f 1 -d' ' | grep -v NAME)"
-  # echo ${ACTIVE_SERVICES[@]}
 
   for api in ${APIS_USED[@]}; do
     if [[ "${ACTIVE_SERVICES}" =~ ${api} ]]; then
@@ -512,7 +549,6 @@ if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
   cleanup run-monitor
 
   ${DRY_RUN} gcloud functions deploy "report2bq-run-monitor" \
-    --service-account=$USER \
     --entry-point=run_monitor \
     --source=${SOURCE} \
     --runtime python38 \
@@ -545,7 +581,6 @@ if [ ${DEPLOY_POSTPROCESSOR} -eq 1 ]; then
   cleanup postprocessor
 
   ${DRY_RUN} gcloud functions deploy "report2bq-postprocessor" \
-    --service-account=$USER \
     --entry-point=post_processor \
     --source=${SOURCE} \
     --runtime python38 \
@@ -564,7 +599,6 @@ if [ ${DEPLOY_SA360_MANAGER} -eq 1 ]; then
   cleanup sa360-manager
 
   ${DRY_RUN} gcloud functions deploy "report2bq-sa360-manager" \
-    --service-account=$USER \
     --entry-point=report_manager \
     --source=${SOURCE} \
     --runtime python38 \
@@ -584,7 +618,6 @@ if [ ${DEPLOY_GA360_MANAGER} -eq 1 ]; then
   cleanup ga360-manager
 
   ${DRY_RUN} gcloud functions deploy "report2bq-ga360-manager" \
-    --service-account=$USER \
     --entry-point=report_manager \
     --source=${SOURCE} \
     --runtime python38 \
