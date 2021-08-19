@@ -52,6 +52,7 @@ def report_upload(event: Dict[str, Any], context=None) -> None:
   """
   ReportLoader().process(event, context)
 
+
 @measure_memory
 def report_fetch(event: Dict[str, Any], context=None) -> None:
   """Report fetch request processor
@@ -107,11 +108,12 @@ def report_fetch(event: Dict[str, Any], context=None) -> None:
                                            event=event, error=e)
         gmail.send_message(message,
                            credentials=Credentials(
-                             project=os.environ['GCP_PROJECT']),
-                             email=email)
+                               project=os.environ['GCP_PROJECT'],
+                               email=email))
 
       logging.fatal(f'Error: {gmail.error_to_trace(error=e)}')
       return
+
 
 def job_monitor(event: Dict[str, Any], context=None):
   """Run the process watching running Big Query import jobs
@@ -127,6 +129,7 @@ def job_monitor(event: Dict[str, Any], context=None):
       context (Dict[str, Any]):  context data. unused
   """
   JobMonitor().process(event, context)
+
 
 def run_monitor(event: Dict[str, Any], context=None):
   """Run the process watching running DV360/CM jobs
@@ -151,6 +154,7 @@ def run_monitor(event: Dict[str, Any], context=None):
 
   except Exception as e:
     logging.error(e)
+
 
 def report_runner(event: Dict[str, Any], context=None) -> None:
   """Run a DV360, CM, SA360 or ADH report on demand
@@ -222,6 +226,7 @@ def report_runner(event: Dict[str, Any], context=None) -> None:
     else:
       logging.error('No or unknown report type specified.')
 
+
 def post_processor(event: Dict[str, Any], context=None) -> None:
   """Runs the post processor function.
 
@@ -256,8 +261,9 @@ def post_processor(event: Dict[str, Any], context=None) -> None:
   else:
     logging.fatal('No postprocessor specified')
 
+
 def report_manager(event: Dict[str, Any], context=None) -> None:
-  """Processes files added to the ga360_report_manager bucket.
+  """Processes files added to the *_report_manager bucket.
 
   Arguments:
       event (Dict[str, Any]):  data sent from the PubSub message
@@ -272,8 +278,8 @@ def report_manager(event: Dict[str, Any], context=None) -> None:
   (name, extension) = ('.'.join(n).lower(), e.lower())
 
   if f := {
-    f'{project}-report2bq-ga360-manager': GA360ReportManager,
-    f'{project}-report2bq-sa360-manager': SA360Manager,
+      f'{project}-report2bq-ga360-manager': GA360ReportManager,
+      f'{project}-report2bq-sa360-manager': SA360Manager,
   }.get(bucket_name):
     logging.info('Processing file %s', file_name)
     try:

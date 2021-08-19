@@ -85,33 +85,9 @@ EOF
 
 function join { local IFS="$1"; shift; echo "$*"; }
 
-function cleanup {
-  # function
-  gcloud functions list --project ${PROJECT} | grep "$1" > /dev/null
-  if [ $? = 0 ]; then
-    echo " ... clean up old function"
-    ${DRY_RUN} gcloud functions delete "$1" \
-      --project=${PROJECT} \
-      --quiet
-  fi
-
-  # topic
-  gcloud pubsub topics list --project ${PROJECT} | grep "$1" > /dev/null
-  if [ $? = 0 ]; then
-    echo " ... clean up old topic"
-    ${DRY_RUN} gcloud pubsub topics delete "$1" \
-      --project=${PROJECT} \
-      --quiet
-  fi
-
-  # job
-  gcloud scheduler jobs list --project ${PROJECT} | grep "$1" > /dev/null
-  if [ $? = 0 ]; then
-    echo " ... clean up old scheduler"
-    ${DRY_RUN} gcloud scheduler jobs delete "$1" \
-      --project=${PROJECT} \
-      --quiet
-  fi
+function check_service {
+  _SERVICE=$1
+  [[ "${ACTIVE_SERVICES}" =~ ${_SERVICE} ]]
 }
 
 # Switch definitions
@@ -270,6 +246,8 @@ if [ ! -z ${ADMIN} ]; then
   _ADMIN="ADMINISTRATOR_EMAIL=${ADMIN}"
 fi
 
+ACTIVE_SERVICES="$(gcloud --project=${PROJECT} services list | cut -f 1 -d' ' | grep -v NAME)"
+
 # Check for active APIs
 if [ ${ACTIVATE_APIS} -eq 1 ]; then
   # Support APIs - all these are required
@@ -291,10 +269,8 @@ if [ ${ACTIVATE_APIS} -eq 1 ]; then
   (( DV360 )) && APIS_USED+=("doubleclickbidmanager")
   (( SA360 )) && APIS_USED+=("doubleclicksearch")
 
-  ACTIVE_SERVICES="$(gcloud --project=${PROJECT} services list | cut -f 1 -d' ' | grep -v NAME)"
-
   for api in ${APIS_USED[@]}; do
-    if [[ "${ACTIVE_SERVICES}" =~ ${api} ]]; then
+    if check_service ${api}; then
       echo "${api} already active"
     else
       echo "Activating ${api}"
@@ -365,7 +341,7 @@ if [ ${DEPLOY_CODE} -eq 1 ]; then
     exit
   fi
   SOURCE="gs://${PROJECT}-report2bq/report2bq.zip"
-  gsutil cp postprocessors/report2bq_unknown.py \
+  ${DRY_RUN} gsutil cp postprocessors/report2bq_unknown.py \
     gs://${PROJECT}-report2bq-postprocessor 2>&1 > /dev/null
 
 else
@@ -453,14 +429,34 @@ _ENV_VARS=(
   "POSTPROCESSOR=report2bq-postprocessor"
   ${_ADMIN}
 )
+
+for api in adsdatahub analyticsreporting dfareporting doubleclickbidmanager doubleclicksearch; do
+  if ! check_service ${api}; then
+    case ${api} in
+      adsdatahub)
+        _ENV_VARS+=("ADH=False")
+        ;;
+      analyticsreporting)
+        _ENV_VARS+=("GA360=False")
+        ;;
+      dfareporting)
+        _ENV_VARS+=("CM=False")
+        ;;
+      doubleclickbidmanager)
+        _ENV_VARS+=("DV360=False")
+        ;;
+      doubleclicksearch)
+        _ENV_VARS+=("SA360=False")
+        ;;
+    esac
+  fi
+done
 ENVIRONMENT=$(join "," ${_ENV_VARS[@]})
 
 # Deploy job monitor
 if [ ${DEPLOY_MONITOR} -eq 1 ]; then
   # Deploy cloud function
   echo "job-monitor"
-  cleanup job-monitor
-
   ${DRY_RUN} gcloud functions deploy "report2bq-job-monitor" \
     --entry-point=job_monitor \
     --source=${SOURCE} \
@@ -528,7 +524,6 @@ fi
 if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
   # Deploy cloud function
   echo "report-runner"
-  cleanup report-runner
 
   ${DRY_RUN} gcloud functions deploy "report2bq-runner" \
     --entry-point=report_runner \
@@ -578,8 +573,6 @@ fi
 if [ ${DEPLOY_POSTPROCESSOR} -eq 1 ]; then
   # Deploy cloud function
   echo "postprocessor"
-  cleanup postprocessor
-
   ${DRY_RUN} gcloud functions deploy "report2bq-postprocessor" \
     --entry-point=post_processor \
     --source=${SOURCE} \
@@ -596,8 +589,6 @@ fi
 if [ ${DEPLOY_SA360_MANAGER} -eq 1 ]; then
   # Deploy cloud function
   echo "sa360 manager"
-  cleanup sa360-manager
-
   ${DRY_RUN} gcloud functions deploy "report2bq-sa360-manager" \
     --entry-point=report_manager \
     --source=${SOURCE} \
@@ -615,8 +606,6 @@ fi
 if [ ${DEPLOY_GA360_MANAGER} -eq 1 ]; then
   # Deploy cloud function
   echo "ga360 manager"
-  cleanup ga360-manager
-
   ${DRY_RUN} gcloud functions deploy "report2bq-ga360-manager" \
     --entry-point=report_manager \
     --source=${SOURCE} \
