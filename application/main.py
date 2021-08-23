@@ -33,6 +33,7 @@ from classes.report2bq import Report2BQ
 from classes.report_type import Type
 from classes.sa360_report_manager import SA360Manager
 from classes.sa360_report_runner import SA360ReportRunner
+from classes.api_checker import APIService
 
 from cloud_functions.job_monitor import JobMonitor
 from cloud_functions.run_monitor import RunMonitor
@@ -98,8 +99,10 @@ def report_fetch(event: Dict[str, Any], context=None) -> None:
       else:
         kwargs['product'] = Type.DV360
 
-      report2bq = Report2BQ(**kwargs)
-      report2bq.run()
+      if not APIService().check_api(kwargs['product'].api_name):
+        api_not_enabled(kwargs['product'].fetcher(kwargs['report_id']))
+      else:
+        Report2BQ(**kwargs).run()
 
     except Exception as e:
       if email := attributes.get('email'):
@@ -179,14 +182,17 @@ def report_runner(event: Dict[str, Any], context=None) -> None:
     }
     if _command := {
         Type.DV360: {
-            'runner': DBMReportRunner,
+            'runner':
+                DBMReportRunner if APIService().check_api(
+                    T.api_name) else api_not_enabled,
             'args': {
             'dbm_id': attributes.get('dv360_id') or attributes.get('report_id'),
                 **_base_args,
-            },
+                },
         },
         Type.CM: {
-            'runner': DCMReportRunner,
+            'runner': DCMReportRunner if APIService().check_api(
+                T.api_name) else api_not_enabled,
             'args': {
             'cm_id': attributes.get('cm_id') or attributes.get('report_id'),
                 'profile': attributes.get('profile', None),
@@ -194,7 +200,8 @@ def report_runner(event: Dict[str, Any], context=None) -> None:
             }
         },
         Type.SA360_RPT: {
-            'runner': SA360ReportRunner,
+            'runner': SA360ReportRunner if APIService().check_api(
+                T.api_name) else api_not_enabled,
             'args': {
             'report_id': attributes.get('report_id'),
                 'timezone': attributes.get("timezone", None),
@@ -202,7 +209,8 @@ def report_runner(event: Dict[str, Any], context=None) -> None:
             }
         },
         Type.ADH: {
-            'runner': ADH,
+            'runner': ADH if APIService().check_api(
+                T.api_name) else api_not_enabled,
             'args': {
             'adh_customer': attributes.get('adh_customer'),
             'adh_query': attributes.get('adh_query'),
@@ -214,7 +222,8 @@ def report_runner(event: Dict[str, Any], context=None) -> None:
             }
         },
         Type.GA360_RPT: {
-            'runner': GA360ReportRunner,
+            'runner': GA360ReportRunner if APIService().check_api(
+                T.api_name) else api_not_enabled,
             'args': {
             'report_id': attributes.get('report_id'),
                 **_base_args,
@@ -301,3 +310,13 @@ def report_manager(event: Dict[str, Any], context=None) -> None:
 
   else:
     logging.error('Invalid request. %s', event)
+
+
+def api_not_enabled(action: str, **unused) -> None:
+  """Checks to see if a Cloud API has been enabled.
+
+  Args:
+      action (str): The action that is expected to run using the API, if valid
+  """
+  del unused
+  logging.fatal('%s API not enabled for this project.', action)

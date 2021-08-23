@@ -18,6 +18,7 @@ import enum
 
 from classes.ga360_report import GA360ReportDefinition
 
+
 class Type(enum.Enum):
   ADH = 'adh'
   CM = 'cm'
@@ -61,15 +62,30 @@ class Type(enum.Enum):
     else:
       return cls._UNKNOWN
 
+  @property
+  def api_name(self) -> str:
+    return API_NAMES.get(self)
+
   def runner(self, report_id: str) -> str:
-    return {
-      Type._JOBS: None,
-      Type._RUNNING: None,
-      Type._ADMIN: None,
-    }.get(self, f'run-{self.value}-{report_id}')
+    return None if self.name.startswith('_') \
+        else f'run-{self.value}-{report_id}'
+
+  def fetcher(self, report_id: str) -> str:
+    return None if self.name.startswith('_') \
+        else f'fetch-{self.value}-{report_id}'
 
   def __str__(self) -> str:
     return str(self.value)
 
   def __repr__(self) -> str:
     return str(self.value)
+
+
+API_NAMES: immutabledict.immutabledict = immutabledict.immutabledict({
+    Type.ADH: 'adsdatahub',
+    Type.CM: 'dfareporting',
+    Type.DV360: 'doubleclickbidmanager',
+    Type.GA360_RPT: 'analyticsreporting',
+    Type.SA360: 'doubleclicksearch',
+    Type.SA360_RPT: 'doubleclicksearch',
+})
