@@ -69,11 +69,12 @@ def report_fetch(event: Dict[str, Any], context=None) -> None:
   """
   if attributes := event.get('attributes'):
     logging.info(attributes)
+    project = attributes.get('project', os.environ.get('GCP_PROJECT'))
 
     try:
       kwargs = {
           'email': attributes.get('email'),
-          'project': attributes.get('project'),
+          'project': project,
           'report_id':
               attributes.get('report_id') or
               attributes.get('dv360_id') or
@@ -99,7 +100,7 @@ def report_fetch(event: Dict[str, Any], context=None) -> None:
       else:
         kwargs['product'] = Type.DV360
 
-      if not APIService().check_api(kwargs['product'].api_name):
+      if not APIService(project=project).check_api(kwargs['product'].api_name):
         api_not_enabled(kwargs['product'].fetcher(kwargs['report_id']))
       else:
         Report2BQ(**kwargs).run()
@@ -175,15 +176,16 @@ def report_runner(event: Dict[str, Any], context=None) -> None:
   email = None
 
   if attributes := event.get('attributes'):
+    project = attributes.get('project', os.environ.get('GCP_PROJECT'))
     T = Type(attributes.get('type'))
     _base_args = {
         'email': attributes.get('email'),
-        'project': attributes.get('project', os.environ.get('GCP_PROJECT')),
+        'project': project,
     }
     if _command := {
         Type.DV360: {
             'runner':
-                DBMReportRunner if APIService().check_api(
+                DBMReportRunner if APIService(project=project).check_api(
                     T.api_name) else api_not_enabled,
             'args': {
             'dbm_id': attributes.get('dv360_id') or attributes.get('report_id'),
@@ -191,7 +193,7 @@ def report_runner(event: Dict[str, Any], context=None) -> None:
                 },
         },
         Type.CM: {
-            'runner': DCMReportRunner if APIService().check_api(
+            'runner': DCMReportRunner if APIService(project=project).check_api(
                 T.api_name) else api_not_enabled,
             'args': {
             'cm_id': attributes.get('cm_id') or attributes.get('report_id'),
@@ -200,7 +202,7 @@ def report_runner(event: Dict[str, Any], context=None) -> None:
             }
         },
         Type.SA360_RPT: {
-            'runner': SA360ReportRunner if APIService().check_api(
+            'runner': SA360ReportRunner if APIService(project=project).check_api(
                 T.api_name) else api_not_enabled,
             'args': {
             'report_id': attributes.get('report_id'),
@@ -209,7 +211,7 @@ def report_runner(event: Dict[str, Any], context=None) -> None:
             }
         },
         Type.ADH: {
-            'runner': ADH if APIService().check_api(
+            'runner': ADH if APIService(project=project).check_api(
                 T.api_name) else api_not_enabled,
             'args': {
             'adh_customer': attributes.get('adh_customer'),
@@ -222,8 +224,9 @@ def report_runner(event: Dict[str, Any], context=None) -> None:
             }
         },
         Type.GA360_RPT: {
-            'runner': GA360ReportRunner if APIService().check_api(
-                T.api_name) else api_not_enabled,
+            'runner':
+                GA360ReportRunner if APIService(project=project).check_api(
+                    T.api_name) else api_not_enabled,
             'args': {
             'report_id': attributes.get('report_id'),
                 **_base_args,

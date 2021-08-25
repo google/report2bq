@@ -280,12 +280,14 @@ if [ ${ACTIVATE_APIS} -eq 1 ]; then
 fi
 
 if [ ${DEPLOY_BQ} -eq 1 ]; then
-  # Create dataset
-  bq --project_id=${PROJECT} show --dataset ${DATASET} > /dev/null 2>&1
-  RETVAL=$?
-  if (( $RETVAL != "0" )); then
-    ${DRY_RUN} bq --project_id=${PROJECT} mk --dataset ${DATASET}
-  fi
+  # Create datasets
+    for _dataset in ${DATASET} report2bq_admin; do
+    bq --project_id=${PROJECT} show --dataset ${_dataset} > /dev/null 2>&1
+    RETVAL=$?
+    if (( $RETVAL != "0" )); then
+      ${DRY_RUN} bq --project_id=${PROJECT} mk --dataset ${_dataset}
+    fi
+  done
 fi
 
 if [ ${DEPLOY_STORAGE} -eq 1 ]; then
