@@ -17,7 +17,7 @@ import os
 from googleapiclient.discovery import Resource
 from googleapiclient.errors import HttpError
 from messytables.types import CellType
-from typing import Any, Dict, Iterable, List, Mapping, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Tuple, Union
 
 from classes import credentials
 from classes import decorators
@@ -53,9 +53,9 @@ class ReportFetcher(object):
         Resource: the service definition
     """
     return discovery.get_service(
-      service=self.service_definition,
-      credentials=credentials.Credentials(email=self.email,
-                                          project=self.project))
+        service=self.service_definition,
+        credentials=credentials.Credentials(email=self.email,
+                                            project=self.project))
 
   def read_header(self, report_details: ReportConfig) -> Tuple[List[str],
                                                                List[CellType]]:
@@ -110,8 +110,8 @@ class ReportFetcher(object):
     report_data = self.normalize_report_details(report_object=report_object,
                                                 report_id=report_id)
     keys_to_update = [
-      'email', 'dest_dataset', 'dest_project', 'dest_table', 'notifier',
-      'schema', 'append', 'force', 'infer_schema' ]
+        'email', 'dest_dataset', 'dest_project', 'dest_table', 'notifier',
+        'schema', 'append', 'force', 'infer_schema']
 
     for key in keys_to_update:
       if key in report_object:
@@ -131,7 +131,7 @@ class ReportFetcher(object):
     pass
 
   def run_report(self, report_id: int,
-                 asynchronous: bool=True) -> Dict[str, Any]:
+                 asynchronous: bool = True) -> Dict[str, Any]:
     """Runs a report on the product.
 
     Args:
@@ -151,6 +151,31 @@ class ReportFetcher(object):
 
     Returns:
       result (Dict): the list of reports for the current user.
+    """
+    pass
+
+  def get_report_definition(self,
+                            report_id: int,
+                            fields: str = None) -> Mapping[str, Any]:
+    """Fetches the report definition.
+
+    Args:
+      report_id: report id
+
+    Returns:
+      the report definition
+    """
+    pass
+
+  def create_report(self,
+                    report: Mapping[str, Any]) -> Union[str, Mapping[str, Any]]:
+    """Creates a new report.
+
+    Args:
+        report (Mapping[str, Any]): the report definition
+
+    Returns:
+        Union[str, Mapping[str, Any]]: the report, or the error.
     """
     pass
 
@@ -175,8 +200,8 @@ class ReportRunner(object):
 
   def _email_error(self,
                    message: str,
-                   email: str=None,
-                   error: Exception=None) -> None:
+                   email: str = None,
+                   error: Exception = None) -> None:
     """Emails the error to the owner, and the administrator if defined.
 
     Args:
@@ -186,13 +211,13 @@ class ReportRunner(object):
     """
     to = [email] if email else []
     administrator = \
-      os.environ.get('ADMINISTRATOR_EMAIL') or \
+        os.environ.get('ADMINISTRATOR_EMAIL') or \
         self.FIRESTORE.get_document(report_type.Type._ADMIN,
                                     'admin').get('email')
     cc = [administrator] if administrator else []
 
     if to or cc:
-      body=f'{message}{gmail.error_to_trace(error)}'
+      body = f'{message}{gmail.error_to_trace(error)}'
       message = gmail.GMailMessage(to=to,
                                    cc=cc,
                                    subject=f'Error in report_loader',
@@ -201,23 +226,24 @@ class ReportRunner(object):
 
       gmail.send_message(message=message,
                          credentials=credentials.Credentials(
-                           email=email, project=self.project))
+                             email=email, project=self.project))
+
 
 def strip_nulls(value: Iterable) -> Iterable:
-    """Removes null values from iterables.
+  """Removes null values from iterables.
 
-    Recursively remove all None values from dictionaries and lists, and returns
-    the result as a new dictionary or list.
+  Recursively remove all None values from dictionaries and lists, and returns
+  the result as a new dictionary or list.
 
-    Args:
-      value (Any): any list or dict to have empty values removed.
-    """
-    if isinstance(value, list):
-      return [strip_nulls(x) for x in value if x is not None]
-    elif isinstance(value, dict):
-      return {
+  Args:
+    value (Any): any list or dict to have empty values removed.
+  """
+  if isinstance(value, list):
+    return [strip_nulls(x) for x in value if x is not None]
+  elif isinstance(value, dict):
+    return {
         key: strip_nulls(val)
-          for key, val in value.items() if val is not None
-      }
-    else:
-      return value
+        for key, val in value.items() if val is not None
+    }
+  else:
+    return value

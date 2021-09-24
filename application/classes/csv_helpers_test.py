@@ -38,9 +38,9 @@ HEADER_ONLY_CSV = '''string,int,float,date,datetime,string'''
 
 class CSVHelpersTest(unittest.TestCase):
   def test_sanitize_string_valid(self):
-    self.assertEqual('This_is_Sparta_',
+    self.assertEqual('This_is_Sparta0x21',
                      csv_helpers.sanitize_string('This is Sparta!'))
-    self.assertEqual('_I_Can_t_Get_No__Satisfaction',
+    self.assertEqual('_I_Can0x27t_Get_No__Satisfaction',
                      csv_helpers.sanitize_string(
                        "(I Can't Get No) Satisfaction"))
 

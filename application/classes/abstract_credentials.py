@@ -1,4 +1,4 @@
-#Copyright 2020 Google LLC
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import base64
+import pytz
 
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -63,6 +64,13 @@ class AbstractCredentials(object):
     creds.refresh(requests.Request())
     self.store_credentials(creds)
 
+  def _to_utc(self, last_date: datetime) -> datetime:
+    if (last_date.tzinfo is None or
+            last_date.tzinfo.utcoffset(last_date) is None):
+      last_date = pytz.UTC.localize(last_date)
+
+    return last_date
+
   def get_credentials(self) -> credentials.Credentials:
     """Fetches the credentials.
 
@@ -70,27 +78,25 @@ class AbstractCredentials(object):
        (google.oauth2.credentials.Credentials):  the credentials
     """
     secrets = \
-      self.project_credentials.get('web') or \
+        self.project_credentials.get('web') or \
         self.project_credentials.get('installed')
 
-    expiry = datetime.now() + relativedelta(days=7)
+    expiry = self._to_utc(datetime.now() + relativedelta(minutes=15))
     if self.token_details.get('access_token'):
       creds = credentials.Credentials.from_authorized_user_info({
-        'token': self.token_details['access_token'],
-        'refresh_token': self.token_details['refresh_token'],
-        'client_id': secrets['client_id'],
-        'client_secret': secrets['client_secret'],
-        'expiry': expiry.strftime("%Y-%m-%dT%H:%M:%S"),
+          'token': self.token_details['access_token'],
+          'refresh_token': self.token_details['refresh_token'],
+          'client_id': secrets['client_id'],
+          'client_secret': secrets['client_secret'],
       })
-      self._refresh_credentials(creds=creds)
 
     else:
+      self.token_details['expiry'] = expiry
       creds = \
-        credentials.Credentials.from_authorized_user_info(self.token_details)
-      if creds.expired:
-        creds.expiry = expiry
-        self._refresh_credentials(creds=creds)
+          credentials.Credentials.from_authorized_user_info(self.token_details)
 
+    if creds.expired:
+      self._refresh_credentials(creds=creds)
 
     return creds
 
@@ -134,5 +140,5 @@ class AbstractCredentials(object):
         str: base64 representation of the key value.
     """
     return \
-      base64.b64encode(key.encode('utf-8')).decode('utf-8').rstrip('=') \
+        base64.b64encode(key.encode('utf-8')).decode('utf-8').rstrip('=') \
         if key else None

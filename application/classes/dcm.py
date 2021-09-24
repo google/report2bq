@@ -19,7 +19,7 @@ import io
 import logging
 
 from googleapiclient import http
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Mapping, Tuple
 from queue import Queue
 
 from messytables.types import CellType
@@ -53,11 +53,11 @@ class DCM(ReportFetcher, Fetcher):
     reports = []
 
     fields = {
-      'sortField': 'LAST_MODIFIED_TIME',
-      'sortOrder': 'DESCENDING',
-      'fields': 'items(ownerProfileId,fileName,format,id,lastModifiedTime,'
-                'name,schedule,type)',
-      'profileId': self.profile,
+        'sortField': 'LAST_MODIFIED_TIME',
+        'sortOrder': 'DESCENDING',
+        'fields': 'items(ownerProfileId,fileName,format,id,lastModifiedTime,'
+        'name,schedule,type)',
+        'profileId': self.profile,
     }
 
     result = self.fetch(
@@ -84,16 +84,18 @@ class DCM(ReportFetcher, Fetcher):
       files (List[Dict[str, Any]]): List of latest DCM report files details
     """
     files = self.fetch(method=self.service.reports().files().list,
-                       **{ 'profileId': self.profile,
+                       **{'profileId': self.profile,
                            'reportId': report_id,
                            'maxResults': '5',
                            'sortField': 'LAST_MODIFIED_TIME',
                            'sortOrder': 'DESCENDING',
-                       })
+                          })
 
     return files.get('items', [])
 
-  def get_report_definition(self, report_id: int):
+  def get_report_definition(self,
+                            report_id: int,
+                            fields: str = None) -> Mapping[str, Any]:
     """Fetches the dcm report definition.
 
     Args:
@@ -102,15 +104,12 @@ class DCM(ReportFetcher, Fetcher):
     Returns:
       List of latest DCM report files details
     """
+    args = {'profileId': self.profile, 'reportId': report_id, }
+    if fields:
+      args.update({'fields': fields})
+
     result = \
-      self.fetch(method=self.service.reports().get,
-                 **{ 'profileId': self.profile,
-                     'reportId': report_id,
-                     'fields':
-                       'ownerProfileId,fileName,format,id,lastModifiedTime,'
-                       'name,schedule,type',
-                 }
-    )
+        self.fetch(method=self.service.reports().get, **args)
 
     return result
 
@@ -165,16 +164,16 @@ class DCM(ReportFetcher, Fetcher):
 
     # Normalize report data object
     report_data = {
-      'id': report_object['id'],
-      'profile_id': report_object['ownerProfileId'],
-      'name': report_object['name'],
-      'report_name': csv_helpers.sanitize_string(report_object['name']),
-      'type': report_object['type'],
-      'current_path': gcs_path,
-      'last_updated':
-          datetime.datetime.fromtimestamp(
+        'id': report_object['id'],
+        'profile_id': report_object['ownerProfileId'],
+        'name': report_object['name'],
+        'report_name': csv_helpers.sanitize_string(report_object['name']),
+        'type': report_object['type'],
+        'current_path': gcs_path,
+        'last_updated':
+        datetime.datetime.fromtimestamp(
             float(latest_runtime)/1000.0).strftime("%Y%m%d%H%M"),
-      'update_cadence': schedule_frequency,
+        'update_cadence': schedule_frequency,
     }
     if 'report_file' in report_object:
       report_data['report_file'] = report_object['report_file']
@@ -183,18 +182,18 @@ class DCM(ReportFetcher, Fetcher):
     return report_data
 
   def _find_first_data_byte(self, data: bytes) -> int:
-    HEADER_MARKER=b'Report Fields\n'
+    HEADER_MARKER = b'Report Fields\n'
 
     # Parse out the file; look for 'Report Fields\n'
     start = data.find(HEADER_MARKER) + len(HEADER_MARKER)
     return start
 
   def _read_data_chunk(self, report_data: ReportConfig,
-                       chunk: int=16384) -> bytes:
+                       chunk: int = 16384) -> bytes:
     report_id = report_data.id
     file_id = report_data.report_file.id
     request = self.service.files().get_media(
-      reportId=report_id, fileId=file_id)
+        reportId=report_id, fileId=file_id)
 
     # Create a media downloader instance.
     out_file = io.BytesIO()
@@ -243,19 +242,19 @@ class DCM(ReportFetcher, Fetcher):
     out_file = io.BytesIO()
 
     download_request = self.service.files().get_media(
-      reportId=report_id, fileId=file_id)
+        reportId=report_id, fileId=file_id)
     downloader = http.MediaIoBaseDownload(
-      out_file, download_request, chunksize=chunk_size)
+        out_file, download_request, chunksize=chunk_size)
 
     # Execute the get request and download the file.
     streamer = ThreadedGCSObjectStreamUpload(
-      creds=credentials.Credentials(
-        email=self.email, project=self.project).get_credentials(),
-      client=Cloud_Storage.client(),
-      bucket_name=bucket,
-      blob_name='{id}.csv'.format(id=report_id),
-      chunk_size=chunk_size,
-      streamer_queue=queue)
+        creds=credentials.Credentials(
+            email=self.email, project=self.project).get_credentials(),
+        client=Cloud_Storage.client(),
+        bucket_name=bucket,
+        blob_name='{id}.csv'.format(id=report_id),
+        chunk_size=chunk_size,
+        streamer_queue=queue)
     streamer.start()
 
     download_finished = False
@@ -291,9 +290,9 @@ class DCM(ReportFetcher, Fetcher):
     streamer.stop()
 
   @retry(Exception, tries=3, delay=5, backoff=2)
-  def run_report(self, report_id: int, synchronous: bool=False):
+  def run_report(self, report_id: int, synchronous: bool = False):
     request = self.service.reports().run(
-      reportId=report_id, profileId=self.profile, synchronous=synchronous)
+        reportId=report_id, profileId=self.profile, synchronous=synchronous)
     result = request.execute()
 
     return result
@@ -301,7 +300,7 @@ class DCM(ReportFetcher, Fetcher):
   @retry(Exception, tries=3, delay=5, backoff=2)
   def report_state(self, report_id: int, file_id: int):
     request = self.service.reports().files().get(
-      reportId=report_id, fileId=file_id, profileId=self.profile)
+        reportId=report_id, fileId=file_id, profileId=self.profile)
     result = request.execute()
 
     return result

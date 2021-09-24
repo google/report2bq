@@ -63,8 +63,17 @@ def sanitize_string(original: str) -> str:
 
   Returns:
       str: sanitized string
+
+  re.sub('[^a-zA-Z0-9,]', '_', original)
   """
-  return re.sub('[^a-zA-Z0-9,]', '_', original)
+  replacement = ''
+
+  for char in original:
+    if re.match('[a-zA-Z0-9]', char): replacement += char
+    elif re.match('[ ():,]', char): replacement += '_'
+    else: replacement += hex(ord(char))
+
+  return replacement
 
 def create_table_schema(column_headers: List[str] = None,
                         column_types: List[types.CellType] = None) \

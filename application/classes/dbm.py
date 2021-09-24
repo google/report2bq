@@ -21,6 +21,7 @@ import logging
 from classes import credentials
 from classes import csv_helpers
 from classes import decorators
+from classes.gmail import error_to_trace
 from classes import Fetcher, ReportFetcher
 from classes.cloud_storage import Cloud_Storage
 from classes.report_config import ReportConfig
@@ -28,10 +29,11 @@ from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
 from classes.report_type import Type
 from classes.services import Service
 from messytables.types import CellType
+from googleapiclient.errors import HttpError
 
 from contextlib import closing
 from queue import Queue
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Mapping, Tuple, Union
 from urllib.request import urlopen
 
 
@@ -85,6 +87,45 @@ class DBM(ReportFetcher, Fetcher):
         logging.info('No reports - has this report run successfully yet?')
 
     return report
+
+  def get_report_definition(self,
+                            report_id: int,
+                            fields: str = None) -> Mapping[str, Any]:
+    """Fetch a complete report definition
+
+    Args:
+        report_id (int): the report id.
+        fields (str, optional): Unsupported in DV360.
+
+    Returns:
+        Mapping[str, Any]: [description]
+    """
+    report = self.fetch(
+        method=self.service.queries().getquery,
+        **{'queryId': report_id})
+
+    return report
+
+  def create_report(self,
+                    report: Mapping[str, Any]) -> Union[str, Mapping[str, Any]]:
+    """create_report [summary]
+
+    Args:
+        report (Mapping[str, Any]): [description]
+
+    Returns:
+        Union[str, Mapping[str, Any]]: [description]
+    """
+    try:
+      response = self.service.queries().createquery(
+          body=report).execute()
+      return response
+
+    except HttpError as e:
+      if error := e.error_details[-1]:
+        return error.get('message', 'Unknown error')
+      else:
+        return e.content
 
   @decorators.retry(Exception, tries=3, delay=15, backoff=2)
   def normalize_report_details(self,

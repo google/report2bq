@@ -44,7 +44,7 @@ flags.DEFINE_bool('install', False,
 flags.DEFINE_bool('validate', False, 'Validate a defined report (SA360 only).')
 
 flags.mark_bool_flags_as_mutual_exclusive([
-  'list', 'show', 'add', 'delete', 'install', 'validate'
+  'list', 'show', 'add', 'delete', 'install', 'validate',
 ])
 
 # add

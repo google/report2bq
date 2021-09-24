@@ -18,7 +18,7 @@ __author__ = ['davidharcombe@google.com (David Harcombe)']
 
 from typing import Any, Dict, List, Tuple
 
-from absl import app
+from classes.decorators import lazy_property
 from googleapiclient.discovery import Resource
 from typing import List
 
@@ -33,6 +33,10 @@ class SA360Validator(object):
     self.sa360_service = sa360_service
     self.agency = agency
     self.advertiser = advertiser
+
+  @lazy_property
+  def saved_column_names(self) -> List[str]:
+    return self.list_custom_columns()
 
   def validate(self, field: Any) -> Tuple[bool, str]:
     if isinstance(field, str):
@@ -49,13 +53,13 @@ class SA360Validator(object):
     if not name:
       return (True, '--- Blank column name ---')
 
-    if not (saved_column_names := self.list_custom_columns()):
+    if not self.saved_column_names:
       return (False, '--- No custom columns found ---')
 
-    if name in saved_column_names:
+    if name in self.saved_column_names:
       return (True, name)
 
-    return (False, self._find_bad_case(name, saved_column_names))
+    return (False, self._find_bad_case(name, self.saved_column_names))
 
   def validate_standard_column(self, name: str) -> Tuple[bool, str]:
     if not name:

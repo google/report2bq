@@ -21,13 +21,13 @@ import uuid
 from typing import Any, Dict, List
 
 from classes import discovery
+from classes import report_manager
 from classes.credentials import Credentials
-from classes.report_manager import ReportManager
 from classes.report_type import Type
 from classes.services import Service
 
 
-class GA360ReportManager(ReportManager):
+class GA360ReportManager(report_manager.ReportManager):
   report_type = Type.GA360_RPT
   actions = {
       'add',
@@ -40,7 +40,7 @@ class GA360ReportManager(ReportManager):
   def manage(self, **kwargs: Dict[str, Any]) -> Any:
     project = kwargs['project']
     email = kwargs.get('email')
-    self.bucket=f'{project}-report2bq-ga360-manager'
+    self.bucket = f'{project}-report2bq-ga360-manager'
     if _api_key := kwargs.get('api_key'):
       os.environ['API_KEY'] = _api_key
 
@@ -49,30 +49,44 @@ class GA360ReportManager(ReportManager):
     else:
       report_name = None
 
+    source = None
+    if kwargs.get('file') and kwargs.get('gcs_stored'):
+      source = report_manager.ManagerType.FILE_GCS
+    elif kwargs.get('file'):
+      source = report_manager.ManagerType.FILE_LOCAL
+    else:
+      source = report_manager.ManagerType.BIG_QUERY
+
+    config: report_manager.ManagerConfiguration = \
+        report_manager.ManagerConfiguration(
+            type=source,
+            project=project,
+            email=email,
+            file=kwargs.get('file'),
+            table='sa360_manager_input'
+        )
+
     args = {
-      'report': report_name,
-      'file': kwargs.get('file'),
-      'project': project,
-      'email': email,
-      **kwargs,
+        'report': report_name,
+        'config': config,
+        **kwargs,
     }
 
     return self._get_action(kwargs.get('action'))(**args)
 
-  def install(self, project: str, email: str, file: str,
-              gcs_stored: bool, **unused) -> None:
+  def install(self,
+              config: report_manager.ManagerConfiguration, **unused) -> None:
     if not self.scheduler:
       logging.warn(
-        'No scheduler is available: jobs will be stored but not scheduled.')
+          'No scheduler is available: jobs will be stored but not scheduled.')
 
     results = []
     random.seed(uuid.uuid4())
-    runners = self._read_json(project=project, email=email,
-                              file=file, gcs_stored=gcs_stored)
+    runners = self._read_json(config)
 
     for runner in runners:
       id = f'{runner["report"]}_{runner["view_id"]}'
-      creds = Credentials(project=project, email=runner.get('email'))
+      creds = Credentials(project=config.project, email=runner.get('email'))
       service = discovery.get_service(service=Service.GA360,
                                       credentials=creds)
 
@@ -86,9 +100,9 @@ class GA360ReportManager(ReportManager):
             description = title
           else:
             description = (f'Runner: report {runner.get("report")}, '
-                          f'view_id {runner.get("view_id")}.')
+                           f'view_id {runner.get("view_id")}.')
           runner['description'] = description
 
         runner['hour'] = runner.get('hour') or '1'
-        results.append(self._schedule_job(project=project,
+        results.append(self._schedule_job(project=config.project,
                                           runner=runner, id=id))

@@ -11,7 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
 
+import dataclasses
+import enum
 import io
 import json
 import logging
@@ -19,7 +22,7 @@ import os
 import random
 import uuid
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from classes import firestore
 
 from classes.cloud_storage import Cloud_Storage
@@ -27,14 +30,35 @@ from classes.decorators import lazy_property
 from classes.firestore import Firestore
 from classes.report_type import Type
 from classes.scheduler import Scheduler
+from classes.query.report_manager import ManagerInput
+
+
+class ManagerType(enum.Enum):
+  BIG_QUERY = enum.auto()
+  FILE_LOCAL = enum.auto()
+  FILE_GCS = enum.auto()
+
+
+@dataclasses.dataclass
+class ManagerConfiguration(object):
+  type: ManagerType
+  project: str
+  email: str
+  table: str
+  dataset: str = 'report2bq_admin'
+  file: Optional[str] = None
+
+  @property
+  def gcs_stored(self) -> bool:
+    return self.type == ManagerType.FILE_GCS
 
 
 class ReportManager(object):
   """Abstract parent ReportManager for SA360 and GA360 reports.
   """
-  report_type: Type=None
-  bucket: str=None
-  actions: set=None
+  report_type: Type = None
+  bucket: str = None
+  actions: set = None
 
   @lazy_property
   def scheduler(self) -> Scheduler:
@@ -71,71 +95,65 @@ class ReportManager(object):
     """
     pass
 
-  def add(self, report: str, file: str, gcs_stored: bool=True,
-          project: str=None, email: str=None, **unused) -> None:
+  def add(self, report: str, config: ManagerConfiguration, **unused) -> None:
     """Add a report
 
     Add a report to the firestore for this 'Type' of product.
 
     Args:
         report (str): report name
-        file (str): file containing the report definition
-        gcs_stored (bool, optional): running in GCS? Defaults to True.
-        project (str, optional): project id. Defaults to None.
-        email (str, optional): OAuth email. Defaults to None.
+        config (ManagerConfiguration): the configuration details
     """
-    if cfg := self._read_json(project=project,
-                              email=email, file=file, gcs_stored=gcs_stored):
+    if cfg := self._read_json(config=config):
       self.firestore.update_document(self.report_type,
                                      '_reports',
-                                     { report: cfg })
+                                     {report: cfg})
 
-
-  def delete(self, report: str, file: str,
-             gcs_stored: bool=True, project: str=None, email: str=None,
-             **unused) -> None:
+  def delete(self, report: str, config: ManagerConfiguration, **unused) -> None:
     """Delete reports from Firestore
 
     Remove the report from Firestore. If a scheduler is available, it will also
     disable (not delete) all scheduled jobs relying on this report.
 
+    This can ONLY be done through the file-based mechanism.
+
     Args:
-        report (str): the report name
-        file (str): the file to process
-        gcs_stored (bool, optional): Am I in GCS?. Defaults to True.
-        project (str, optional): the project id. Defaults to None.
-        email (str, optional): email address for OAuth. Defaults to None.
+        report (str): report name
+        config (ManagerConfiguration): the configuration details
     """
+    if config.type == ManagerType.BIG_QUERY:
+      raise TypeError('Delete action not valid for BQ configurations.')
+
     self.firestore.delete_document(self.report_type, '_reports', report)
 
-    if email := self._read_email(file=file, gcs_stored=gcs_stored):
+    if email := self._read_email(file=config.file,
+                                 gcs_stored=config.gcs_stored):
       if self.scheduler:
         args = {
-          'action': 'list',
-          'email': email,
-          'project': project,
-          'html': False,
+            'action': 'list',
+            'email': email,
+            'project': config.project,
+            'html': False,
         }
 
         # Disable all runners for the now deleted report
         runners = list(
-          runner['name'].split('/')[-1] \
-            for runner in self.scheduler.process(**args) \
-              if report in runner['name'])
+            runner['name'].split('/')[-1]
+            for runner in self.scheduler.process(**args)
+            if report in runner['name'])
         for runner in runners:
           args = {
-            'action': 'disable',
-            'email': email,
-            'project': project,
-            'job_id': runner,
+              'action': 'disable',
+              'email': email,
+              'project': config.project,
+              'job_id': runner,
           }
           self.scheduler.process(**args)
     else:
       logging.error('No email found, cannot access scheduler.')
       return
 
-  def list(self, report: str, file: str,
-           gcs_stored: bool=True, project: str=None, email: str=None,
+  def list(self, report: str, config: ManagerConfiguration,
            **unused) -> List[str]:
     """List all reports and runners.
 
@@ -143,10 +161,7 @@ class ReportManager(object):
 
     Args:
         report (str): report name
-        file (str): file to process
-        gcs_stored (bool, optional): am  in GCS? Defaults to True.
-        project (str, optional): [description]. Defaults to None.
-        email (str, optional): [description]. Defaults to None.
+        config (ManagerConfiguration): the configuration details
 
     Returns:
         List[str]: [description]
@@ -159,14 +174,13 @@ class ReportManager(object):
       for object in objects:
         if object.startswith(report):
           results.append(f'  {object}')
-      self._output_results(
-        results=results, project=project, email=email, file='report_list',
-        gcs_stored=gcs_stored)
+      self._output_results(results=results,
+                           project=config.project, email=config.email,
+                           file='report_list', gcs_stored=config.gcs_stored)
 
     return results
 
-  def show(self, report: str, file: str,
-           gcs_stored: bool=True, project: str=None, email: str=None,
+  def show(self, report: str, config: ManagerConfiguration,
            **unused) -> Dict[str, Any]:
     """Display a report definition content.
 
@@ -175,10 +189,7 @@ class ReportManager(object):
 
     Args:
         report (str): report name
-        file (str): file to process
-        gcs_stored (bool, optional): in GCS? Defaults to True.
-        project (str, optional): project id. Defaults to None.
-        email (str, optional): OAuth email. Defaults to None.
+        config (ManagerConfiguration): the configuration details
 
     Raises:
         NotImplementedError: default behaviour if unimplemented.
@@ -186,44 +197,38 @@ class ReportManager(object):
     Returns:
         Dict[str, Any]: the report definition as json.
     """
-    definition = \
-      self.firestore.get_document(self.report_type, '_reports').get(report)
-    results = [ l for l in json.dumps(definition, indent=2).splitlines() ]
+    if config.type == ManagerType.BIG_QUERY:
+      raise TypeError('Show action not valid for BQ configurations.')
 
-    self._output_results(
-      results=results, project=project, email=None, file=report,
-      gcs_stored=gcs_stored)
+    definition = \
+        self.firestore.get_document(self.report_type, '_reports').get(report)
+    results = [l for l in json.dumps(definition, indent=2).splitlines()]
+
+    self._output_results(results=results, project=config.project, email=None,
+                         file=report, gcs_stored=config.gcs_stored)
 
     return definition
 
-  def install(self, project: str, email: str, file: str,
-              gcs_stored: bool=True, **unused) -> None:
+  def install(self, config: ManagerConfiguration, **unused) -> None:
     """Install a report runner or multiple report runners.
 
     To be implemented by the child.
 
     Args:
-        file (str): file to process
-        gcs_stored (bool, optional): in GCS? Defaults to True.
-        project (str, optional): project id. Defaults to None.
-        email (str, optional): OAuth email. Defaults to None.
+        config (ManagerConfiguration): the configuration details
 
     Raises:
         NotImplementedError: default behaviour if unimplemented.
     """
     raise NotImplementedError('Not implemented')
 
-  def validate(self, file: str, project: str, email: str,
-               gcs_stored: bool=True,**unused) -> None:
+  def validate(self, config: ManagerConfiguration, **unused) -> None:
     """Validate report runners.
 
     To be implemented by the child.
 
     Args:
-        file (str): file to process
-        project (str, optional): project id. Defaults to None.
-        email (str, optional): OAuth email. Defaults to None.
-        gcs_stored (bool, optional): in GCS? Defaults to True.
+        config (ManagerConfiguration): the configuration details
 
     Raises:
         NotImplementedError: default behaviour if unimplemented.
@@ -231,8 +236,8 @@ class ReportManager(object):
     raise NotImplementedError('Not implemented')
 
   def _output_results(
-    self, results: List[str], project: str, email: str, file: str=None,
-    gcs_stored: bool=False) -> None:
+          self, results: List[str], project: str, email: str, file: str = None,
+          gcs_stored: bool = False) -> None:
     """Write the process results to a file.
 
     Args:
@@ -273,7 +278,7 @@ class ReportManager(object):
         Any: the action function
     """
     if action := getattr(self, action_name) \
-      if action_name in self.actions else None:
+            if action_name in self.actions else None:
       return action
 
     else:
@@ -291,8 +296,8 @@ class ReportManager(object):
     """
     if gcs_stored:
       email = str(Cloud_Storage().fetch_file(bucket=self.bucket,
-                                              file=file),
-                                              encoding='utf-8').strip()
+                                             file=file),
+                  encoding='utf-8').strip()
 
     else:
       with open(file, 'r') as _command_file:
@@ -300,42 +305,48 @@ class ReportManager(object):
 
     return email
 
-  def _read_json(self,
-                 project: str, email: str, file: str,
-                 gcs_stored: bool) -> Dict[str, Any]:
+  def _read_json(self, config: ManagerConfiguration) -> List[Dict[str, Any]]:
     """Read the contens of a file as a json object.
 
     Args:
-        project (str): project id
-        email (str): OAuth email
-        file (str): file to process
-        gcs_stored (bool): is the file GCS or local?
+        config (ManagerConfiguration): the manager configuration
 
     Returns:
-        Dict[str, Any]: the file contents as json
+        List[Dict[str, Any]]: the file contents as json
     """
-    if gcs_stored:
-      content = \
-        Cloud_Storage(project=project,
-                      email=email).fetch_file(bucket=self.bucket, file=file)
-      cfg = json.loads(content)
+    objects = []
+
+    if config.type == ManagerType.BIG_QUERY:
+      query = ManagerInput(config)
+      job = query.execute()
+      objects = [dict(row) for row in job]
 
     else:
-      with open(file) as definition:
-        cfg = json.loads(''.join(definition.readlines()))
+      if config.file:
+        if config.gcs_stored:
+          content = \
+              Cloud_Storage(project=config.project,
+                            email=config.email).fetch_file(bucket=self.bucket,
+                                                           file=config.file)
+          objects = json.loads(content)
+        else:
+          with open(config.file) as rpt:
+            objects = json.loads(''.join(rpt.readlines()))
 
-    return cfg
+      else:
+        objects = self.firestore.list_documents(self.report_type)
 
+    return objects
 
   def _schedule_job(self, project: str, runner: Dict[str, Any], id: str) -> str:
     random.seed(uuid.uuid4())
     job_id = f"run-{self.report_type}-{id}"
 
     args = {
-      'action': 'get',
-      'email': runner['email'],
-      'project': f'{project}',
-      'job_id': job_id,
+        'action': 'get',
+        'email': runner['email'],
+        'project': f'{project}',
+        'job_id': job_id,
     }
 
     try:
@@ -347,10 +358,10 @@ class ReportManager(object):
 
     if present:
       args = {
-        'action': 'delete',
-        'email': runner['email'],
-        'project': f'{project}',
-        'job_id': job_id,
+          'action': 'delete',
+          'email': runner['email'],
+          'project': f'{project}',
+          'job_id': job_id,
       }
       try:
         self.scheduler.process(**args)
@@ -360,17 +371,17 @@ class ReportManager(object):
         return f'{job_id} - Already present but delete failed: {e}'
 
     args = {
-      'action': 'create',
-      'email': runner['email'],
-      'project': f'{project}',
-      'force': False,
-      'infer_schema': runner.get('infer_schema', False),
-      'append': runner.get('append', False),
-      'report_id': id,
-      'description': runner.get('description'),
-      'minute': runner.get('minute', random.randrange(0, 59)),
-      'hour': runner.get('hour', '*'),
-      'type': self.report_type,
+        'action': 'create',
+        'email': runner['email'],
+        'project': f'{project}',
+        'force': False,
+        'infer_schema': runner.get('infer_schema', False),
+        'append': runner.get('append', False),
+        'report_id': id,
+        'description': runner.get('description'),
+        'minute': runner.get('minute', random.randrange(0, 59)),
+        'hour': runner.get('hour', '*'),
+        'type': self.report_type,
     }
     if dest_project := runner.get('dest_project'):
       args['dest_project'] = dest_project
