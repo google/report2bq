@@ -55,6 +55,7 @@ retry-decorator>=1.1.1
 rsa>=4.7.2
 six>=1.15.0
 SocksiPy-branch>=1.1
+stringcase>=1.2.0
 uritemplate>=3.0.1
 urllib3
 web.py>=0.62
