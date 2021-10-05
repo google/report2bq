@@ -69,8 +69,8 @@ def sanitize_string(original: str) -> str:
   replacement = ''
 
   for char in original:
-    if re.match('[a-zA-Z0-9_-]', char): replacement += char
-    elif re.match('[ ():,]', char): replacement += '_'
+    if re.match('[a-zA-Z0-9_]', char): replacement += char
+    elif re.match('[ ():,-]', char): replacement += '_'
     else: replacement += hex(ord(char))
 
   return replacement
