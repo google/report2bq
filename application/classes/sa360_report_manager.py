@@ -117,7 +117,7 @@ class SA360Manager(ReportManager):
         project=project,
         email=email,
         file=kwargs.get('file'),
-        table='sa360_definition'
+        table='updated_sa_inputs'
     )
 
     args = {
@@ -242,28 +242,41 @@ class SA360Manager(ReportManager):
     sa360_report_definitions = \
         self.firestore.get_document(self.report_type, '_reports')
 
+    credentials = {}
+    services = {}
     for runner in runners:
       id = f"{runner['report']}_{runner['AgencyId']}_{runner['AdvertiserId']}"
+      if not runner['dest_dataset']:
+        runner['dest_dataset'] = \
+            f'sa360_hourly_depleted_{runner["country_code"].lower()}'
 
-      creds = Credentials(project=config.project, email=runner['email'])
-      sa360_service = \
-          discovery.get_service(service=Service.SA360, credentials=creds)
+      if not (description := runner.get('description')):
+        description = (
+            f'[{runner["country_code"]}] '
+            f'{runner["title"] if "title" in runner else runner["report"]}: '
+            f'{runner["agencyName"]}/{runner["advertiserName"]}')
+        runner['description'] = description
+
+      if not (creds := credentials.get(runner['email'])):
+        creds = Credentials(project=config.project, email=runner['email'])
+        credentials[runner['email']] = creds
+
+      if not (sa360_service := services.get(runner['email'])):
+        sa360_service = \
+            discovery.get_service(service=Service.SA360, credentials=creds)
+        services[runner['email']] = sa360_service
+
       (valid, validity) = self._report_validation(
           sa360_report_definitions=sa360_report_definitions,
           report=runner, sa360_service=sa360_service)
 
       if valid:
         logging.info('Valid report: %s', id)
+        sa360_job = SA360Job.from_dict(runner)
         self.firestore.update_document(type=self.report_type,
-                                       id=id, new_data=runner)
+                                       id=id, new_data=sa360_job.to_dict())
 
         if self.scheduler:
-          if not (description := runner.get('description')):
-            description = (
-                f'{runner["title"] if "title" in runner else runner["report"]}: '
-                f'{runner["agencyName"]}/{runner["advertiserName"]}')
-            runner['description'] = description
-
           results.append(self._schedule_job(project=config.project,
                                             runner=runner, id=id))
       else:

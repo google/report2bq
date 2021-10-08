@@ -41,13 +41,22 @@ class SA360Validator(object):
   def validate(self, field: Any) -> Tuple[bool, str]:
     if isinstance(field, str):
       return self.validate_custom_column(field)
-    elif isinstance(field, dict):
-      if 'type' not in field or field['type'] == 'savedColumnName':
-        return self.validate_custom_column(field['value'])
-      elif 'type' in field and field['type'] == 'columnName':
-        return self.validate_standard_column(field['value'])
 
-    return (False, None)
+    elif isinstance(field, dict):
+      field_type = field.get('type')
+      if field_type == 'savedColumnName':
+        return self.validate_custom_column(field['value'])
+      elif field_type == 'columnName':
+        return self.validate_standard_column(field['value'])
+      else:
+        # 'type' not specified. rather than fail, check both in order
+        (valid, name) = self.validate_custom_column(field['value'])
+        if valid:
+          field['type'] = 'savedColumnName'
+          return (valid, name)
+        else:
+          field['type'] = 'columnName'
+          return self.validate_standard_column(field['value'])
 
   def validate_custom_column(self, name: str) -> Tuple[bool, str]:
     if not name:
@@ -74,12 +83,12 @@ class SA360Validator(object):
     saved_column_names = []
     if self.sa360_service:
       request = self.sa360_service.savedColumns().list(
-        agencyId=self.agency, advertiserId=self.advertiser)
+          agencyId=self.agency, advertiserId=self.advertiser)
       response = request.execute()
 
       if 'items' in response:
         saved_column_names = [
-          item['savedColumnName'] for item in response['items']
+            item['savedColumnName'] for item in response['items']
         ]
       else:
         saved_column_names = []

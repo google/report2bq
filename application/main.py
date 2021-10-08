@@ -315,6 +315,26 @@ def report_manager(event: Dict[str, Any], context=None) -> None:
     logging.error('Invalid request. %s', event)
 
 
+def sa360_report_creator(event: Dict[str, Any], context=None) -> None:
+  """sa360_report_creator
+
+  Args:
+      event (Dict[str, Any]): [description]
+      context ([type], optional): [description]. Defaults to None.
+  """
+  logging.info(event)
+  project = os.environ.get('GCP_PROJECT')
+
+  if attributes := event.get('attributes'):
+    args = {
+      'project': attributes.get('project'),
+      'email': attributes.get('email'),
+      'name': 'SA360Report',
+      'action': 'install',
+    }
+    manager = SA360Manager().manage(**args)
+
+
 def api_not_enabled(action: str, **unused) -> None:
   """Checks to see if a Cloud API has been enabled.
 

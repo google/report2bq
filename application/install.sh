@@ -36,6 +36,8 @@ Deployment directives:
   --activate-apis   Activate all missing but required Cloud APIs
   --create-service-account
                     Create the service account and client secrets
+  OR
+  --service-account The service account to use to run the cloud functions
 
   EITHER:
     --deploy-all      (Re)Deploy all portions
@@ -53,9 +55,9 @@ Deployment directives:
     --deploy-trigger  (Re)Deploy triggers
     --deploy-job-manager
                       (Re)Deploy the job manager for listing creating and deleting scheduled jobs
-    --deploy-ga360-mamaner
+    --deploy-ga360-manager
                       (Re)Deploy the report manager for dynamic GA360 reports
-    --deploy-sa360-mamaner
+    --deploy-sa360-manager
                       (Re)Deploy the report manager for dynamic SA360 reports
 
   --no-topics       Just deploy the functions; good if you have deployed once and are just
@@ -194,6 +196,9 @@ while [[ $1 == -* ]] ; do
     --create-service-account)
       CREATE_SERVICE_ACCOUNT=1
       ;;
+    --service-account*)
+      IFS="=" read _cmd USER <<< "$1" && [ -z ${USER} ] && shift && USER=$1
+      ;;
     --store-api-key)
       STORE_API_KEY=1
       ;;
@@ -241,9 +246,17 @@ if [ -z "${PROJECT}" -o -z "${API_KEY}" ]; then
   exit
 fi
 
-USER=report2bq@${PROJECT}.iam.gserviceaccount.com
 if [ ! -z ${ADMIN} ]; then
   _ADMIN="ADMINISTRATOR_EMAIL=${ADMIN}"
+fi
+
+if [ -z "${USER}" -a ${CREATE_SERVICE_ACCOUNT} -eq "0" ]; then
+  read USER <<< $(gsutil cat gs://${PROJECT}-report2bq-tokens/service_account 2>/dev/null)
+fi
+
+if [   "${USER}" -a ${CREATE_SERVICE_ACCOUNT} -eq 1 \
+    -o -z "${USER}" -a ${CREATE_SERVICE_ACCOUNT} -eq 0 ]; then
+  echo "Please specify one and only one of --create-service-account and --service-account"
 fi
 
 ACTIVE_SERVICES="$(gcloud --project=${PROJECT} services list | cut -f 1 -d' ' | grep -v NAME)"
@@ -261,6 +274,7 @@ if [ ${ACTIVATE_APIS} -eq 1 ]; then
     "gmail"
     "pubsub"
     "storage-api"
+    "serviceusage"
   )
 
   (( ADH )) && APIS_USED+=("adsdatahub")
@@ -302,15 +316,15 @@ if [ ${DEPLOY_STORAGE} -eq 1 ]; then
 fi
 
 if [ ${CREATE_SERVICE_ACCOUNT} -eq 1 ]; then
+  USER=report2bq@${PROJECT}.iam.gserviceaccount.com
   ${DRY_RUN} gcloud iam service-accounts create report2bq --description "Report2BQ Service Account" --project ${PROJECT} \
   && ${DRY_RUN} gcloud iam service-accounts keys create "report2bq@${PROJECT}.iam.gserviceaccount.com.json" --iam-account ${USER} --project ${PROJECT} \
   && ${DRY_RUN} gsutil cp "report2bq@${PROJECT}.iam.gserviceaccount.com.json" gs://${PROJECT}-report2bq-tokens/
   ${DRY_RUN} gcloud projects add-iam-policy-binding ${PROJECT} --member=serviceAccount:${USER} --role=roles/editor
 fi
 
-if [ ${STORE_API_KEY} -eq 1 ]; then
-  echo ${API_KEY} | gsutil cp - gs://${PROJECT}-report2bq-tokens/api.key
-fi
+echo ${API_KEY} | gsutil cp - gs://${PROJECT}-report2bq-tokens/api.key
+echo ${USER} | gsutil cp - gs://${PROJECT}-report2bq-tokens/service_account
 
 if [ ${DEPLOY_CODE} -eq 1 ]; then
   # Create and deploy the code
@@ -421,6 +435,18 @@ if [ ${DEPLOY_TOPICS} -eq 1 ]; then
       "report2bq-postprocessor"
   fi
 
+  if [ ${DEPLOY_SA360_MANAGER} -eq 1 ]; then
+    # Create topic
+    ${DRY_RUN} gcloud pubsub topics delete \
+      --project=${PROJECT} \
+      --quiet \
+      "report2bq-bq-creator"
+
+    ${DRY_RUN} gcloud pubsub topics create \
+      --project=${PROJECT} \
+      --quiet \
+      "report2bq-bq-creator"
+  fi
 fi
 
 # CLOUD FUNCTIONS
@@ -466,7 +492,7 @@ if [ ${DEPLOY_MONITOR} -eq 1 ]; then
     --memory=1024MB \
     --trigger-topic="report2bq-job-monitor" \
     --set-env-vars=${ENVIRONMENT} \
-    --service-account=$USER \
+    --service-account=${USER} \
     --quiet \
     --timeout=240s \
     --max-instances=1 \
@@ -497,7 +523,7 @@ if [ ${DEPLOY_FETCHER} -eq 1 ]; then
     --runtime=python38 \
     --memory=4096MB \
     --trigger-topic="report2bq-fetcher" \
-    --service-account=$USER \
+    --service-account=${USER} \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
     --timeout=540s \
@@ -515,7 +541,7 @@ if [ ${DEPLOY_LOADER} -eq 1 ]; then
     --memory=2048MB \
     --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-upload" \
     --trigger-event="google.storage.object.finalize" \
-    --service-account=$USER \
+    --service-account=${USER} \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
     --timeout=540s \
@@ -533,7 +559,7 @@ if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
     --runtime python38 \
     --memory=2048MB \
     --trigger-topic="report2bq-runner" \
-    --service-account=$USER \
+    --service-account=${USER} \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
     --timeout=540s \
@@ -551,7 +577,7 @@ if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
     --runtime python38 \
     --memory=1024MB \
     --trigger-topic="report2bq-run-monitor" \
-    --service-account=$USER \
+    --service-account=${USER} \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
     --timeout=240s \
@@ -581,7 +607,7 @@ if [ ${DEPLOY_POSTPROCESSOR} -eq 1 ]; then
     --runtime python38 \
     --memory=4096MB \
     --trigger-topic="report2bq-postprocessor" \
-    --service-account=$USER \
+    --service-account=${USER} \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
     --timeout=240s \
@@ -598,11 +624,35 @@ if [ ${DEPLOY_SA360_MANAGER} -eq 1 ]; then
     --memory=4096MB \
     --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-sa360-manager" \
     --trigger-event="google.storage.object.finalize" \
-    --service-account=$USER \
+    --service-account=${USER} \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
     --timeout=240s \
     --project=${PROJECT} ${_BG}
+
+  ${DRY_RUN} gcloud functions deploy "report2bq-bq-sa360-report-creator" \
+    --entry-point=sa360_report_creator \
+    --source=${SOURCE} \
+    --runtime python38 \
+    --memory=4096MB \
+    --trigger-topic="report2bq-bq-creator" \
+    --service-account=${USER} \
+    --set-env-vars=${ENVIRONMENT} \
+    --quiet \
+    --timeout=240s \
+    --project=${PROJECT} ${_BG}
+
+  parameters=(
+    "--project=report2bq-zz9-plural-z-alpha",
+    "--email=davidharcombe@google.com",
+  )
+  ${DRY_RUN} gcloud beta scheduler jobs create pubsub "report2bq-bq-sa360-report-creator" \
+    --schedule="1-59/2 * * * *" \
+    --topic="projects/${PROJECT}/topics/report2bq-bq-creator" \
+    --time-zone="America/Toronto" \
+    --message-body="RUN" \
+    --attributes="project=${PROJECT},email=davidharcombe@google.com" \
+    --project=${PROJECT}
 fi
 
 if [ ${DEPLOY_GA360_MANAGER} -eq 1 ]; then
@@ -615,7 +665,7 @@ if [ ${DEPLOY_GA360_MANAGER} -eq 1 ]; then
     --memory=4096MB \
     --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-ga360-manager" \
     --trigger-event="google.storage.object.finalize" \
-    --service-account=$USER \
+    --service-account=${USER} \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
     --timeout=240s \

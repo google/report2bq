@@ -22,11 +22,39 @@ class ManagerInput(query.Query):
                config: report_manager.ManagerConfiguration) -> ManagerInput:
     super().__init__(project=config.project, dataset=config.dataset,
                      query=f"""
-SELECT
-  *
-FROM
-  `{config.project}.{config.dataset}.{config.table}` AS Inputs;
-""")
+    SELECT
+      minute,
+      description,
+      country_code,
+      advertiserName,
+      agency_name AS agencyName,
+      dest_dataset,
+      offset,
+      STRUCT(
+        revenue_metric_type AS type,
+        revenue_metric_value AS value
+      ) AS RevenueMetric,
+      STRUCT(
+        notifier_message AS message,
+        notifier_topic AS topic
+      ) AS notifier,
+      STRUCT(
+        conversion_metric_type AS type,
+        conversion_metric_value AS value
+      ) AS ConversionMetric,
+      timezone,
+      SAFE_CAST(agency_id AS STRING) AS AgencyId,
+      SAFE_CAST(advertiser_id AS STRING) AS AdvertiserId,
+      lookback,
+      'sa360_hourly_depleted' AS report,
+      email,
+      last_updated,
+      processed
+    FROM
+      `{config.project}.{config.dataset}.{config.table}` AS Inputs
+    ORDER BY
+      last_updated ASC;
+    """)
 
 
 class ManagerUpdate(query.Query):
@@ -34,76 +62,83 @@ class ManagerUpdate(query.Query):
                config: report_manager.ManagerConfiguration) -> ManagerInput:
     super().__init__(project=config.project, dataset=config.dataset,
                      query=f"""
-CREATE TABLE IF NOT EXISTS
-  `{config.project}.{config.dataset}.{config.table}_processed` AS
-SELECT
-    minute,
-    description,
-    advertiserName,
-    agencyName,
-    dest_dataset,
-    offset,
-    RevenueMetric,
-    notifier,
-    ConversionMetric,
-    timezone,
-    AdvertiserId,
-    lookback,
-    report,
-    email,
-    AgencyId,
-    last_updated,
-    processed
-FROM
-    `galvanic-card-234919.report2bq_admin.sa360_definition`
-WHERE
-    1 = 0;
+    CREATE TABLE IF NOT EXISTS
+      `{config.project}.{config.dataset}.{config.table}_processed` AS
+    SELECT
+      minute,
+      description,
+      country_code,
+      advertiserName,
+      agency_name,
+      dest_dataset,
+      offset,
+      revenue_metric_type,
+      revenue_metric_value,
+      notifier_message,
+      notifier_topic,
+      conversion_metric_type,
+      conversion_metric_value,
+      timezone,
+      advertiser_id,
+      lookback,
+      report,
+      email,
+      agency_id,
+      last_updated,
+      processed
+    FROM
+      `{config.project}.{config.dataset}.{config.table}`
+    WHERE
+      FALSE;
 
-INSERT INTO TABLE
-  `{config.project}.{config.dataset}.{config.table}_processed` (
-    minute,
-    description,
-    advertiserName,
-    agencyName,
-    dest_dataset,
-    offset,
-    RevenueMetric.type,
-    RevenueMetric.value,
-    notifier.message,
-    notifier.topic,
-    ConversionMetric.type,
-    ConversionMetric.value,
-    timezone,
-    AdvertiserId,
-    lookback,
-    report,
-    email,
-    AgencyId,
-    last_updated,
-    processed)
-  SELECT
-    minute,
-    description,
-    advertiserName,
-    agencyName,
-    dest_dataset,
-    offset,
-    RevenueMetric.type,
-    RevenueMetric.value,
-    notifier.message,
-    notifier.topic,
-    ConversionMetric.type,
-    ConversionMetric.value,
-    timezone,
-    AdvertiserId,
-    lookback,
-    report,
-    email,
-    AgencyId,
-    last_updated,
-    CURRENT_TIMESTAMP() AS processed
-FROM
-  `{config.project}.{config.dataset}.{config.table}`;
+    INSERT INTO
+      `{config.project}.{config.dataset}.{config.table}_processed` (
+      minute,
+      description,
+      country_code,
+      advertiserName,
+      agency_name,
+      dest_dataset,
+      offset,
+      revenue_metric_type,
+      revenue_metric_value,
+      notifier_message,
+      notifier_topic,
+      conversion_metric_type,
+      conversion_metric_value,
+      timezone,
+      advertiser_id,
+      lookback,
+      report,
+      email,
+      agency_id,
+      last_updated,
+      processed
+    )
+      SELECT
+        minute,
+        description,
+        country_code,
+        advertiserName,
+        agency_name,
+        dest_dataset,
+        offset,
+        revenue_metric_type,
+        revenue_metric_value,
+        notifier_message,
+        notifier_topic,
+        conversion_metric_type,
+        conversion_metric_value,
+        timezone,
+        advertiser_id,
+        lookback,
+        report,
+        email,
+        agency_id,
+        last_updated,
+        CURRENT_TIMESTAMP() AS processed
+    FROM
+      `{config.project}.{config.dataset}.{config.table}`;
 
-TRUNCATE TABLE `{config.project}.{config.dataset}.{config.table}`;
-""")
+    TRUNCATE TABLE `{config.project}.{config.dataset}.{config.table}`;
+    """)
