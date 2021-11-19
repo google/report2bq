@@ -30,13 +30,19 @@ class Query():
   columns: List[str] = []
   credentials: Union[creds.Credentials, oauth.Credentials] = None
 
-  def __init__(self, project: str, dataset: str, query: str) -> Query:
+  def __init__(self,
+               project: str,
+               dataset: str,
+               query: Union[str, None] = None) -> Query:
     self.project = project
     self.dataset = dataset
     self.query = query
 
   def execute(self,
               params: Optional[List[Any]] = []) -> bigquery.QueryJob:
+    if not self.query:
+      raise NotImplementedError('No query set!')
+
     client = bigquery.Client(project=self.project)
 
     for param, value in list(zip(self.parameters, params)):

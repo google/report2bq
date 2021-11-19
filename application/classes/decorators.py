@@ -27,6 +27,14 @@ from typing import Any, Callable, Mapping, Tuple, Union
 
 
 def timeit(f: Callable):
+  """Times how long a method takes to run.
+
+  Args:
+      f (Callable): the method.
+
+  Returns:
+      Any: the method's return.
+  """
   def timed(*args: Mapping[str, Any], **kw: Mapping[str, Any]) -> Any:
     ts = time.time()
     try:
@@ -38,6 +46,14 @@ def timeit(f: Callable):
 
 
 def measure_memory(f: Callable) -> Any:
+  """Measures the execution time and memory usage of a method.
+
+  Args:
+      f (Callable): the method.
+
+  Returns:
+      Any: the method's return.
+  """
   def decorate(*args: Mapping[str, Any], **kw: Mapping[str, Any]) -> Any:
     try:
       tracemalloc.start()

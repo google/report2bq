@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 __author__ = [
-  'davidharcombe@google.com (David Harcombe)'
+    'davidharcombe@google.com (David Harcombe)'
 ]
 
 from contextlib import suppress
@@ -28,6 +28,7 @@ from classes import decorators
 from classes.abstract_datastore import AbstractDatastore
 from classes.firestore import Firestore
 from classes.report_type import Type
+from concurrent import futures
 
 from google.cloud import bigquery
 from google.cloud import pubsub
@@ -60,12 +61,12 @@ class JobMonitor(object):
     documents = self.firestore.get_all_documents(Type._JOBS)
 
     for document in documents:
-      for product in [ T for T in Type ]:
+      for product in [T for T in Type]:
         if config := self.firestore.get_document(product, document.id):
           if config.get('dest_project'):
             user_creds = \
-              credentials.Credentials(email=config['email'],
-                                      project=config['dest_project'])
+                credentials.Credentials(email=config['email'],
+                                        project=config['dest_project'])
             bq = bigquery.Client(project=config['dest_project'],
                                  credentials=user_creds.get_credentials())
 
@@ -84,12 +85,12 @@ class JobMonitor(object):
 
                 self._handle_finished(job=job, config=config)
                 ('notifier' in config) and self.notify(
-                  report_type=product, config=config, job=job, id=document.id)
+                    report_type=product, config=config, job=job, id=document.id)
                 self._mark_import_job_complete(document.id, job,)
 
             except Exception as e:
               logging.error(
-                'Error loading job %s for monitoring.', document.id)
+                  'Error loading job %s for monitoring.', document.id)
 
           break
 
@@ -116,7 +117,7 @@ class JobMonitor(object):
         logging.info('File %s removed from %s.', blob_name, bucket_name)
 
   def _mark_import_job_complete(self, report_id: int,
-                               job: bigquery.LoadJob) -> None:
+                                job: bigquery.LoadJob) -> None:
     """Marks a BQ Import job in Firestore done.
 
     Moves an import job from 'jobs/' to 'jobs-completed'.
@@ -142,30 +143,31 @@ class JobMonitor(object):
         job (LoadJob): the BQ load job config
         id (str): the BQ job id
     """
-    columns = ';'.join([ field['name'] for field in config['schema'] ])
+    columns = ';'.join([field['name'] for field in config['schema']])
 
     attributes = {
-      'project': job.destination.project,
-      'dataset': job.destination.dataset_id,
-      'table': job.destination.table_id,
-      'rows': str(job.output_rows),
-      'id': id,
-      'type': report_type.value,
-      'columns': columns
+        'project': job.destination.project,
+        'dataset': job.destination.dataset_id,
+        'table': job.destination.table_id,
+        'rows': str(job.output_rows),
+        'id': id,
+        'type': report_type.value,
+        'columns': columns
     }
 
     logging.info('Notifying postprocessor of completed job %s.',
-                  attributes['id'])
+                 attributes['id'])
     client = pubsub.PublisherClient()
     try:
       project = os.environ.get('GCP_PROJECT')
-      client.publish(
-        ( f"projects/{project}/topics/"
-          f"{os.environ.get('POSTPROCESSOR', 'report2bq-postprocessor')}"),
-        f"{config['notifier'].get('message', 'report2bq_unknown')}" \
-          .encode('utf-8'),
-        **attributes
-      )
+      futures.wait([
+          client.publish(
+              (f"projects/{project}/topics/"
+               f"{os.environ.get('POSTPROCESSOR', 'report2bq-postprocessor')}"),
+              f"{config['notifier'].get('message', 'report2bq_unknown')}"
+              .encode('utf-8'),
+              **attributes)],
+          return_when=futures.ALL_COMPLETED)
 
     except Exception as e:
       logging.error('Failed to notify postprocessor of completed job %s.',

@@ -20,9 +20,10 @@ import json
 import logging
 import os
 import random
+import gcsfs
 import uuid
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 from classes import firestore
 
 from classes.cloud_storage import Cloud_Storage
@@ -253,13 +254,9 @@ class ReportManager(object):
 
     output_name = f'{file}.results'
     if gcs_stored:
-      outfile = io.StringIO()
-      _send()
-
-      Cloud_Storage(project=project,
-                    email=email).write_file(bucket=self.bucket,
-                                            file=output_name,
-                                            data=outfile.getvalue())
+      fs = gcsfs.GCSFileSystem(project=project)
+      with fs.open(f'{self.bucket}/{output_name}', 'w') as outfile:
+        _send()
 
     else:
       with open(output_name, 'w') as outfile:
@@ -397,3 +394,8 @@ class ReportManager(object):
     except Exception as e:
       logging.error('%s - Failed to create: %s', job_id, e)
       return f'{job_id} - Failed to create: {e}'
+
+  def _chunk(self, thing: Iterable[Any], size: int):
+    """Yield successive n-sized chunks from thing."""
+    for i in range(0, len(thing), size):
+      yield thing[i:i + size]

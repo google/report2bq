@@ -81,7 +81,7 @@ class AbstractCredentials(object):
         self.project_credentials.get('web') or \
         self.project_credentials.get('installed')
 
-    expiry = self._to_utc(datetime.now() + relativedelta(minutes=15))
+    expiry = self._to_utc(datetime.now() + relativedelta(minutes=30))
     if self.token_details.get('access_token'):
       creds = credentials.Credentials.from_authorized_user_info({
           'token': self.token_details['access_token'],
