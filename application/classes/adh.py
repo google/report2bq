@@ -128,8 +128,8 @@ class ADH(object):
       if self.dest_table:
         report['dest_table'] = self.dest_table
 
-      query_details['table_name'] = \
-        csv_helpers._sanitize_string(query_details['title'])
+      report['table_name'] = \
+        csv_helpers.sanitize_string(query_details['title'])
 
       self.firestore.store_document(type=Type.ADH, document=report,
                                     id=self.adh_query)
@@ -160,12 +160,10 @@ class ADH(object):
     Returns:
         Dict[str, Any]: [description]
     """
-    service = self._get_adh_service()
-
     query_id = 'customers/{customer_id}/analysisQueries/{query_id}'.format(
       customer_id=self.adh_customer,
       query_id=self.adh_query)
-    query = service.customers().analysisQueries().get(name=query_id).execute()
+    query = self.adh.customers().analysisQueries().get(name=query_id).execute()
 
     return query
 

@@ -82,7 +82,7 @@ class Service(enum.Enum):
 SERVICE_DEFINITIONS = \
   immutabledict.immutabledict({
     Service.ADH:
-      ServiceDefinition(name='AdsDataHub', version='v1'),
+      ServiceDefinition(name='AdsDataHub', version='v1', uri='https://adsdatahub.googleapis.com/$discovery/rest?version=v1'),
     Service.BQ:
       ServiceDefinition(version='v2', name='bigquery'),
     Service.CM:
