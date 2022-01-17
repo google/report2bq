@@ -19,7 +19,7 @@ from googleapiclient.discovery import Resource
 from googleapiclient.errors import HttpError
 from typing import Any, Dict, List, Mapping
 
-from classes.credentials import Credentials
+from classes.secret_manager_credentials import Credentials
 from classes.decorators import lazy_property, retry
 from classes.firestore import Firestore
 from classes.gmail import GMail, GMailMessage

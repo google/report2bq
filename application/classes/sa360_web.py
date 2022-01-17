@@ -25,9 +25,9 @@ from html.parser import unescape
 from io import BytesIO, StringIO, SEEK_END
 from typing import Dict, Generator, List, Any, Tuple
 from urllib.parse import unquote
-from classes import credentials
+from classes import secret_manager_credentials as credentials
 
-from classes.credentials import Credentials
+from classes.secret_manager_credentials import Credentials
 from classes.cloud_storage import Cloud_Storage
 from classes import csv_helpers
 from classes.decorators import retry, timeit, measure_memory

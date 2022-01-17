@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import os
 
-from classes import credentials as creds
+from classes import secret_manager_credentials as creds
 from google.cloud import bigquery
 from google.oauth2 import credentials as oauth
 from typing import Any, List, Optional, Union

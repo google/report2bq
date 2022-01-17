@@ -46,7 +46,7 @@ app.config['GCLOUD_PROJECT'] = os.environ['GOOGLE_CLOUD_PROJECT']
 
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 JINJA_ENVIRONMENT = jinja2.Environment(
-    loader = jinja2.FileSystemLoader(template_dir),
+    loader=jinja2.FileSystemLoader(template_dir),
     extensions=['jinja2.ext.autoescape'],
     autoescape=True
 )
@@ -67,8 +67,8 @@ def index():
   project = os.environ['GOOGLE_CLOUD_PROJECT']
   bucket = f'{project}-report2bq-tokens'
   project_credentials = json.loads(OAuth.fetch_file(
-    bucket,
-    'client_secrets.json'
+      bucket,
+      'client_secrets.json'
   ), encoding='utf-8')
 
   user_email, user_id = user()
@@ -79,21 +79,21 @@ def index():
 
   if has_auth:
     template = JINJA_ENVIRONMENT.get_template('index.html')
-    running_jobs = Scheduler().process(args={'action': 'list',
-                                             'project': project,
-                                             'email': user_email})
+    running_jobs = Scheduler().process(**{'action': 'list',
+                                          'project': project,
+                                          'email': user_email})
     jobs = []
     for job in running_jobs:
       with suppress(ValueError, KeyError, TypeError):
         _attrs = job.get('pubsubTarget', {}).get('attributes', {})
         _def = Type(_attrs['type'])
         j = {
-          'id': job['name'].split('/')[-1],
-          'description': job['description'] if 'description' in \
+            'id': job['name'].split('/')[-1],
+            'description': job['description'] if 'description' in
             job else '-- No description given --',
-          'type': _def,
-          'schedule': job['schedule'],
-          'timezone': job['timeZone'],
+            'type': _def,
+            'schedule': job['schedule'],
+            'timezone': job['timeZone'],
         }
 
         j['attributes'] = switch(_def, _attrs)
@@ -104,49 +104,56 @@ def index():
   else:
     template = JINJA_ENVIRONMENT.get_template('authenticate.html')
     data = {
-      'email': user_email,
-      'client_id': project_credentials['web']['client_id'],
+        'email': user_email,
+        'client_id': project_credentials['web']['client_id'],
     }
 
   return template.render(data)
 # [END index]
 
+
 def job_attributes_sa360(attributes: Dict[str, str]) -> Dict[str, str]:
-  return { 'sa360_url': attributes.get('sa360_url') }
+  return {'sa360_url': attributes.get('sa360_url')}
+
 
 def job_attributes_sa360_report(attributes: Dict[str, str]) -> Dict[str, str]:
-  return { 'report_id': attributes.get('report_id') }
+  return {'report_id': attributes.get('report_id')}
+
 
 def job_attributes_ga360_report(attributes: Dict[str, str]) -> Dict[str, str]:
-  return { 'report_id': attributes.get('report_id') }
+  return {'report_id': attributes.get('report_id')}
+
 
 def job_attributes_dv360(attributes: Dict[str, str]) -> Dict[str, str]:
   return {
-    'report_id': attributes['dv360_id'] or attributes['report_id']
+      'report_id': attributes['dv360_id'] or attributes['report_id']
   }
+
 
 def job_attributes_cm(attributes: Dict[str, str]) -> Dict[str, str]:
   return {
-    'report_id': attributes['cm_id'] or attributes['report_id'],
-    'profile': attributes['profile']
+      'report_id': attributes['cm_id'] or attributes['report_id'],
+      'profile': attributes['profile']
   }
+
 
 def job_attributes_adh(attributes: Dict[str, str]) -> Dict[str, str]:
   return {
-    'adh_customer': attributes['adh_customer'],
-    'adh_query': attributes['adh_query'],
-    'api_key': attributes['api_key'],
-    'days': attributes['days'],
+      'adh_customer': attributes['adh_customer'],
+      'adh_query': attributes['adh_query'],
+      'api_key': attributes['api_key'],
+      'days': attributes['days'],
   }
+
 
 def switch(report_type: Type, attributes: Dict[str, str]) -> Dict[str, str]:
   job_attribute_extractor = {
-    Type.DV360: job_attributes_dv360,
-    Type.CM: job_attributes_cm,
-    Type.SA360: job_attributes_sa360,
-    Type.ADH: job_attributes_adh,
-    Type.SA360_RPT: job_attributes_sa360_report,
-    Type.GA360_RPT: job_attributes_ga360_report,
+      Type.DV360: job_attributes_dv360,
+      Type.CM: job_attributes_cm,
+      Type.SA360: job_attributes_sa360,
+      Type.ADH: job_attributes_adh,
+      Type.SA360_RPT: job_attributes_sa360_report,
+      Type.GA360_RPT: job_attributes_ga360_report,
   }
   a = {}
   for _attr in [
@@ -156,9 +163,10 @@ def switch(report_type: Type, attributes: Dict[str, str]) -> Dict[str, str]:
       'dest_project',
       'dest_dataset',
       'dest_table'
-    ]:
+  ]:
     if extractor := job_attribute_extractor.get(report_type):
-      if _attr in attributes: a[_attr] = attributes[_attr]
+      if _attr in attributes:
+        a[_attr] = attributes[_attr]
       a.update(extractor(attributes))
   return a
 
@@ -168,15 +176,15 @@ def authenticate():
   project = os.environ['GOOGLE_CLOUD_PROJECT']
   bucket = f'{project}-report2bq-tokens'
   project_credentials = json.loads(OAuth.fetch_file(
-    bucket,
-    'client_secrets.json'
+      bucket,
+      'client_secrets.json'
   ), encoding='utf-8')
 
   user_email, user_id = user()
   template = JINJA_ENVIRONMENT.get_template('authenticate.html')
   data = {
-    'email': user_email,
-    'client_id': project_credentials['web']['client_id'],
+      'email': user_email,
+      'client_id': project_credentials['web']['client_id'],
   }
   return template.render(data)
 

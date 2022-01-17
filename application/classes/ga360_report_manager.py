@@ -22,7 +22,7 @@ from typing import Any, Dict, List
 
 from classes import discovery
 from classes import report_manager
-from classes.credentials import Credentials
+from classes.secret_manager_credentials import Credentials
 from classes.report_type import Type
 from classes.services import Service
 

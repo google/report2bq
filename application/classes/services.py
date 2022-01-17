@@ -44,9 +44,12 @@ class ServiceDefinition(object):
         Mapping[str, Any]: the definition as kwargs
     """
     args = {}
-    if self.name: args['serviceName'] = self.name
-    if self.version: args['version'] = self.version
-    if self.uri: args['discoveryServiceUrl'] = self.uri
+    if self.name:
+      args['serviceName'] = self.name
+    if self.version:
+      args['version'] = self.version
+    if self.uri:
+      args['discoveryServiceUrl'] = self.uri
     return args
 
 
@@ -80,21 +83,23 @@ class Service(enum.Enum):
 
 
 SERVICE_DEFINITIONS = \
-  immutabledict.immutabledict({
-    Service.ADH:
-      ServiceDefinition(name='AdsDataHub', version='v1', uri='https://adsdatahub.googleapis.com/$discovery/rest?version=v1'),
-    Service.BQ:
-      ServiceDefinition(version='v2', name='bigquery'),
-    Service.CM:
-      ServiceDefinition(name='dfareporting', version='v3.5'),
-    Service.DV360:
-      ServiceDefinition(name='doubleclickbidmanager', version='v1.1'),
-    Service.GA360:
-      ServiceDefinition(name='analyticsreporting', version='v4'),
-    Service.GMAIL:
-      ServiceDefinition(name='gmail', version='v1'),
-    Service.SA360:
-      ServiceDefinition(name='doubleclicksearch', version='v2'),
-    Service.SCHEDULER:
-      ServiceDefinition(name='cloudscheduler', version='v1'),
-  })
+    immutabledict.immutabledict({
+        Service.ADH:
+        ServiceDefinition(
+            name='AdsDataHub', version='v1',
+            uri='https://adsdatahub.googleapis.com/$discovery/rest?version=v1'),
+        Service.BQ:
+        ServiceDefinition(version='v2', name='bigquery'),
+        Service.CM:
+        ServiceDefinition(name='dfareporting', version='v3.5'),
+        Service.DV360:
+        ServiceDefinition(name='doubleclickbidmanager', version='v1.1'),
+        Service.GA360:
+        ServiceDefinition(name='analyticsreporting', version='v4'),
+        Service.GMAIL:
+        ServiceDefinition(name='gmail', version='v1'),
+        Service.SA360:
+        ServiceDefinition(name='doubleclicksearch', version='v2'),
+        Service.SCHEDULER:
+        ServiceDefinition(name='cloudscheduler', version='v1'),
+    })

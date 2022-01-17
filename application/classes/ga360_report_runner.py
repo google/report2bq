@@ -22,7 +22,7 @@ from classes import ReportRunner
 from classes import ga360_report
 from classes import ga360_report_response
 from classes import report_type
-from classes.credentials import Credentials
+from classes.secret_manager_credentials import Credentials
 from classes.gcs_streaming import GCSObjectStreamUpload
 from classes.report_type import Type
 from classes.services import Service

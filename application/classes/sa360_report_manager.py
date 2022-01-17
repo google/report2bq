@@ -38,7 +38,7 @@ from typing import Any, Dict, List, Tuple, Union
 from classes import discovery
 from google.cloud import bigquery
 from classes.cloud_storage import Cloud_Storage
-from classes.credentials import Credentials
+from classes.secret_manager_credentials import Credentials
 from classes.report_manager import ManagerConfiguration, ManagerType, ReportManager
 from classes.report_type import Type
 from classes.sa360_report_validation import sa360_validator_factory

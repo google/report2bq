@@ -23,7 +23,7 @@ import logging
 import os
 import re
 
-from classes import credentials
+from classes import secret_manager_credentials as credentials
 from classes import decorators
 from classes.abstract_datastore import AbstractDatastore
 from classes.firestore import Firestore

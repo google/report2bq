@@ -32,7 +32,7 @@ from googleapiclient.errors import HttpError
 
 from classes import decorators
 from classes import Fetcher
-from classes.credentials import Credentials
+from classes.secret_manager_credentials import Credentials
 from classes import discovery
 from classes.report_type import Type
 from classes.services import Service

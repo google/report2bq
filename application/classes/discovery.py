@@ -24,7 +24,7 @@ from classes.services import Service
 
 from apiclient import discovery
 from oauth2client.client import AccessTokenCredentials
-from classes.credentials import Credentials
+from classes.secret_manager_credentials import Credentials
 
 
 def get_service(service: Service,

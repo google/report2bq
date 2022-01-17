@@ -18,7 +18,7 @@ import io
 import logging
 
 
-from classes import credentials
+from classes import secret_manager_credentials as credentials
 from classes import csv_helpers
 from classes import decorators
 from classes.gmail import error_to_trace

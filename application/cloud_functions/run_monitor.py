@@ -18,7 +18,7 @@ import os
 
 from typing import Dict, List, Any
 
-from classes import credentials
+from classes import secret_manager_credentials as credentials
 from classes import decorators
 from classes import firestore
 from classes import gmail

@@ -19,7 +19,7 @@ from googleapiclient.errors import HttpError
 from messytables.types import CellType
 from typing import Any, Dict, Iterable, List, Mapping, Tuple, Union
 
-from classes import credentials
+from classes import secret_manager_credentials as credentials
 from classes import decorators
 from classes import discovery
 from classes import firestore

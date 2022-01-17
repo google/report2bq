@@ -24,7 +24,7 @@ from queue import Queue
 
 from messytables.types import CellType
 
-from classes import credentials
+from classes import secret_manager_credentials as credentials
 from classes import csv_helpers
 from classes import Fetcher, ReportFetcher
 from classes.cloud_storage import Cloud_Storage

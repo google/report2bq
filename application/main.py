@@ -22,7 +22,7 @@ from typing import Any, Dict
 from classes import gmail
 from classes.adh import ADH
 from classes.cloud_storage import Cloud_Storage
-from classes.credentials import Credentials
+from classes.secret_manager_credentials import Credentials
 from classes.dbm_report_runner import DBMReportRunner
 from classes.dcm_report_runner import DCMReportRunner
 from classes.decorators import measure_memory

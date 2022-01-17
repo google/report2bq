@@ -31,7 +31,7 @@ from classes import decorators
 from classes import gmail
 from classes.abstract_datastore import AbstractDatastore
 from classes.cloud_storage import Cloud_Storage
-from classes.credentials import Credentials as Report2BQCredentials
+from classes.secret_manager_credentials import Credentials as Report2BQCredentials
 from classes.report_type import Type
 
 

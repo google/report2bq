@@ -15,7 +15,7 @@
 from typing import Any, Dict, List, Optional
 
 from classes import decorators
-from classes.credentials import Credentials
+from classes.secret_manager_credentials import Credentials
 from classes.report_type import Type
 
 from google.cloud import firestore

@@ -273,8 +273,9 @@ if [ ${ACTIVATE_APIS} -eq 1 ]; then
     "firestore"
     "gmail"
     "pubsub"
-    "storage-api"
+    "secretmanager"
     "serviceusage"
+    "storage-api"
   )
 
   (( ADH )) && APIS_USED+=("adsdatahub")

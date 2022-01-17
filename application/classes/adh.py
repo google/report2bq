@@ -25,7 +25,7 @@ from typing import Any, Dict
 from classes import csv_helpers
 from classes import decorators
 from classes import discovery
-from classes.credentials import Credentials
+from classes.secret_manager_credentials import Credentials
 from classes.cloud_storage import Cloud_Storage
 from classes.firestore import Firestore
 from classes.report_type import Type

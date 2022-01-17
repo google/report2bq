@@ -17,7 +17,7 @@ import logging
 import os
 import traceback
 
-from classes import credentials
+from classes import secret_manager_credentials as credentials
 from classes import discovery
 from classes import firestore
 from classes import report_type

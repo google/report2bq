@@ -19,12 +19,14 @@ __author__ = ['davidharcombe@google.com (David Harcombe)']
 Authenticate and fetch a discoverable API service.
 """
 
+import logging
 from typing import Any, Mapping
-from classes.services import Service
 
 from apiclient import discovery
 from oauth2client.client import AccessTokenCredentials
-from classes.credentials import Credentials
+
+from classes.secret_manager_credentials import Credentials
+from classes.services import Service
 
 
 def get_service(service: Service,
@@ -52,9 +54,8 @@ def get_service(service: Service,
       NotImplementedError: if an invalid service is requested.
   """
   if definition := service.definition:
-    credentials.get_credentials()
     _credentials = \
-      AccessTokenCredentials(credentials.token_details['access_token'],
+      AccessTokenCredentials(credentials.get_credentials().token,
                             user_agent='report2bq')
     auth_https = _credentials.authorize(discovery.httplib2.Http())
     service = discovery.build(http=auth_https,

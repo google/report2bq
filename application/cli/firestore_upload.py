@@ -1,4 +1,4 @@
-#Copyright 2021 Google LLC
+# Copyright 2022 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,29 +15,33 @@
 import base64
 import json
 import logging
-
-from absl import app
-from absl import flags
+import os
 from contextlib import suppress
 from datetime import datetime
 
+from absl import app, flags
 from classes.report_type import Type
 
-
 logging.basicConfig(
-  filename=( 'firestore_upload-'
-            f'{datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.log'),
-  format='%(asctime)s %(message)s',
-  datefmt='%Y-%m-%d %I:%M:%S %p',
-  level=logging.DEBUG
+    filename=('firestore_upload-'
+              f'{datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}.log'),
+    format='%(asctime)s %(message)s',
+    datefmt='%Y-%m-%d %I:%M:%S %p',
+    level=logging.DEBUG
 )
 
 FLAGS = flags.FLAGS
+flags.DEFINE_string('project', None, 'GCP Project.')
+flags.DEFINE_string('email', None, 'Report owner/user email.')
 flags.DEFINE_string('key', None, 'Key to create/update')
 flags.DEFINE_string('file', None, 'File containing json data')
 flags.DEFINE_bool('encode_key', False, 'Encode the key (for tokens).')
-flags.DEFINE_bool('local_store', False, 'Local storage.')
+flags.DEFINE_bool('local', False, 'Local storage.')
+flags.DEFINE_bool('firestore', False, 'Send to Firestore.')
+flags.DEFINE_bool('secret_manager', False, 'Send to Secret Manager.')
 flags.mark_flags_as_required(['file'])
+flags.mark_bool_flags_as_mutual_exclusive(
+    ['local', 'firestore', 'secret_manager'], required=True)
 
 
 def encode(key: str) -> str:
@@ -56,14 +60,15 @@ def encode(key: str) -> str:
   if key:
     try:
       _key = \
-        base64.b64encode(key.encode('utf-8')).decode('utf-8').rstrip('=')
+          base64.b64encode(key.encode('utf-8')).decode('utf-8').rstrip('=')
     except Exception:
       _key = 'invalid_key'
   else:
     _key = 'unknown_key'
   return _key
 
-def upload(key: str, file: str, encode_key: bool, local_store: bool) -> None:
+
+def upload(**args) -> None: # key: str, file: str, encode_key: bool, local_store: bool) -> None:
   """Uploads data to firestore.
 
   Args:
@@ -74,35 +79,46 @@ def upload(key: str, file: str, encode_key: bool, local_store: bool) -> None:
   """
   data = None
 
-  if file:
+  if file := args.get('file'):
     with open(file, 'r') as data_file:
       src_data = json.loads(data_file.read())
 
-  if encode_key:
+  if args.get('encode_key'):
+    key = encode(args.get('key'))
     data = {}
     for (k, v) in src_data.items():
       v["_key"] = k
       data[encode(k)] = v
 
   else:
+    key = args.get('key')
     data = src_data
 
-  if local_store:
+  if args.get('local_store'):
     from classes.local_datastore import LocalDatastore
     f = LocalDatastore()
 
-  else:
+  if args.get('firestore'):
     from classes.firestore import Firestore
     f = Firestore()
 
-  f.update_document(Type._ADMIN, id=key, new_data=data)
+  if args.get('secret_manager'):
+    from classes.secret_manager import SecretManager
+    f = SecretManager(project=args.get('project'), email=args.get('email'))
+
+  f.update_document(type=Type._ADMIN, id=key, new_data=data)
+
 
 def main(unused_argv):
   event = {
-    'key': FLAGS.key,
-    'file': FLAGS.file,
-    'encode_key': FLAGS.encode_key,
-    'local_store': FLAGS.local_store,
+      'key': FLAGS.key,
+      'file': FLAGS.file,
+      'encode_key': FLAGS.encode_key,
+      'local_store': FLAGS.local,
+      'firestore': FLAGS.firestore,
+      'secret_manager': FLAGS.secret_manager,
+      'project': FLAGS.project or os.environ.get('GCP_PROJECT'),
+      'email': FLAGS.email,
   }
   upload(**event)
 

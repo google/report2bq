@@ -21,7 +21,7 @@ __author__ = [
 import logging
 import os
 
-from classes.credentials import Credentials
+from classes.secret_manager_credentials import Credentials
 from classes import discovery
 from classes.services import Service
 

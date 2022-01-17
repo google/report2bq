@@ -23,6 +23,7 @@ google-cloud-core>=1.6.0
 google-cloud-firestore>=2.0.2
 google-cloud-pubsub>=2.3.0
 google-cloud-scheduler>=2.1.1
+google-cloud-secret-manager>=2.8.0
 google-cloud-service-usage>=1.0.0
 google-cloud-storage>=1.36.2
 google-crc32c>=1.1.2

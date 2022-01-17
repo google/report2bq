@@ -24,9 +24,9 @@ import os
 
 from io import BytesIO
 from typing import Dict, List, Any, Tuple
-from classes import credentials
+from classes import secret_manager_credentials as credentials
 
-from classes.credentials import Credentials
+from classes.secret_manager_credentials import Credentials
 from classes.cloud_storage import Cloud_Storage
 from classes import csv_helpers
 from classes.decorators import measure_memory
