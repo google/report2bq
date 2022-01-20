@@ -570,7 +570,6 @@ fi
 if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
   # Deploy cloud function
   echo "run-monitor"
-  cleanup run-monitor
 
   ${DRY_RUN} gcloud functions deploy "report2bq-run-monitor" \
     --entry-point=run_monitor \

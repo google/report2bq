@@ -18,3 +18,7 @@ __pycache__/
 # Ignored by the build system
 /setup.cfg
 node_modules/**
+.history/
+.vscode/
+python-3.9/
+test/
