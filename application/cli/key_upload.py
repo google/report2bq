@@ -19,6 +19,7 @@ import os
 from contextlib import suppress
 from datetime import datetime
 
+import gcsfs
 from absl import app, flags
 from classes.report_type import Type
 
@@ -45,7 +46,7 @@ flags.mark_bool_flags_as_mutual_exclusive(
 
 
 def encode(key: str) -> str:
-  """The key to use in Firestore
+  """The key to use.
 
   Converts an string to a base64 version to use as a key since
   Firestore can only have [A-Za-z0-9] in keys. Stripping the '=' padding is
@@ -79,20 +80,26 @@ def upload(**args) -> None: # key: str, file: str, encode_key: bool, local_store
   """
   data = None
 
+  _project = args.get('project')
+  _key = args.get('key')
+  fs = gcsfs.GCSFileSystem(project=_project)
+
   if file := args.get('file'):
-    with open(file, 'r') as data_file:
-      src_data = json.loads(data_file.read())
+    if file.startswith('gs://'):
+      with fs.open(file, 'r') as data_file:
+        src_data = json.loads(data_file.read())
+    else:
+      # Assume locally stored token file
+      with open(file, 'r') as data_file:
+        src_data = json.loads(data_file.read())
 
   if args.get('encode_key'):
-    key = encode(args.get('key'))
-    data = {}
-    for (k, v) in src_data.items():
-      v["_key"] = k
-      data[encode(k)] = v
+    key = encode(_key)
 
   else:
-    key = args.get('key')
-    data = src_data
+    key = _key
+
+  src_data['email'] = _key
 
   if args.get('local_store'):
     from classes.local_datastore import LocalDatastore
@@ -104,9 +111,9 @@ def upload(**args) -> None: # key: str, file: str, encode_key: bool, local_store
 
   if args.get('secret_manager'):
     from classes.secret_manager import SecretManager
-    f = SecretManager(project=args.get('project'), email=args.get('email'))
+    f = SecretManager(project=_project, email=args.get('email'))
 
-  f.update_document(type=Type._ADMIN, id=key, new_data=data)
+  f.update_document(type=Type._ADMIN, id=key, new_data=src_data)
 
 
 def main(unused_argv):

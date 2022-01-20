@@ -1,4 +1,4 @@
-# Copyright 2019 Google, LLC.
+# Copyright 2022 Google, LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,35 +13,24 @@
 # limitations under the License.
 
 # [START app]
-import base64
-import jinja2
-import json
 import logging
 import os
-
-from flask import current_app, Flask, render_template, request
 from contextlib import suppress
-from google.auth.transport import requests
-from google.cloud import pubsub_v1
-from google.oauth2 import id_token
+from typing import Dict, Literal
+
+import jinja2
+from flask import Flask, request
 from google.cloud import storage
-from typing import Dict
 
 from classes.auth_helper import user
 from classes.oauth import OAuth
 from classes.report_type import Type
 from classes.scheduler import Scheduler
+from classes.secret_manager_credentials import Credentials
 
 logging.getLogger().setLevel(logging.INFO)
 
 app = Flask(__name__)
-
-# Configure the following environment variables via app.yaml
-# This is used in the push request handler to verify that the request came from
-# pubsub and originated from a trusted source.
-# app.config['PUBSUB_VERIFICATION_TOKEN'] = \
-#   os.environ['PUBSUB_VERIFICATION_TOKEN']
-# app.config['PUBSUB_TOPIC'] = os.environ['PUBSUB_TOPIC']
 app.config['GCLOUD_PROJECT'] = os.environ['GOOGLE_CLOUD_PROJECT']
 
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
@@ -62,22 +51,20 @@ def set_response_headers(response):
 
 # [START index]
 @app.route('/', methods=['GET', 'POST'])
-def index():
+def index() -> jinja2.Template:
+  """The index method for the appengine.
 
+  Returns:
+      Template: The completed html template
+  """
   project = os.environ['GOOGLE_CLOUD_PROJECT']
   bucket = f'{project}-report2bq-tokens'
-  project_credentials = json.loads(OAuth.fetch_file(
-      bucket,
-      'client_secrets.json'
-  ), encoding='utf-8')
 
   user_email, user_id = user()
 
-  client = storage.Client(credentials=None)
-  has_auth = client.get_bucket(bucket).get_blob(f'{user_email}_user_token.json')
   data = {}
 
-  if has_auth:
+  if creds := Credentials(project=project, email=None):
     template = JINJA_ENVIRONMENT.get_template('index.html')
     running_jobs = Scheduler().process(**{'action': 'list',
                                           'project': project,
@@ -105,11 +92,45 @@ def index():
     template = JINJA_ENVIRONMENT.get_template('authenticate.html')
     data = {
         'email': user_email,
-        'client_id': project_credentials['web']['client_id'],
+        'client_id': creds.project_credentials['web']['client_id'],
     }
 
   return template.render(data)
 # [END index]
+
+
+@app.route('/authenticate', methods=['GET', 'POST'])
+def authenticate() -> jinja2.Template:
+  """Runs the OAuth2 authentication flow.
+
+  This calls the OAuth flow for an unknown (but valid) user, or one who is
+  reauthenticating.
+
+  Returns:
+      Template: the JINJA template
+  """
+  project = os.environ['GOOGLE_CLOUD_PROJECT']
+  bucket = f'{project}-report2bq-tokens'
+
+  user_email, user_id = user()
+  template = JINJA_ENVIRONMENT.get_template('authenticate.html')
+  creds = Credentials(project=project, email=None)
+  data = {
+      'email': user_email,
+      'client_id': creds.project_credentials['web']['client_id'],
+  }
+  return template.render(data)
+
+
+@app.route('/oauth-complete', methods=['POST'])
+def oauth_complete() -> Literal['AUTH FAIL: No authentication code received.',
+                                'Authenticated!']:
+  """Completes the OAuthprocess.
+
+  Returns:
+      Literal[str, str]: One of two valid strings.
+  """
+  return OAuth().oauth_complete(request)
 
 
 def job_attributes_sa360(attributes: Dict[str, str]) -> Dict[str, str]:
@@ -169,29 +190,6 @@ def switch(report_type: Type, attributes: Dict[str, str]) -> Dict[str, str]:
         a[_attr] = attributes[_attr]
       a.update(extractor(attributes))
   return a
-
-
-@app.route('/authenticate', methods=['GET', 'POST'])
-def authenticate():
-  project = os.environ['GOOGLE_CLOUD_PROJECT']
-  bucket = f'{project}-report2bq-tokens'
-  project_credentials = json.loads(OAuth.fetch_file(
-      bucket,
-      'client_secrets.json'
-  ), encoding='utf-8')
-
-  user_email, user_id = user()
-  template = JINJA_ENVIRONMENT.get_template('authenticate.html')
-  data = {
-      'email': user_email,
-      'client_id': project_credentials['web']['client_id'],
-  }
-  return template.render(data)
-
-
-@app.route('/oauth-complete', methods=['POST'])
-def oauth_complete():
-  return OAuth().oauth_complete(request)
 
 
 if __name__ == '__main__':

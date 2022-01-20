@@ -18,7 +18,7 @@ from unittest import mock
 
 from classes import local_datastore
 from classes.report_type import Type
-from cli import firestore_upload
+from cli import key_upload
 
 from copy import deepcopy
 from typing import Any, Callable, Dict, Mapping
@@ -44,7 +44,7 @@ class FirestoreUploadTest(unittest.TestCase):
           'encode_key': False,
           'local_store': True,
         }
-        _ = firestore_upload.upload(**event)
+        _ = key_upload.upload(**event)
         self.open.assert_called_with('test.json', 'r')
         self.open().read.assert_called()
         mock_method.assert_called()
@@ -62,7 +62,7 @@ class FirestoreUploadTest(unittest.TestCase):
           'encode_key': True,
           'local_store': True,
         }
-        _ = firestore_upload.upload(**event)
+        _ = key_upload.upload(**event)
         self.open.assert_called_with('test.json', 'r')
         self.open().read.assert_called()
         mock_method.assert_called()
