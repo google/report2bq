@@ -88,12 +88,12 @@ Click "+ ADD URI"  and this screen will show up: \
 Paste in the `httpsTrigger` URL: `https://<PROJECT REGION>-<PROJECT ID>.cloudfunctions.net`,(e.g., `https://us-east1-my-rbq-project.cloudfunctions.net`) and click SAVE.
 
 1. Download the Client ID JSON from the [Credentials](https://console.cloud.google.com/apis/credentials) page.
-1. Rename it to "client_secrets.json".
-1. Save it [Cloud Storage](https://console.cloud.google.com/storage/browser) in the `<project id>-report2bq-tokens` bucket :\
-![](screenshots/5-OAuth_client.png) \
-(This can also be done via the CLI `gsutil` command like this: \
-`gsutil cp <DOWNLOADED FILE> gs://<PROJECT ID>-report2bq-tokens/client_secrets.json`
-)
-1. Follow steps on [./appengine/README.md](./appengine/README.md) to install the *Report2BQ Authentication and Administration Interface*, which allows users to grant permission to Report2BQ to run on their behalf.
-1. You can now create runners and fetchers for a given report.\
+1. Save it into the Secret Manager using the CLI `gcloud` command like this:
+  ```
+    gcloud secrets create client_secret --replication-policy=automatic
+    cat <DOWNLOADED FILE> | gcloud secrets versions add client_secret --data-file=-
+  ```
+4. Follow steps on [./appengine/README.md](./appengine/README.md) to install the *Report2BQ Authentication and Administration Interface*, which allows users to grant permission to Report2BQ to run on their behalf.
+
+You can now create runners and fetchers for a given report.\
 (*See **[SETUP.md](SETUP.md)** for details on how to do this.*)
