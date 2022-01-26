@@ -236,7 +236,7 @@ while [[ $1 == -* ]] ; do
 done
 
 if [ -z "${API_KEY}" ]; then
-  read API_KEY <<< $(gsutil cat gs://${PROJECT}-report2bq-tokens/api.key 2>/dev/null)
+  read API_KEY <<< $(gcloud secrets versions access latest --secret=api_key 2>/dev/null)
 fi
 
 if [ -z "${PROJECT}" -o -z "${API_KEY}" ]; then
@@ -324,8 +324,12 @@ if [ ${CREATE_SERVICE_ACCOUNT} -eq 1 ]; then
   ${DRY_RUN} gcloud projects add-iam-policy-binding ${PROJECT} --member=serviceAccount:${USER} --role=roles/editor
 fi
 
-echo ${API_KEY} | gsutil cp - gs://${PROJECT}-report2bq-tokens/api.key
 echo ${USER} | gsutil cp - gs://${PROJECT}-report2bq-tokens/service_account
+
+if [ ${STORE_API_KEY} -eq 1 ]; then
+  gcloud secrets create api_key --replication-policy=automatic 2>/dev/null
+  echo ${API_KEY} | gcloud secrets versions add api_key --data-file=-
+fi
 
 if [ ${DEPLOY_CODE} -eq 1 ]; then
   # Create and deploy the code
@@ -522,7 +526,7 @@ if [ ${DEPLOY_FETCHER} -eq 1 ]; then
     --entry-point=report_fetch \
     --source=${SOURCE} \
     --runtime=python38 \
-    --memory=4096MB \
+    --memory=8192MB \
     --trigger-topic="report2bq-fetcher" \
     --service-account=${USER} \
     --set-env-vars=${ENVIRONMENT} \
@@ -539,7 +543,7 @@ if [ ${DEPLOY_LOADER} -eq 1 ]; then
     --entry-point=report_upload \
     --source=${SOURCE} \
     --runtime=python38 \
-    --memory=2048MB \
+    --memory=4096MB \
     --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-upload" \
     --trigger-event="google.storage.object.finalize" \
     --service-account=${USER} \

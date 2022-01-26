@@ -13,7 +13,7 @@
 # limitations under the License.
 
 __author__ = [
-  'davidharcombe@google.com (David Harcombe)'
+    'davidharcombe@google.com (David Harcombe)'
 ]
 
 import json
@@ -91,7 +91,7 @@ class ReportLoader(object):
     """
     for config_type in [
         Type.DV360, Type.CM, Type.SA360, Type.SA360_RPT, Type.GA360_RPT,
-      ]:
+    ]:
       if config := self.firestore.get_document(config_type, id):
         return config_type, config
 
@@ -119,8 +119,8 @@ class ReportLoader(object):
                                   file=file_name,
                                   config_type=config_type,
                                   config=config):
-       self.firestore.store_document(type=Type._JOBS, id=report_id,
-                                     document=job.to_api_repr())
+      self.firestore.store_document(type=Type._JOBS, id=report_id,
+                                    document=job.to_api_repr())
 
   def _import_report(self,
                      bucket: str,
@@ -146,9 +146,9 @@ class ReportLoader(object):
     # then use the project environment version (again, if set) and failing all
     # that, fall back to 'report2bq'.
     dataset = \
-      config.get('dest_dataset') \
+        config.get('dest_dataset') \
         or os.environ.get('BQ_DATASET') \
-          or 'report2bq'
+        or 'report2bq'
 
     # Split up the file and find the base name, without extension. If the
     # uri is 'gs://my-project-report2bq-upload/my_file.csv', then the file name
@@ -159,9 +159,9 @@ class ReportLoader(object):
     # Net new configs will not have a 'table_name' key, instead having
     # dest_table' so use that instead. Failing that, just use the file name.
     table_name = \
-      config.get('table_name') or \
+        config.get('table_name') or \
         config.get('dest_table') or \
-          csv_helpers.sanitize_string(base_file)
+        csv_helpers.sanitize_string(base_file)
 
     logging.info('bucket %s, table %s, file_name %s',
                  bucket, table_name, file)
@@ -183,7 +183,7 @@ class ReportLoader(object):
     if self._table_exists(bq, table_ref):
       # Check for "forced update"
       if config.pop('drop_table', False):
-        try :
+        try:
           bq.delete_table(table_ref)
         finally:
           self.firestore.update_document(type=config_type, id=config['id'],
@@ -211,9 +211,9 @@ class ReportLoader(object):
     # Partitioning
     if config.get('partition'):
       job_config.time_partitioning = \
-        bigquery.TimePartitioning(
-          type_=bigquery.TimePartitioningType.DAY,
-          field=config.get('partition_column'))
+          bigquery.TimePartitioning(
+              type_=bigquery.TimePartitioningType.DAY,
+              field=config.get('partition_column'))
 
     uri = f'gs://{bucket}/{file}'
     load_job = bq.load_table_from_uri(uri, table_ref, job_config=job_config)
@@ -225,23 +225,15 @@ class ReportLoader(object):
     if config.get('dest_project'):
       # authenticate against supplied project with supplied key
       project = config.get('dest_project')
-      client_key = \
-        json.loads(Cloud_Storage.fetch_file(
-          bucket=f"{os.environ.get('GCP_PROJECT')}-report2bq-tokens",
-          file=f"{config['email']}_user_token.json"
-    ))
-      server_key = \
-        json.loads(
-          Cloud_Storage.fetch_file(
-            bucket=f"{os.environ.get('GCP_PROJECT')}-report2bq-tokens",
-            file='client_secrets.json'
-    ))
+      r2bq = Report2BQCredentials(project=os.environ.get('GCP_PROJECT'),
+                                  email=config['email'])
+      client_key = r2bq.token_details
       client_key['client_id'] = \
-        (server_key.get('web') or
-        server_key.get('installed')).get('client_id')
+          (r2bq.project_credentials.get('web') or
+           r2bq.project_credentials.get('installed')).get('client_id')
       client_key['client_secret'] = \
-        (server_key.get('web') or
-        server_key.get('installed')).get('client_secret')
+          (r2bq.project_credentials.get('web') or
+           r2bq.project_credentials.get('installed')).get('client_secret')
       creds = Credentials.from_authorized_user_info(client_key)
       bq = bigquery.Client(project=project, credentials=creds)
 
@@ -251,19 +243,18 @@ class ReportLoader(object):
     return bq
 
   def _schema_to_string(self, schema: List[bigquery.SchemaField]) -> str:
-    _schema = [ f'{field.name}, {field.field_type}' for field in schema]
+    _schema = [f'{field.name}, {field.field_type}' for field in schema]
     return '\n'.join(_schema)
 
   def _table_exists(self,
                     bq: bigquery.Client,
                     table_ref: bigquery.TableReference) -> bool:
     try:
-        bq.get_table(table_ref)
-        return True
+      bq.get_table(table_ref)
+      return True
 
     except NotFound:
-        return False
-
+      return False
 
   def _validate_schema(self,
                        bq: bigquery.Client,
@@ -275,8 +266,8 @@ class ReportLoader(object):
 
     if _valid := (schema == _schema):
       self._email_error(
-        email=config['email'],
-        message=f'''
+          email=config['email'],
+          message=f'''
 Mismatched schema for {_table.full_table_id}, trying anyway
 
 Report has schema:
@@ -293,25 +284,25 @@ Table has schema:
 
   def _email_error(self,
                    message: str,
-                   email: str=None,
-                   error: Exception=None) -> None:
+                   email: str = None,
+                   error: Exception = None) -> None:
     to = [email] if email else []
     administrator = \
-      self.firestore.get_document(Type._ADMIN, 'admin').get('email') or \
+        self.firestore.get_document(Type._ADMIN, 'admin').get('email') or \
         os.environ.get('ADMINISTRATOR_EMAIL')
     cc = [administrator] if administrator else []
-    body=f'{message}{gmail.error_to_trace(error)}'
+    body = f'{message}{gmail.error_to_trace(error)}'
 
     if to or cc:
       message = gmail.GMailMessage(
-        to=to,
-        cc=cc,
-        subject=f'Error in report_loader',
-        body=body,
-        project=os.environ.get('GCP_PROJECT'))
+          to=to,
+          cc=cc,
+          subject=f'Error in report_loader',
+          body=body,
+          project=os.environ.get('GCP_PROJECT'))
 
       gmail.send_message(
-        message=message,
-        credentials=Report2BQCredentials(
-          email=email, project=os.environ.get('GCP_PROJECT'))
+          message=message,
+          credentials=Report2BQCredentials(
+              email=email, project=os.environ.get('GCP_PROJECT'))
       )
