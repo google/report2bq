@@ -13,14 +13,14 @@
 # limitations under the License.
 from __future__ import annotations
 
-import json
-import logging
-from typing import Any, Dict, Mapping, Union
+from typing import Any, Dict
 
 from google.oauth2 import credentials
 
-from classes.abstract_credentials import AbstractCredentials
+from classes.abstract_credentials import (AbstractCredentials,
+                                          ProjectCredentials)
 from classes.abstract_datastore import AbstractDatastore
+from classes.decorators import lazy_property
 
 
 class Credentials(AbstractCredentials):
@@ -29,18 +29,31 @@ class Credentials(AbstractCredentials):
     self._email = email
     self._project = project
 
-  @property
+  @lazy_property
   def datastore(self) -> AbstractDatastore:
     """The datastore property."""
     from classes.secret_manager import SecretManager
     return SecretManager(project=self._project, email=self._email)
 
-  @property
-  def project_credentials(self) -> Dict[str, Any]:
+  @lazy_property
+  def project_credentials(self) -> ProjectCredentials:
     """The project credentials."""
-    return self.datastore.get_document(id='client_secret')
+    creds = None
+    if _id := self.datastore.get_document(id='client_id'):
+      secrets = {**_id, **self.datastore.get_document(id='client_secret')}
+      # creds = ProjectCredentials(client_id=client_id,
+      #                           client_secret=client_secret)
+    else:
+      if client_secret := self.datastore.get_document(id='client_secret'):
+        secrets = \
+            client_secret.get('web') or \
+            client_secret.get('installed')
 
-  @property
+    creds = ProjectCredentials(client_id=secrets['client_id'],
+                               client_secret=secrets['client_secret'])
+    return creds
+
+  @lazy_property
   def token_details(self) -> Dict[str, Any]:
     """The users's refresh and access token."""
     return self.datastore.get_document(id=self.encode_key(self._email))
@@ -55,30 +68,19 @@ class Credentials(AbstractCredentials):
     """The name of the token file in GCS."""
     return f'{self._email}_user_token.json'
 
-  def store_credentials(
-          self,
-          creds: Union[credentials.Credentials, Mapping[str, Any]]) -> None:
+  def store_credentials(self, creds: credentials.Credentials) -> None:
     """Stores the credentials.
 
     This function uses the datastore to store the user credentials for later.
 
     Args:
         creds (credentials.Credentials): the user credentials."""
-    logging.error(creds)
-
     if self._email:
       key = self.encode_key(self._email)
-      if not isinstance(creds, Mapping):
-        try:
-          token = creds.access_token
-        except AttributeError:
-          token = creds.token
-        data = {
-            'access_token': token,
-            'refresh_token': creds.refresh_token,
-            'email': self._email,
-        }
-      else:
-        data = creds
+      data = {
+          'access_token': creds.token,
+          'refresh_token': creds.refresh_token,
+          'email': self._email
+      }
 
       self.datastore.update_document(id=key, new_data=data)

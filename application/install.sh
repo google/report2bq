@@ -65,7 +65,7 @@ Deployment directives:
 
 General switches:
   --administrator   EMail address of the administrator for error messages
-  --store-api-key   Store the API key in the GCS tokens bucket for use later
+  --store-api-key   Store the API key in the Secret Manager for use later
 
   --no-[ adh | cm | dv360 | ga360 | sa360 ]
                     These keys will not enable access to the named product.

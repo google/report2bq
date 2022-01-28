@@ -87,13 +87,29 @@ Click "+ ADD URI"  and this screen will show up: \
 ![](screenshots/7-OAuthRedirectURI.png) \
 Paste in the `httpsTrigger` URL: `https://<PROJECT REGION>-<PROJECT ID>.cloudfunctions.net`,(e.g., `https://us-east1-my-rbq-project.cloudfunctions.net`) and click SAVE.
 
+
+**EITHER**
+
 1. Download the Client ID JSON from the [Credentials](https://console.cloud.google.com/apis/credentials) page.
-1. Save it into the Secret Manager using the CLI `gcloud` command like this:
-  ```
+
+2. Save it into the Secret Manager using the CLI `gcloud` command like this:
+   ```
     gcloud secrets create client_secret --replication-policy=automatic
     cat <DOWNLOADED FILE> | gcloud secrets versions add client_secret --data-file=-
-  ```
-4. Follow steps on [./appengine/README.md](./appengine/README.md) to install the *Report2BQ Authentication and Administration Interface*, which allows users to grant permission to Report2BQ to run on their behalf.
+   ```
+
+**OR**
+
+1. Find the `client id` and `client secret` values for the service account
+2. Add them to the Security Manager as follows:
+   ```
+    gcloud secrets create client_id --replication-policy=automatic
+    echo -n '{"client_id": "<CLIENT ID>"}' | gcloud secrets versions add client_id --data-file=-
+    gcloud secrets create client_secret --replication-policy=automatic
+    echo -n '{"client_secret": "<CLIENT SECRET>"}' | gcloud secrets versions add client_secret --data-file=-
+   ```
+
+Now follow the steps on [./appengine/README.md](./appengine/README.md) to install the *Report2BQ Authentication and Administration Interface*, which allows users to grant permission to Report2BQ to run on their behalf.
 
 You can now create runners and fetchers for a given report.\
 (*See **[SETUP.md](SETUP.md)** for details on how to do this.*)

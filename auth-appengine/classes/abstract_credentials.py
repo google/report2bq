@@ -14,16 +14,23 @@
 from __future__ import annotations
 
 import base64
-import pytz
-
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Dict
+
+import pytz
 from dateutil.relativedelta import relativedelta
 from google.auth.transport import requests
 from google.oauth2 import credentials
 
 from classes import decorators
 from classes.abstract_datastore import AbstractDatastore
-from typing import Any, Dict
+
+
+@dataclass
+class ProjectCredentials(object):
+  client_id: str
+  client_secret: str
 
 
 class AbstractCredentials(object):
@@ -47,7 +54,7 @@ class AbstractCredentials(object):
     """Sets the datastore property."""
     self._datastore = f
 
-  def project_credentials(self) -> Dict[str, Any]:
+  def project_credentials(self) -> ProjectCredentials:
     """The project credentials."""
     pass
 
@@ -77,17 +84,13 @@ class AbstractCredentials(object):
     Returns:
        (google.oauth2.credentials.Credentials):  the credentials
     """
-    secrets = \
-        self.project_credentials.get('web') or \
-        self.project_credentials.get('installed')
-
     expiry = self._to_utc(datetime.now() + relativedelta(minutes=30))
     if self.token_details.get('access_token'):
       creds = credentials.Credentials.from_authorized_user_info({
           'token': self.token_details['access_token'],
           'refresh_token': self.token_details['refresh_token'],
-          'client_id': secrets['client_id'],
-          'client_secret': secrets['client_secret'],
+          'client_id': self.project_credentials.client_id,
+          'client_secret': self.project_credentials.client_secret,
       })
 
     else:
