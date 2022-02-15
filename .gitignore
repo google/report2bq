@@ -27,3 +27,4 @@ auth-appengine/test/
 **/sa360_hourly_depleted/
 **/ga360_reports/
 **/tokens/
+application/cli/env.sh

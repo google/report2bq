@@ -69,7 +69,7 @@ class Scheduler(Fetcher):
       list([ location['locationId'] \
         for location in locations_response['locations'] ])
 
-    return locations[-1]
+    return locations[0]
 
   @decorators.lazy_property
   def location_path(self) -> str:
@@ -268,6 +268,13 @@ class Scheduler(Fetcher):
     Returns:
       List[Dict[str, Any]]: [description]
     """
+    def _filter(job: Dict[str, Any]):
+      if _job := job.get('pubsubTarget'):
+        if _attr := _job.get('attributes'):
+          return _attr.get('email') == self.email
+
+      return False
+
     token = None
     func = self.service.projects().locations().jobs().list
     jobs = []
@@ -286,18 +293,15 @@ class Scheduler(Fetcher):
 
       token = _jobs['nextPageToken']
 
-    def _filter(job: Dict[str, Any]):
-      if _job := job.get('pubsubTarget'):
-        if _attr := _job.get('attributes'):
-          return _attr.get('email') == self.email
-
-      return False
+    print(jobs)
 
     if self.email and \
       jobs and (self.email != os.environ.get('ADMINISTRATOR_EMAIL')):
-      job_list = filter(_filter, jobs)
-
-    return list(job_list)
+      f = _filter
+    else:
+      f = True
+    job_list = list(filter(f, jobs))
+    return job_list
 
   def delete_job(self,
                  job_id: str=None) -> Tuple[bool, Optional[Dict[str, Any]]]:

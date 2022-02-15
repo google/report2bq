@@ -106,7 +106,7 @@ class DCM(ReportFetcher, Fetcher):
     """
     args = {'profileId': self.profile, 'reportId': report_id, }
     if fields:
-      args.update({'fields': fields})
+      args |= {'fields': fields}
 
     result = \
         self.fetch(method=self.service.reports().get, **args)
@@ -230,7 +230,7 @@ class DCM(ReportFetcher, Fetcher):
         bucket (str):  GCS Bucket
         report_data (dict):  Report definition
     """
-    if report_data.report_file:
+    if not report_data.report_file:
       return
 
     queue = Queue()

@@ -38,19 +38,18 @@ class Credentials(AbstractCredentials):
   @lazy_property
   def project_credentials(self) -> ProjectCredentials:
     """The project credentials."""
-    creds = None
-    if _id := self.datastore.get_document(id='client_id'):
-      secrets = {**_id, **self.datastore.get_document(id='client_secret')}
-      # creds = ProjectCredentials(client_id=client_id,
-      #                           client_secret=client_secret)
-    else:
-      if client_secret := self.datastore.get_document(id='client_secret'):
-        secrets = \
-            client_secret.get('web') or \
-            client_secret.get('installed')
+    secrets = None
+    if secrets := self.datastore.get_document(id='client_id'):
+      secrets |= self.datastore.get_document(id='client_secret')
+    elif client_secret := self.datastore.get_document(id='client_secret'):
+      secrets = \
+          client_secret.get('web') or \
+          client_secret.get('installed')
 
-    creds = ProjectCredentials(client_id=secrets['client_id'],
-                               client_secret=secrets['client_secret'])
+    creds = \
+        ProjectCredentials(client_id=secrets['client_id'],
+                            client_secret=secrets['client_secret']) \
+        if secrets else None
     return creds
 
   @lazy_property

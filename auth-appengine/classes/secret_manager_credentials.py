@@ -13,7 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Mapping, Union
 
 from google.oauth2 import credentials
 
@@ -68,7 +68,9 @@ class Credentials(AbstractCredentials):
     """The name of the token file in GCS."""
     return f'{self._email}_user_token.json'
 
-  def store_credentials(self, creds: credentials.Credentials) -> None:
+  def store_credentials(
+          self,
+          creds: Union[credentials.Credentials, Mapping[str, Any]]) -> None:
     """Stores the credentials.
 
     This function uses the datastore to store the user credentials for later.
@@ -77,10 +79,18 @@ class Credentials(AbstractCredentials):
         creds (credentials.Credentials): the user credentials."""
     if self._email:
       key = self.encode_key(self._email)
-      data = {
-          'access_token': creds.token,
-          'refresh_token': creds.refresh_token,
-          'email': self._email
-      }
+      if not isinstance(creds, Mapping):
+        try:
+          token = creds.access_token
+        except AttributeError:
+          token = creds.token
+
+        data = {
+            'access_token': token,
+            'refresh_token': creds.refresh_token,
+            'email': self._email,
+        }
+      else:
+        data = creds
 
       self.datastore.update_document(id=key, new_data=data)

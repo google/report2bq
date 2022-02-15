@@ -100,7 +100,9 @@ Paste in the `httpsTrigger` URL: `https://<PROJECT REGION>-<PROJECT ID>.cloudfun
 
 **OR**
 
-1. Find the `client id` and `client secret` values for the service account
+1. Find the `client id` and `client secret` values for the service account in the OAuth Client IDs section.
+![](screenshots/8-OAuthClientAndSecret.png)
+They're on the right hand side there - my values are off-screen for security reasons. 😉
 2. Add them to the Security Manager as follows:
    ```
     gcloud secrets create client_id --replication-policy=automatic

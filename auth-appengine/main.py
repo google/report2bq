@@ -92,7 +92,7 @@ def index() -> jinja2.Template:
     template = JINJA_ENVIRONMENT.get_template('authenticate.html')
     data = {
         'email': user_email,
-        'client_id': creds.project_credentials['web']['client_id'],
+        'client_id': creds.project_credentials.client_id,
     }
 
   return template.render(data)
@@ -117,7 +117,7 @@ def authenticate() -> jinja2.Template:
   creds = Credentials(project=project, email=None)
   data = {
       'email': user_email,
-      'client_id': creds.project_credentials['web']['client_id'],
+      'client_id': creds.project_credentials.client_id,
   }
   return template.render(data)
 
