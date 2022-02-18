@@ -67,6 +67,10 @@ General switches:
   --administrator   EMail address of the administrator for error messages
   --store-api-key   Store the API key in the Secret Manager for use later
 
+  --store-client
+  --client-secret
+  --client-id
+
   --no-[ adh | cm | dv360 | ga360 | sa360 ]
                     These keys will not enable access to the named product.
                     If you choose to do this, you will still be able to
@@ -115,6 +119,7 @@ DEPLOY_GA360_MANAGER=0
 DEPLOY_SA360_MANAGER=0
 DEPLOY_TOPICS=1
 STORE_API_KEY=0
+STORE_CLIENT=0
 
 ADH=1
 CM=1
@@ -124,6 +129,8 @@ SA360=1
 
 USERNAME=0
 ADMIN=
+CLIENT_ID=
+CLIENT_SECRET=
 
 # Command line parser
 while [[ $1 == -* ]] ; do
@@ -226,6 +233,15 @@ while [[ $1 == -* ]] ; do
     --no-sa360)
       SA360=0
       ;;
+    --store-client)
+      STORE_CLIENT=1
+      ;;
+    --client-id*)
+      IFS="=" read _cmd CLIENT_ID <<< "$1" && [ -z ${CLIENT_ID} ] && shift && CLIENT_ID=$1
+      ;;
+    --client-secret*)
+      IFS="=" read _cmd CLIENT_SECRET <<< "$1" && [ -z ${CLIENT_SECRET} ] && shift && CLIENT_SECRET=$1
+      ;;
     *)
       usage
       echo ""
@@ -319,8 +335,7 @@ fi
 if [ ${CREATE_SERVICE_ACCOUNT} -eq 1 ]; then
   USER=report2bq@${PROJECT}.iam.gserviceaccount.com
   ${DRY_RUN} gcloud iam service-accounts create report2bq --description "Report2BQ Service Account" --project ${PROJECT} \
-  && ${DRY_RUN} gcloud iam service-accounts keys create "report2bq@${PROJECT}.iam.gserviceaccount.com.json" --iam-account ${USER} --project ${PROJECT} \
-  && ${DRY_RUN} gsutil cp "report2bq@${PROJECT}.iam.gserviceaccount.com.json" gs://${PROJECT}-report2bq-tokens/
+  && ${DRY_RUN} gcloud iam service-accounts keys create "report2bq@${PROJECT}.iam.gserviceaccount.com.json" --iam-account ${USER} --project ${PROJECT}
   ${DRY_RUN} gcloud projects add-iam-policy-binding ${PROJECT} --member=serviceAccount:${USER} --role=roles/editor
 fi
 
@@ -329,6 +344,19 @@ echo ${USER} | gsutil cp - gs://${PROJECT}-report2bq-tokens/service_account
 if [ ${STORE_API_KEY} -eq 1 ]; then
   gcloud secrets create api_key --replication-policy=automatic 2>/dev/null
   echo ${API_KEY} | gcloud secrets versions add api_key --data-file=-
+fi
+
+if [ ${STORE_CLIENT} -eq 1 ]; then
+  if [ -z ${CLIENT_ID} ] || [ -z ${CLIENT_SECRET }]; then
+    echo To store the client details you must supply CLIENT_ID and CLIENT_SECRET.
+    exit
+  else
+    gcloud secrets create client_id --replication-policy=automatic 2>/dev/null
+    echo "{ \"client_id\": \"${CLIENT_ID}\" }" | gcloud secrets versions add client_id --data-file=-
+
+    gcloud secrets create client_secret --replication-policy=automatic 2>/dev/null
+    echo "{ \"client_id\": \"${CLIENT_SECRET}\" }" | gcloud secrets versions add client_secret --data-file=-
+  fi
 fi
 
 if [ ${DEPLOY_CODE} -eq 1 ]; then
