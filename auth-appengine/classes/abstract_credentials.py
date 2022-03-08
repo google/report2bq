@@ -69,7 +69,7 @@ class AbstractCredentials(object):
         google.oauth2.credentials.Credentials: the credentials
     """
     creds.refresh(requests.Request())
-    self.store_credentials(creds)
+    self.credentials = creds
 
   def _to_utc(self, last_date: datetime) -> datetime:
     if (last_date.tzinfo is None or
@@ -78,28 +78,35 @@ class AbstractCredentials(object):
 
     return last_date
 
-  def get_credentials(self) -> credentials.Credentials:
+  @property
+  def credentials(self) -> credentials.Credentials:
     """Fetches the credentials.
 
     Returns:
        (google.oauth2.credentials.Credentials):  the credentials
     """
-    expiry = self._to_utc(datetime.now() + relativedelta(minutes=30))
-    if self.token_details.get('access_token'):
-      creds = credentials.Credentials.from_authorized_user_info({
-          'token': self.token_details['access_token'],
-          'refresh_token': self.token_details['refresh_token'],
-          'client_id': self.project_credentials.client_id,
-          'client_secret': self.project_credentials.client_secret,
-      })
+    expiry = self._to_utc(
+        datetime.now().astimezone(pytz.utc) + relativedelta(minutes=30))
+
+    if token := self.token_details:
+      if token.get('access_token'):
+        creds = credentials.Credentials.from_authorized_user_info({
+            'token': token['access_token'],
+            'refresh_token': token['refresh_token'],
+            'client_id': self.project_credentials.client_id,
+            'client_secret': self.project_credentials.client_secret,
+        })
+
+      else:
+        creds = \
+            credentials.Credentials.from_authorized_user_info(token)
+
+      if creds.expired:
+        creds.expiry = expiry
+        self._refresh_credentials(creds=creds)
 
     else:
-      self.token_details['expiry'] = expiry
-      creds = \
-          credentials.Credentials.from_authorized_user_info(self.token_details)
-
-    if creds.expired:
-      self._refresh_credentials(creds=creds)
+      creds = None
 
     return creds
 
@@ -114,12 +121,13 @@ class AbstractCredentials(object):
       oauth2_headers (Dict[str, Any]):  the OAuth headers
     """
     oauth2_header = {}
-    self.get_credentials().apply(oauth2_header)
+    self.credentials.apply(oauth2_header)
 
     return oauth2_header
 
-  def store_credentials(self,
-                        creds: credentials.Credentials) -> None:
+  @credentials.setter
+  def credentials(self,
+                  creds: credentials.Credentials) -> None:
     """Stores the credentials.
 
     This function uses the datastore to store the user credentials for later.

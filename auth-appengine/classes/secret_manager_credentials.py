@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, Mapping, Union
 
 from google.oauth2 import credentials
@@ -38,19 +39,18 @@ class Credentials(AbstractCredentials):
   @lazy_property
   def project_credentials(self) -> ProjectCredentials:
     """The project credentials."""
-    creds = None
-    if _id := self.datastore.get_document(id='client_id'):
-      secrets = {**_id, **self.datastore.get_document(id='client_secret')}
-      # creds = ProjectCredentials(client_id=client_id,
-      #                           client_secret=client_secret)
-    else:
-      if client_secret := self.datastore.get_document(id='client_secret'):
-        secrets = \
-            client_secret.get('web') or \
-            client_secret.get('installed')
+    secrets = None
+    if secrets := self.datastore.get_document(id='client_id'):
+      secrets |= self.datastore.get_document(id='client_secret')
+    elif client_secret := self.datastore.get_document(id='client_secret'):
+      secrets = \
+          client_secret.get('web') or \
+          client_secret.get('installed')
 
-    creds = ProjectCredentials(client_id=secrets['client_id'],
-                               client_secret=secrets['client_secret'])
+    creds = \
+        ProjectCredentials(client_id=secrets['client_id'],
+                            client_secret=secrets['client_secret']) \
+        if secrets else None
     return creds
 
   @lazy_property
@@ -80,16 +80,8 @@ class Credentials(AbstractCredentials):
     if self._email:
       key = self.encode_key(self._email)
       if not isinstance(creds, Mapping):
-        try:
-          token = creds.access_token
-        except AttributeError:
-          token = creds.token
+        data = json.loads(creds.to_json())
 
-        data = {
-            'access_token': token,
-            'refresh_token': creds.refresh_token,
-            'email': self._email,
-        }
       else:
         data = creds
 

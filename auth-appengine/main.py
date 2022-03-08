@@ -20,7 +20,6 @@ from typing import Dict, Literal
 
 import jinja2
 from flask import Flask, request
-from google.cloud import storage
 
 from classes.auth_helper import user
 from classes.oauth import OAuth
@@ -64,7 +63,8 @@ def index() -> jinja2.Template:
 
   data = {}
 
-  if creds := Credentials(project=project, email=None):
+  creds = Credentials(project=project, email=user_email)
+  if creds.credentials:
     template = JINJA_ENVIRONMENT.get_template('index.html')
     running_jobs = Scheduler().process(**{'action': 'list',
                                           'project': project,

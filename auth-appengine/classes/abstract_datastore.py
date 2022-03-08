@@ -17,8 +17,6 @@ from typing import Any, Dict, List, Optional
 
 from classes.report_type import Type
 
-from google.cloud import bigquery
-
 
 class AbstractDatastore(object):
   """Abstract Datastore.

@@ -55,7 +55,7 @@ def get_service(service: Service,
   """
   if definition := service.definition:
     _credentials = \
-      AccessTokenCredentials(credentials.get_credentials().token,
+      AccessTokenCredentials(credentials.credentials.token,
                             user_agent='report2bq')
     auth_https = _credentials.authorize(discovery.httplib2.Http())
     service = discovery.build(http=auth_https,
