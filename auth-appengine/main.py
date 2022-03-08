@@ -22,6 +22,7 @@ import jinja2
 from flask import Flask, request
 
 from classes.auth_helper import user
+from classes.exceptions import CredentialsError
 from classes.oauth import OAuth
 from classes.report_type import Type
 from classes.scheduler import Scheduler
@@ -64,7 +65,7 @@ def index() -> jinja2.Template:
   data = {}
 
   creds = Credentials(project=project, email=user_email)
-  if creds.credentials:
+  try:
     template = JINJA_ENVIRONMENT.get_template('index.html')
     running_jobs = Scheduler().process(**{'action': 'list',
                                           'project': project,
@@ -88,7 +89,7 @@ def index() -> jinja2.Template:
 
     data = {'jobs': jobs, 'user_email': user_email}
 
-  else:
+  except CredentialsError as e:
     template = JINJA_ENVIRONMENT.get_template('authenticate.html')
     data = {
         'email': user_email,

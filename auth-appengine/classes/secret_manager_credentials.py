@@ -21,6 +21,7 @@ from google.oauth2 import credentials
 from classes.abstract_credentials import (AbstractCredentials,
                                           ProjectCredentials)
 from classes.abstract_datastore import AbstractDatastore
+from classes.credentials_helpers import encode_key
 from classes.decorators import lazy_property
 
 
@@ -56,7 +57,7 @@ class Credentials(AbstractCredentials):
   @lazy_property
   def token_details(self) -> Dict[str, Any]:
     """The users's refresh and access token."""
-    return self.datastore.get_document(id=self.encode_key(self._email))
+    return self.datastore.get_document(id=encode_key(self._email))
 
   @property
   def bucket(self) -> str:
@@ -78,7 +79,7 @@ class Credentials(AbstractCredentials):
     Args:
         creds (credentials.Credentials): the user credentials."""
     if self._email:
-      key = self.encode_key(self._email)
+      key = encode_key(self._email)
       if not isinstance(creds, Mapping):
         data = json.loads(creds.to_json())
 

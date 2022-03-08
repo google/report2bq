@@ -13,7 +13,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-import base64
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict
@@ -23,8 +22,8 @@ from dateutil.relativedelta import relativedelta
 from google.auth.transport import requests
 from google.oauth2 import credentials
 
-from classes import decorators
 from classes.abstract_datastore import AbstractDatastore
+from classes.exceptions import CredentialsError
 
 
 @dataclass
@@ -45,6 +44,8 @@ class AbstractCredentials(object):
   failures further down the line if an attempt is made to store or load
   credentials.
   """
+  _email: str = None
+  _project: str = None
 
   def datastore(self) -> AbstractDatastore:
     """The datastore property."""
@@ -87,9 +88,9 @@ class AbstractCredentials(object):
     """
     expiry = self._to_utc(
         datetime.now().astimezone(pytz.utc) + relativedelta(minutes=30))
-
     if token := self.token_details:
       if token.get('access_token'):
+        # This handles old-style credential storages.
         creds = credentials.Credentials.from_authorized_user_info({
             'token': token['access_token'],
             'refresh_token': token['refresh_token'],
@@ -107,10 +108,12 @@ class AbstractCredentials(object):
 
     else:
       creds = None
+      raise CredentialsError(message='not found', email=self._email)
 
     return creds
 
-  def get_auth_headers(self) -> Dict[str, Any]:
+  @property
+  def auth_headers(self) -> Dict[str, Any]:
     """Returns authorized http headers.
 
     This function calls the 'get_credentials' to grab the latest, refreshed
@@ -139,17 +142,3 @@ class AbstractCredentials(object):
         creds (credentials.Credentials): [description]
     """
     pass
-
-  def encode_key(self, key: str) -> str:
-    """Creates the key to use in Firestore.
-
-    Converts an string to a base64 version to use as a key since
-    Firestore can only have [A-Za-z0-9] in keys. Stripping the '=' padding is
-    fine as the value will never have to be translated back.
-
-    Returns:
-        str: base64 representation of the key value.
-    """
-    return \
-        base64.b64encode(key.encode('utf-8')).decode('utf-8').rstrip('=') \
-        if key else None
