@@ -113,8 +113,8 @@ class SA360Dynamic(ReportFetcher):
 
   def read_header(self, report_config: dict) -> list:
     r = urllib.request.Request(report_config['files'][0]['url'])
-    for header in self.creds.get_auth_headers():
-      r.add_header(header, self.creds.get_auth_headers()[header])
+    for header in self.creds.auth_headers:
+      r.add_header(header, self.creds.auth_headers[header])
 
     with closing(urlopen(r)) as report:
       data = report.read(self.chunk_multiplier * 1024 * 1024)
@@ -145,7 +145,7 @@ class SA360Dynamic(ReportFetcher):
       ThreadedGCSObjectStreamUpload(
         client=Cloud_Storage.client(),
         creds=credentials.Credentials(
-          email=self.email, project=self.project).get_credentials(),
+          email=self.email, project=self.project).credentials,
         bucket_name=self.bucket,
         blob_name=f'{report_id}.csv',
         chunk_size=chunk_size,
@@ -153,8 +153,8 @@ class SA360Dynamic(ReportFetcher):
     streamer.start()
 
     r = urllib.request.Request(report_details['files'][0]['url'])
-    for header in self.creds.get_auth_headers():
-      r.add_header(header, self.creds.get_auth_headers()[header])
+    for header in self.creds.auth_headers:
+      r.add_header(header, self.creds.auth_headers[header])
 
     with closing(urlopen(r)) as _report:
       _downloaded = 0

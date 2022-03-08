@@ -246,7 +246,7 @@ class DBM(ReportFetcher, Fetcher):
         ThreadedGCSObjectStreamUpload(
             client=Cloud_Storage.client(),
             creds=credentials.Credentials(
-                email=self.email, project=self.project).get_credentials(),
+                email=self.email, project=self.project).credentials,
             bucket_name=bucket,
             blob_name=f'{report_id}.csv',
             chunk_size=chunk_size,

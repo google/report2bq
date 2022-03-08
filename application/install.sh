@@ -252,7 +252,7 @@ while [[ $1 == -* ]] ; do
 done
 
 if [ -z "${API_KEY}" ]; then
-  read API_KEY <<< $(gcloud secrets versions access latest --secret=api_key 2>/dev/null)
+  read API_KEY <<< $(gcloud --project ${PROJECT} secrets versions access latest --secret=api_key 2>/dev/null)
 fi
 
 if [ -z "${PROJECT}" -o -z "${API_KEY}" ]; then
@@ -351,11 +351,11 @@ if [ ${STORE_CLIENT} -eq 1 ]; then
     echo To store the client details you must supply CLIENT_ID and CLIENT_SECRET.
     exit
   else
-    gcloud secrets create client_id --replication-policy=automatic 2>/dev/null
-    echo "{ \"client_id\": \"${CLIENT_ID}\" }" | gcloud secrets versions add client_id --data-file=-
+    ${DRY_RUN} gcloud --project ${PROJECT} secrets create client_id --replication-policy=automatic 2>/dev/null
+    echo "{ \"client_id\": \"${CLIENT_ID}\" }" | ${DRY_RUN} gcloud --project ${PROJECT} secrets versions add client_id --data-file=-
 
-    gcloud secrets create client_secret --replication-policy=automatic 2>/dev/null
-    echo "{ \"client_id\": \"${CLIENT_SECRET}\" }" | gcloud secrets versions add client_secret --data-file=-
+    ${DRY_RUN} gcloud --project ${PROJECT} secrets create client_secret --replication-policy=automatic 2>/dev/null
+    echo "{ \"client_id\": \"${CLIENT_SECRET}\" }" | ${DRY_RUN} gcloud --project ${PROJECT} secrets versions add client_secret --data-file=-
   fi
 fi
 

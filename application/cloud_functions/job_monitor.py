@@ -68,7 +68,7 @@ class JobMonitor(object):
                 credentials.Credentials(email=config['email'],
                                         project=config['dest_project'])
             bq = bigquery.Client(project=config['dest_project'],
-                                 credentials=user_creds.get_credentials())
+                                 credentials=user_creds.credentials)
 
           else:
             bq = bigquery.Client()

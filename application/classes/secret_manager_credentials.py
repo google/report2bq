@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import json
 from typing import Any, Dict
 
 from google.oauth2 import credentials
@@ -21,7 +22,7 @@ from classes.abstract_credentials import (AbstractCredentials,
                                           ProjectCredentials)
 from classes.abstract_datastore import AbstractDatastore
 from classes.decorators import lazy_property
-
+from classes.credentials_helpers import encode_key
 
 class Credentials(AbstractCredentials):
   def __init__(self, email: str = None,
@@ -55,7 +56,7 @@ class Credentials(AbstractCredentials):
   @lazy_property
   def token_details(self) -> Dict[str, Any]:
     """The users's refresh and access token."""
-    return self.datastore.get_document(id=self.encode_key(self._email))
+    return self.datastore.get_document(id=encode_key(self._email))
 
   @property
   def bucket(self) -> str:
@@ -75,10 +76,6 @@ class Credentials(AbstractCredentials):
     Args:
         creds (credentials.Credentials): the user credentials."""
     if self._email:
-      key = self.encode_key(self._email)
-      data = {
-          'access_token': creds.token,
-          'refresh_token': creds.refresh_token,
-          'email': self._email
-      }
-      self.datastore.update_document(id=key, new_data=data)
+      key = encode_key(self._email)
+      json_creds = json.loads(creds.to_json())
+      self.datastore.update_document(id=key, new_data=json_creds)

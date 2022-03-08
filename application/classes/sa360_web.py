@@ -120,7 +120,7 @@ class SA360Web(ReportFetcher):
     streamer = ThreadedGCSObjectStreamUpload(
       client=Cloud_Storage.client(credentials=self.creds),
       creds=credentials.Credentials(
-        email=self.email, project=self.project).get_credentials(),
+        email=self.email, project=self.project).credentials,
       bucket_name=bucket,
       blob_name=f'{report_details.id}.csv',
       chunk_size=chunk_size,
@@ -306,6 +306,6 @@ class SA360Web(ReportFetcher):
     Returns:
         requests.Response: the response object (connection).
     """
-    auth_headers = self.creds.get_auth_headers()
+    auth_headers = self.creds.auth_headers
     conn = req.get(report_url, stream=True, headers=auth_headers)
     return conn

@@ -249,7 +249,7 @@ class DCM(ReportFetcher, Fetcher):
     # Execute the get request and download the file.
     streamer = ThreadedGCSObjectStreamUpload(
         creds=credentials.Credentials(
-            email=self.email, project=self.project).get_credentials(),
+            email=self.email, project=self.project).credentials,
         client=Cloud_Storage.client(),
         bucket_name=bucket,
         blob_name='{id}.csv'.format(id=report_id),

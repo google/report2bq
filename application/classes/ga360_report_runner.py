@@ -150,7 +150,7 @@ class GA360ReportRunner(ReportRunner):
         chunk_size = os.environ.get('CHUNK_MULTIPLIER', 128) * 1024 * 1024
         streamer = GCSObjectStreamUpload(
           creds=Credentials(email=self._email,
-                            project=self._project).get_credentials(),
+                            project=self._project).credentials,
           bucket_name=f'{self._project}-report2bq-upload',
           blob_name=f'{self._report_id}.csv',
           chunk_size=chunk_size)
