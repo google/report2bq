@@ -108,7 +108,8 @@ class AbstractCredentials(object):
 
     else:
       creds = None
-      raise CredentialsError(message='not found', email=self._email)
+      raise CredentialsError(
+        message='credentials not found', email=self._email)
 
     return creds
 

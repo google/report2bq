@@ -20,12 +20,13 @@ __author__ = [
 
 import json
 import logging
-
 # Class Imports
-from typing import Dict, Any
+from typing import Any, Dict
 
 from google.cloud import storage
 from google.cloud.storage import Bucket
+
+from classes.secret_manager_credentials import Credentials
 
 
 class Cloud_Storage(object):
@@ -35,7 +36,7 @@ class Cloud_Storage(object):
 
   """
 
-  def __init__(self, in_cloud=True, email: str=None, project: str=None):
+  def __init__(self, in_cloud=True, email: str = None, project: str = None):
     """constructor
 
     Keyword Arguments:
@@ -47,20 +48,20 @@ class Cloud_Storage(object):
     self.email = email
     self.project = project
 
-    # credentials = Credentials(email=email, project=project, in_cloud=in_cloud)
-    # self.client = storage.Client(credentials=credentials.get_credentials())
+  @staticmethod
+  def client(credentials: Credentials = None) -> storage.Client:
+    return storage.Client(
+        credentials=(credentials.credentials if credentials else None))
 
   @staticmethod
-  def client(credentials=None) -> storage.Client:
-    return storage.Client(credentials=(credentials.get_credentials() if credentials else None))
-
-  @staticmethod
-  def copy_to_gcs(bucket_name: str, report: Dict[str, Any], credentials=None):
+  def copy_to_gcs(bucket_name: str, report: Dict[str, Any],
+                  credentials: Credentials = None):
     """copy from one bucket to another
 
-    This is a copy from the bucket defined in the report definition (as DV360 stores it's
-    reports in GCS) into the monitored bucket for upload. It's BLAZING fast, to the extent
-    that there is essentially no limit on the maximum size of a DV360 report we can handle.
+    This is a copy from the bucket defined in the report definition (as DV360
+    stores its reports in GCS) into the monitored bucket for upload. It's
+    BLAZING fast, to the extent that there is essentially no limit on the
+    maximum size of a DV360 report we can handle.
 
     The destination file name is the report's id.
 
@@ -68,7 +69,8 @@ class Cloud_Storage(object):
         bucket_name (str):  destination bucket name
         report (Dict[str, Any]):  report definition
     """
-    client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
+    client = storage.Client(
+        credentials=(credentials.credentials if credentials else None))
 
     path_segments = report['current_path'].split('/')
     report_bucket = path_segments[-2]
@@ -80,14 +82,15 @@ class Cloud_Storage(object):
 
     destination_bucket = client.get_bucket(bucket_name)
     source_bucket.copy_blob(source_blob,
-                            destination_bucket, '{id}.csv'.format(id=output_blob_name))
+                            destination_bucket,
+                            '{id}.csv'.format(id=output_blob_name))
 
     logging.info('File {report} copied from {source} to {bucket}.'.format(
         report=report_blob_name, bucket=bucket_name, source=report_bucket))
 
-
   @staticmethod
-  def rename(bucket: str, source: str, destination: str, credentials=None):
+  def rename(bucket: str, source: str, destination: str,
+             credentials: Credentials = None):
     """Rename a file.
 
     This is a copy/delete action as GCS has no actual rename option, however as
@@ -101,7 +104,7 @@ class Cloud_Storage(object):
         credentials (Credentials):  authentication, if needed
     """
     client = storage.Client(
-      credentials=(credentials.get_credentials() if credentials else None))
+        credentials=(credentials.credentials if credentials else None))
 
     source_bucket = Bucket(client, name=bucket)
     source_blob = source_bucket.blob(blob_name=source)
@@ -113,9 +116,9 @@ class Cloud_Storage(object):
 
     logging.info(f'Renamed file %s as %s in %s.', bucket, source, destination)
 
-
   @staticmethod
-  def fetch_file(bucket: str, file: str, credentials=None) -> str:
+  def fetch_file(bucket: str, file: str,
+                 credentials: Credentials = None) -> str:
     """fetch a file from GCS
 
     Arguments:
@@ -125,7 +128,8 @@ class Cloud_Storage(object):
     Returns:
       (str):  file content
     """
-    client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
+    client = storage.Client(
+        credentials=(credentials.credentials if credentials else None))
 
     # logging.info('Fetching {f} from GCS'.format(f=file))
 
@@ -137,10 +141,11 @@ class Cloud_Storage(object):
 
     return content
 
-
   @staticmethod
-  def write_file(bucket: str, file: str, data: bytes, credentials=None) -> None:
-    client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
+  def write_file(bucket: str, file: str, data: bytes,
+                 credentials: Credentials = None) -> None:
+    client = storage.Client(
+        credentials=(credentials.credentials if credentials else None))
 
     # logging.info(f'Writing {file} to GCS: {len(data)}')
 
@@ -150,18 +155,21 @@ class Cloud_Storage(object):
       content = None
       logging.error(f'Error writing file {file}\n{ex}')
 
-
   @staticmethod
-  def read_first_line(report: dict, chunk: int=4096, credentials=None) -> str:
-    client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
+  def read_first_line(report: dict, chunk: int = 4096,
+                      credentials: Credentials = None) -> str:
+    client = storage.Client(
+        credentials=(credentials.credentials if credentials else None))
 
-    header = client.read_chunk(report, chunk, credentials=credentials).split('\n')[0]
+    header = client.read_chunk(
+        report, chunk, credentials=credentials).split('\n')[0]
     return header
 
-
   @staticmethod
-  def read_chunk(report: dict, chunk: int=4096, credentials=None, start: int=0) -> str:
-    client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
+  def read_chunk(report: dict, chunk: int = 4096,
+                 credentials: Credentials = None, start: int = 0) -> str:
+    client = storage.Client(
+        credentials=(credentials.credentials if credentials else None))
 
     path_segments = report['current_path'].split('/')
     report_bucket = path_segments[-2]
@@ -170,16 +178,16 @@ class Cloud_Storage(object):
     source_bucket = Bucket(client, report_bucket)
     blob = source_bucket.blob(report_blob_name)
 
-    data = blob.download_as_string(start=start, end=chunk, raw_download=True).decode('utf-8')
+    data = blob.download_as_string(
+        start=start, end=chunk, raw_download=True).decode('utf-8')
     return data
 
-
   @staticmethod
-  def get_report_file(report: dict, credentials=None) -> str:
+  def get_report_file(report: dict, credentials: Credentials = None) -> str:
     """get_report_file
 
-    Find and return just the blob. We'll use this in DV360 to be able to stream the file in pieces
-    so we can drop out the footer.
+    Find and return just the blob. We'll use this in DV360 to be able to stream
+    the file in pieces so we can drop out the footer.
 
     Arguments:
         report (dict):  [description]
@@ -190,7 +198,8 @@ class Cloud_Storage(object):
     Returns:
         str: [description]
     """
-    client = storage.Client(credentials=(credentials.get_credentials() if credentials else None))
+    client = storage.Client(
+        credentials=(credentials.credentials if credentials else None))
 
     path_segments = report['current_path'].split('/')
     report_bucket = path_segments[-2]

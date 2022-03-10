@@ -23,10 +23,12 @@ class CredentialsError(Exception):
     self.email = email
 
   def __repr__(self) -> str:
-    response = ['Credentials error']
+    response = []
 
     if self.message:
       response.append(f'"{self.message}"')
+    else:
+      response.append('General error')
 
     if self.email:
       response.append(

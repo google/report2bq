@@ -69,14 +69,7 @@ class OAuth(object):
     )
 
     email = credentials.id_token['email']
-
-    token_details = {
-        'access_token': credentials.access_token,
-        'refresh_token': credentials.refresh_token,
-        'email': email,
-    }
-
     cm = Credentials(project=self.project, email=email)
-    cm.store_credentials(creds=token_details)
+    cm.store_credentials(creds=credentials)
 
     return 'Authenticated!'

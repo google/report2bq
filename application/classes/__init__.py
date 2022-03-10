@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 
 from googleapiclient.discovery import Resource
@@ -26,6 +27,7 @@ from classes import firestore
 from classes import gmail
 from classes import report_type
 from classes import services
+from classes.exceptions import CredentialsError
 from classes.report_config import ReportConfig
 
 
@@ -216,8 +218,17 @@ class ReportRunner(object):
                                     'admin').get('email')
     cc = [administrator] if administrator else []
 
-    if to or cc:
-      body = f'{message}{gmail.error_to_trace(error)}'
+    try:
+      mailer_credentials = credentials.Credentials(
+          email=email, project=self.project)
+    except CredentialsError:
+      mailer_credentials = \
+          credentials.Credentials(
+              email=administrator,
+              project=self.project) if administrator else None
+
+    body = f'{message}{gmail.error_to_trace(error)}'
+    if mailer_credentials and (to or cc):
       message = gmail.GMailMessage(to=to,
                                    cc=cc,
                                    subject=f'Error in report_loader',
@@ -225,8 +236,10 @@ class ReportRunner(object):
                                    project=self.project)
 
       gmail.send_message(message=message,
-                         credentials=credentials.Credentials(
-                             email=email, project=self.project))
+                         credentials=mailer_credentials)
+
+    else:
+      logging.error('Unable to email error %s', body)
 
 
 def strip_nulls(value: Iterable) -> Iterable:
