@@ -5,6 +5,8 @@ html, body{
   font-family:'Roboto', Arial;
   color:#545454;
   font-weight:300;
+  display: flex;
+  height: 100vh;
 }
 
 /* Headers */
@@ -21,19 +23,32 @@ div#main-title span.tiny{
 }
 
 .report2bq-text-card {
-  width: 400px;
   position: relative;
-  top: 80px;
-  left: 20px;
+  padding: 5px;
 }
 
 .report2bq-data-card {
-  width: 90%;
-  position: relative;
-  top: 80px;
-  left: 20px;
+  position: absolute;
 }
 
 .report2bq-card-content {
-  padding: 16px;
+  padding: 5px;
+}
+
+.mdc-drawer-app-content {
+  flex: auto;
+  overflow: auto;
+  position: relative;
+}
+
+.main-content {
+  height: 100%;
+}
+
+.app-bar {
+  position: absolute;
+}
+
+.mdc-top-app-bar {
+  z-index: 7;
 }

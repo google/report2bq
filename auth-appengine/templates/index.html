@@ -5,7 +5,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,7 @@
 #}
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -41,88 +42,110 @@
   <header class="mdc-top-app-bar">
     <div class="mdc-top-app-bar__row">
       <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
-        <button class="mdc-icon-button material-icons mdc-top-app-bar__navigation-icon--unbounded">menu</button><span class="mdc-top-app-bar__title">Report2BQ</span>
+        <span class="mdc-top-app-bar__title">Report2BQ</span>
       </section>
     </div>
   </header>
 
-  <div class="mdc-card mdc-card--outlined report2bq-text-card report2bq-card-content">
-    <div class="mdc-card__header">
-      <div class="mdc-card__title mdc-typography mdc-typography--headline5">Report2BQ</div>
+  <aside class="mdc-drawer mdc-drawer mdc-top-app-bar--fixed-adjust">
+    <div class="mdc-drawer__content">
+      <nav class="mdc-list">
+        <a class="mdc-list-item mdc-list-item--activated" href="/" aria-current="page">
+          <span class="mdc-list-item__ripple"></span>
+          <i class="material-icons mdc-list-item__graphic" aria-hidden="true">home</i>
+          <span class="mdc-list-item__text">Home</span>
+        </a>
+        <a class="mdc-list-item mdc-list-item" href="/authenticate" aria-current="page">
+          <span class="mdc-list-item__ripple"></span>
+          <i class="material-icons mdc-list-item__graphic" aria-hidden="true">account_circle</i>
+          <span class="mdc-list-item__text">Reauthenticate</span>
+        </a>
+      </nav>
     </div>
-    <div class="mdc-card__primary-action demo-card__primary-action" tabindex="0">
-      <div class="mdc-card__secondary mdc-typography mdc-typography--body2">
-        <p>Report2BQ allows you to create a synchronized pipeline for any DV360, CM, SA360 or ADH report to BQ and Data Studio.</p>
-        <p>Once you have linked your report, Report2BQ will create a table using report data, immediately making your data available to BigQuery for client-facing Data Studio Reports</p>
-        <p>Report2BQ checks every hour for updates to your scheduled reports and will keep your data up-to-date.</p>
-      </div>
-    </div>
-  </div>
+  </aside>
 
-  <div class="mdc-card mdc-card--outlined report2bq-text-card report2bq-card-content">
-    <div class="mdc-card__primary-action" tabindex="0">
-      <div class="mdc-card__secondary mdc-typography mdc-typography--body2">
-        You're already properly authenticated, but if you're welcome to refresh your credentials any time you like!
+  <div class="mdc-drawer-app-content mdc-top-app-bar--fixed-adjust">
+    <main class="main-content" id="main-content">
+      <div class="mdc-layout-grid">
+        <div class="mdc-layout-grid__inner">
+          <div class="mdc-layout-grid__cell">
+            <div class="mdc-card mdc-card report2bq-text-card report2bq-card-content">
+              <div class="mdc-card__header">
+                <div class="mdc-card__title mdc-typography mdc-typography--headline5">Report2BQ</div>
+              </div>
+              <div class="mdc-card__primary-action demo-card__primary-action" tabindex="0">
+                <div class="mdc-card__secondary mdc-typography mdc-typography--body2">
+                  <p>Report2BQ allows you to create a synchronized pipeline for any DV360, CM, SA360 or ADH report to BQ
+                    and Data Studio.</p>
+                  <p>Once you have linked your report, Report2BQ will create a table using report data, immediately
+                    making your data available to BigQuery for client-facing Data Studio Reports</p>
+                  <p>Report2BQ checks every hour for updates to your scheduled reports and will keep your data
+                    up-to-date.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mdc-layout-grid">
+          <div class="mdc-layout-grid__inner">
+            <div class="mdc-layout-grid__cell">
+              <div class="mdc-card mdc-card report2bq-data-card report2bq-card-content">
+                <div class="mdc-card__header">
+                  <div class="mdc-card__title mdc-typography mdc-typography--headline5">Running jobs</div>
+                </div>
+                <div class="mdc-card__primary-action" tabindex="0">
+                  <div class="mdc-card__secondary mdc-typography mdc-typography--body2">
+                    Currently defined jobs for user {{user_email}}
+                  </div>
+                  <div class="mdc-data-table__table-container mdc-data-table--sticky-header">
+                    <table class="mdc-data-table__table" aria-label="">
+                      <thead>
+                        <tr class="mdc-data-table__header-row">
+                          <th class="mdc-data-table__header-cell" role="columnheader" scope="col">Id</th>
+                          <th class="mdc-data-table__header-cell" role="columnheader" scope="col">Description</th>
+                          <th class="mdc-data-table__header-cell" role="columnheader" scope="col">Type</th>
+                          <th class="mdc-data-table__header-cell" role="columnheader" scope="col">Attributes</th>
+                          <th class="mdc-data-table__header-cell" role="columnheader" scope="col">Schedule</th>
+                        </tr>
+                      </thead>
+                      <tbody class="mdc-data-table__content">
+                        {% for job in jobs %}
+                        <tr class="mdc-data-table__row">
+                          <td class="mdc-data-table__cell">{{job['id']}}</td>
+                          <td class="mdc-data-table__cell">{{job['description']}}</td>
+                          <td class="mdc-data-table__cell">{{job['type']}}</td>
+                          <td class="mdc-data-table__cell">
+                            {% for attr in job['attributes'] %}
+                            {{attr}}: {{job['attributes'][attr]}}<br />
+                            {% endfor %}
+                          </td>
+                          <td class="mdc-data-table__cell">{{job['schedule']}} ({{job['timezone']}})</td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div>
+                    {{job}}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-    <div class="mdc-card__actions">
-      <div class="mdc-card__action-buttons">
-          <button class="mdc-button mdc-card__action mdc-card__action--button authenticate">
-            <span class="mdc-button__ripple"></span>
-            <span class="mdc-button__label">REAUTHENTICATE</span>
-          </button>
-      </div>
-    </div>
-  </div>
 
-  <div class="mdc-card mdc-card--outlined report2bq-data-card report2bq-card-content">
-    <div class="mdc-card__header">
-      <div class="mdc-card__title mdc-typography mdc-typography--headline5">Running jobs</div>
-    </div>
-    <div class="mdc-card__primary-action" tabindex="0">
-      <div class="mdc-card__secondary mdc-typography mdc-typography--body2">
-        Currently defined jobs for user {{user_email}}
-      </div>
-      <div class="mdc-data-table__table">
-        <table class="mdc-data-table__table" aria-label="">
-          <thead>
-            <tr class="mdc-data-table__header-row">
-              <th class="mdc-data-table__header-cell" role="columnheader" scope="col">Id</th>
-              <th class="mdc-data-table__header-cell" role="columnheader" scope="col">Description</th>
-              <th class="mdc-data-table__header-cell" role="columnheader" scope="col">Type</th>
-              <th class="mdc-data-table__header-cell" role="columnheader" scope="col">Attributes</th>
-              <th class="mdc-data-table__header-cell" role="columnheader" scope="col">Schedule</th>
-            </tr>
-          </thead>
-          <tbody class="mdc-data-table__content">
-            {% for job in jobs %}
-            <tr class="mdc-data-table__row">
-              <td class="mdc-data-table__cell">{{job['id']}}</td>
-              <td class="mdc-data-table__cell">{{job['description']}}</td>
-              <td class="mdc-data-table__cell">{{job['type']}}</td>
-              <td class="mdc-data-table__cell">
-                {% for attr in job['attributes'] %}
-                {{attr}}: {{job['attributes'][attr]}}<br />
-                {% endfor %}
-              </td>
-              <td class="mdc-data-table__cell">{{job['schedule']}} ({{job['timezone']}})</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-              <div>
-        {{job}}
-      </div>
-    </div>
+
+    </main>
   </div>
 
   <script>
     mdc.ripple.MDCRipple.attachTo(document.querySelector('.authenticate'));
 
-    document.querySelector('.authenticate').onclick = function() {
+    document.querySelector('.authenticate').onclick = function () {
       location.href = '/authenticate';
     };
   </script>
 </body>
+
 </html>

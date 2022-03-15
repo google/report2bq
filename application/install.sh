@@ -334,16 +334,16 @@ fi
 
 if [ ${CREATE_SERVICE_ACCOUNT} -eq 1 ]; then
   USER=report2bq@${PROJECT}.iam.gserviceaccount.com
-  ${DRY_RUN} gcloud iam service-accounts create report2bq --description "Report2BQ Service Account" --project ${PROJECT} \
-  && ${DRY_RUN} gcloud iam service-accounts keys create "report2bq@${PROJECT}.iam.gserviceaccount.com.json" --iam-account ${USER} --project ${PROJECT}
+  ${DRY_RUN} gcloud --project ${PROJECT} iam service-accounts create report2bq --description "Report2BQ Service Account" \
+  && ${DRY_RUN} gcloud --project ${PROJECT} iam service-accounts keys create "report2bq@${PROJECT}.iam.gserviceaccount.com.json" --iam-account ${USER}
   ${DRY_RUN} gcloud projects add-iam-policy-binding ${PROJECT} --member=serviceAccount:${USER} --role=roles/editor
 fi
 
 echo ${USER} | gsutil cp - gs://${PROJECT}-report2bq-tokens/service_account
 
 if [ ${STORE_API_KEY} -eq 1 ]; then
-  gcloud secrets create api_key --replication-policy=automatic 2>/dev/null
-  echo ${API_KEY} | gcloud secrets versions add api_key --data-file=-
+  gcloud --project ${PROJECT} secrets create api_key --replication-policy=automatic 2>/dev/null
+  echo ${API_KEY} | gcloud --project ${PROJECT} secrets versions add api_key --data-file=-
 fi
 
 if [ ${STORE_CLIENT} -eq 1 ]; then

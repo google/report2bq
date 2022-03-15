@@ -27,4 +27,5 @@ auth-appengine/test/
 **/sa360_hourly_depleted/
 **/ga360_reports/
 **/tokens/
+**/*.iml
 application/cli/env.sh

@@ -5,7 +5,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,7 @@
 #}
 <!doctype html>
 <html>
+
 <head>
   <title>Report2BQ Authentication and Administration</title>
 
@@ -38,7 +39,7 @@
 
   <script>
     function start() {
-      gapi.load('auth2', function() {
+      gapi.load('auth2', function () {
         auth2 = gapi.auth2.init({
           client_id: '{{client_id}}',
           scope: 'https://www.googleapis.com/auth/analytics https://www.googleapis.com/auth/adsdatahub https://www.googleapis.com/auth/bigquery https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/dfareporting https://www.googleapis.com/auth/devstorage.read_write https://www.googleapis.com/auth/doubleclickbidmanager https://www.googleapis.com/auth/doubleclicksearch https://www.googleapis.com/auth/gmail.send'
@@ -47,38 +48,58 @@
     }
   </script>
 </head>
+
 <body>
   <header class="mdc-top-app-bar">
     <div class="mdc-top-app-bar__row">
       <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
-        <button class="mdc-icon-button material-icons mdc-top-app-bar__navigation-icon--unbounded">menu</button><span class="mdc-top-app-bar__title">Report2BQ</span>
+        <span class="mdc-top-app-bar__title">Report2BQ</span>
       </section>
     </div>
   </header>
 
-  <div class="mdc-card mdc-card--outlined report2bq-text-card report2bq-text-card-content">
-    <div class="mdc-card__header">
-      <div class="mdc-card__title mdc-typography mdc-typography--headline5">Report2BQ</div>
+  <aside class="mdc-drawer mdc-drawer mdc-top-app-bar--fixed-adjust">
+    <div class="mdc-drawer__content">
+      <nav class="mdc-list">
+        <a class="mdc-list-item mdc-list-item" href="/" aria-current="page">
+          <span class="mdc-list-item__ripple"></span>
+          <i class="material-icons mdc-list-item__graphic" aria-hidden="true">home</i>
+          <span class="mdc-list-item__text">Home</span>
+        </a>
+        <a class="mdc-list-item mdc-list-item--activated" href="/authenticate" aria-current="page">
+          <span class="mdc-list-item__ripple"></span>
+          <i class="material-icons mdc-list-item__graphic" aria-hidden="true">account_circle</i>
+          <span class="mdc-list-item__text">Reauthenticate</span>
+        </a>
+      </nav>
     </div>
-    <div class="mdc-card__primary-action demo-card__primary-action" tabindex="0">
-      <div class="mdc-card__secondary mdc-typography mdc-typography--body2">
-        <div>You are logged in as <strong>{{email}}</strong></div>
-        <div>Please click the button to authenticate to Report2BQ.</div>
-      </div>
-      <div class="mdc-card__actions">
-        <div class="mdc-card__action-buttons">
-            <button class="mdc-button mdc-card__action mdc-card__action--button signinButton" id="signinButton">
-              <span class="mdc-button__ripple"></span>
-              <span class="mdc-button__label" id="signinButton">SIGN IN</span>
-            </button>
+  </aside>
+
+  <div class="mdc-drawer-app-content mdc-top-app-bar--fixed-adjust">
+    <main class="main-content" id="main-content">
+
+      <div class="mdc-card mdc-card--outlined report2bq-text-card report2bq-text-card-content">
+        <div class="mdc-card__header">
+          <div class="mdc-card__title mdc-typography mdc-typography--headline5">Report2BQ</div>
+        </div>
+        <div class="mdc-card__primary-action demo-card__primary-action" tabindex="0">
+          <div class="mdc-card__secondary mdc-typography mdc-typography--body2">
+            <div>You are logged in as <strong>{{email}}</strong></div>
+            <div>Please click the button to authenticate to Report2BQ.</div>
+          </div>
+          <div class="mdc-card__actions">
+            <div class="mdc-card__action-buttons">
+              <button class="mdc-button mdc-card__action mdc-card__action--button signinButton" id="signinButton">
+                <span class="mdc-button__ripple"></span>
+                <span class="mdc-button__label" id="signinButton">SIGN IN</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-      </div>
+    </main>
   </div>
 
-  <!-- <div>
-    <div id="signinButton"></div>
-  </div> -->
   <script>
     function onSuccess(googleUser) {
       console.log('Logged in as: ' + googleUser.getBasicProfile().getName());
@@ -97,41 +118,42 @@
   <script src="https://apis.google.com/js/platform.js?onload=renderButton" async defer></script>
 
   <script>
-    $('#signinButton').click(function() {
+    $('#signinButton').click(function () {
       // signInCallback defined in step 6.
       auth2.grantOfflineAccess().then(signInCallback);
     });
   </script>
 
-<!-- END OF BODY -->
-<script>
-  function signInCallback(authResult) {
-    if (authResult['code']) {
+  <!-- END OF BODY -->
+  <script>
+    function signInCallback(authResult) {
+      if (authResult['code']) {
 
-      // Hide the sign-in button now that the user is authorized, for example:
-      // $('#signinButton').attr('style', 'display: none');
+        // Hide the sign-in button now that the user is authorized, for example:
+        // $('#signinButton').attr('style', 'display: none');
 
-      // Send the code to the server
-      $.ajax({
-        type: 'POST',
-        url: '/oauth-complete',
-        // Always include an `X-Requested-With` header in every AJAX request,
-        // to protect against CSRF attacks.
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        contentType: 'application/octet-stream; charset=utf-8',
-        success: function(result) {
-          // Handle or verify the server response.
-          location.href = '/';
-        },
-        processData: false,
-        data: authResult['code']
-      });
-    } else {
-      // There was an error.
+        // Send the code to the server
+        $.ajax({
+          type: 'POST',
+          url: '/oauth-complete',
+          // Always include an `X-Requested-With` header in every AJAX request,
+          // to protect against CSRF attacks.
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          contentType: 'application/octet-stream; charset=utf-8',
+          success: function (result) {
+            // Handle or verify the server response.
+            location.href = '/';
+          },
+          processData: false,
+          data: authResult['code']
+        });
+      } else {
+        // There was an error.
+      }
     }
-  }
   </script>
 </body>
+
 </html>
