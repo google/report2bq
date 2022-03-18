@@ -72,14 +72,14 @@ class Scheduler(Fetcher):
       str: project location id.
     """
     locations_response = self.fetch(
-      method=self.service.projects().locations().list,
-      **{'name': self.project_path}
+        method=self.service.projects().locations().list,
+        **{'name': self.project_path}
     )
     locations = \
-      list([ location['locationId'] \
-        for location in locations_response['locations'] ])
+        list([location['locationId']
+              for location in locations_response['locations']])
 
-    return locations[-1]
+    return locations[0]
 
   @decorators.lazy_property
   def location_path(self) -> str:
@@ -90,6 +90,10 @@ class Scheduler(Fetcher):
   def project_path(self) -> str:
     """Returns a fully-qualified project string."""
     return f'projects/{self.project}'
+
+  @decorators.lazy_property
+  def jobs(self) -> List[Job]:
+    return self.list_jobs()
 
   def process(self, action: str, project: str, email: str, **kwargs) -> Any:
     """Processes the main scheduler requests.
@@ -108,50 +112,16 @@ class Scheduler(Fetcher):
     self.project = project
     self.email = email
 
-    locations = self.list_locations()
-    _location = locations[-1]
-
     if action == 'list':
-      jobs = self.list_jobs()
-      return jobs
-
-    elif action == 'get':
-      (success, job) = self.get_job(job_id=kwargs.get('job_id'))
-      return success, job
-
-    elif action == 'delete':
-      (success, error) = self.delete_job(job_id=kwargs.get('job_id'))
-
-      if success:
-        return 'OK'
-      else:
-        return f'ERROR!\n{error["error"]["message"]}'
-
-    elif action == 'enable':
-      (success, error) = \
-        self.enable_job(job_id=kwargs.get('job_id'), enable=True)
-
-      if success:
-        return 'OK'
-      else:
-        return f'ERROR!\n{error["error"]["message"]}'
-
-    elif action == 'disable':
-      (success, error) = \
-        self.enable_job(job_id=kwargs.get('job_id'), enable=False)
-
-      if success:
-        return 'OK'
-      else:
-        return f'ERROR!\n{error["error"]["message"]}'
+      return self.jobs
 
     elif action == 'create':
       _attrs = {
-        'email': self.email,
-        'project': self.project,
-        'force': str(kwargs.get('force')),
-        'infer_schema': str(kwargs.get('infer_schema')),
-        'append': str(kwargs.get('append')),
+          'email': self.email,
+          'project': self.project,
+          'force': str(kwargs.get('force')),
+          'infer_schema': str(kwargs.get('infer_schema')),
+          'append': str(kwargs.get('append')),
       }
 
       if 'dest_dataset' in kwargs:
@@ -175,8 +145,8 @@ class Scheduler(Fetcher):
         action = 'fetch'
         topic = 'report2bq-fetcher'
         _attrs.update({
-          'sa360_url': kwargs.get('sa360_url'),
-          'type': Type.SA360.value,
+            'sa360_url': kwargs.get('sa360_url'),
+            'type': Type.SA360.value,
         })
 
       elif kwargs.get('type') == Type.SA360_RPT:
@@ -185,8 +155,8 @@ class Scheduler(Fetcher):
         action = 'run'
         topic = 'report2bq-runner'
         _attrs.update({
-          'report_id': kwargs.get('report_id'),
-          'type': Type.SA360_RPT.value,
+            'report_id': kwargs.get('report_id'),
+            'type': Type.SA360_RPT.value,
         })
 
       elif kwargs.get('adh_customer'):
@@ -195,11 +165,11 @@ class Scheduler(Fetcher):
         action = 'run'
         topic = 'report2bq-runner'
         _attrs.update({
-          'adh_customer': kwargs.get('adh_customer'),
-          'adh_query': kwargs.get('adh_query'),
-          'api_key': kwargs.get('api_key'),
-          'days': kwargs.get('days'),
-          'type': Type.ADH.value,
+            'adh_customer': kwargs.get('adh_customer'),
+            'adh_query': kwargs.get('adh_query'),
+            'api_key': kwargs.get('api_key'),
+            'days': kwargs.get('days'),
+            'type': Type.ADH.value,
         })
 
       elif kwargs.get('type') == Type.GA360_RPT:
@@ -208,8 +178,8 @@ class Scheduler(Fetcher):
         action = 'run'
         topic = 'report2bq-runner'
         _attrs.update({
-          'report_id': kwargs.get('report_id'),
-          'type': Type.GA360_RPT.value,
+            'report_id': kwargs.get('report_id'),
+            'type': Type.GA360_RPT.value,
         })
 
       else:
@@ -226,32 +196,53 @@ class Scheduler(Fetcher):
           product = 'cm'
           _type = 'cm'
           _attrs.update({
-            'profile': kwargs.get('profile'),
-            'cm_id': kwargs.get('report_id'),
-            'type': Type.CM.value,
+              'profile': kwargs.get('profile'),
+              'cm_id': kwargs.get('report_id'),
+              'type': Type.CM.value,
           })
         else:
           product = 'dv360'
           _type = 'dv360'
           _attrs.update({
-            'dv360_id': kwargs.get('report_id'),
-            'type': Type.DV360.value,
+              'dv360_id': kwargs.get('report_id'),
+              'type': Type.DV360.value,
           })
 
       name = f"{action}-{product}-{kwargs.get('report_id')}"
       schedule = f"{minute} {hour} * * *"
 
       job = {
-        'description': kwargs.get('description'),
-        'timeZone': kwargs.get('timezone') or 'UTC',
-        'api_key': kwargs.get('api_key'),
-        'name': name,
-        'schedule': schedule,
-        'topic': topic,
-        'attributes': _attrs,
+          'description': kwargs.get('description'),
+          'timeZone': kwargs.get('timezone') or 'UTC',
+          'api_key': kwargs.get('api_key'),
+          'name': name,
+          'schedule': schedule,
+          'topic': topic,
+          'attributes': _attrs,
       }
 
       self.create_job(job=job)
+
+    else:
+      (success, job) = self.get_job(job_id=kwargs.get('job_id'))
+
+      if action == 'get':
+        return success, job
+
+      elif action == 'delete':
+        (success, error) = self.delete_job(job_id=job['name'])
+
+      elif action == 'enable':
+        (success, error) = self.enable_job(job_id=job['name'], enable=True)
+
+      elif action == 'disable':
+        (success, error) = self.enable_job(job_id=job['name'], enable=False)
+
+      if success:
+        return 'OK'
+      else:
+        return f'ERROR!\n{error["error"]["message"]}'
+
 
   def list_locations(self) -> List[str]:
     """Lists the available scheduler locations in GCP.
@@ -260,12 +251,12 @@ class Scheduler(Fetcher):
       List[str]: list of location ids.
     """
     locations_response = self.fetch(
-      method=self.service.projects().locations().list,
-      **{'name': self.project_path}
+        method=self.service.projects().locations().list,
+        **{'name': self.project_path}
     )
     locations = \
-      list([ location['locationId'] \
-        for location in locations_response['locations'] ])
+        list([location['locationId']
+              for location in locations_response['locations']])
 
     return locations
 
@@ -284,8 +275,8 @@ class Scheduler(Fetcher):
 
     while True:
       _kwargs = {
-        'parent': f'{self.project_path}/{self.location_path}',
-        'pageToken': token
+          'parent': f'{self.project_path}/{self.location_path}',
+          'pageToken': token
       }
 
       _jobs = self.fetch(func, **_kwargs)
@@ -304,13 +295,13 @@ class Scheduler(Fetcher):
       return False
 
     if self.email and \
-      jobs and (self.email != os.environ.get('ADMINISTRATOR_EMAIL')):
-      job_list = filter(_filter, jobs)
-
-    return list(job_list)
+            jobs and (self.email != os.environ.get('ADMINISTRATOR_EMAIL')):
+      return list(filter(_filter, jobs))
+    else:
+      return jobs
 
   def delete_job(self,
-                 job_id: str=None) -> Tuple[bool, Optional[Dict[str, Any]]]:
+                 job_id: str = None) -> Tuple[bool, Optional[Dict[str, Any]]]:
     """Deletes a scheduled job.
 
     Args:
@@ -322,15 +313,15 @@ class Scheduler(Fetcher):
     func = self.service.projects().locations().jobs().delete
 
     try:
-      func(name=self.job_path(job=job_id)).execute()
+      func(name=job_id).execute()
       return (True, None)
 
     except HttpError as error:
       e = json.loads(error.content)
       return (False, e)
 
-  def enable_job(self, job_id: str=None,
-                 enable: bool=True) -> Tuple[bool, Optional[Dict[str, Any]]]:
+  def enable_job(self, job_id: str = None,
+                 enable: bool = True) -> Tuple[bool, Optional[Dict[str, Any]]]:
     """Enables or disables a scheduled job.
 
     enable = True resumes a paused job.
@@ -349,7 +340,7 @@ class Scheduler(Fetcher):
       func = self.service.projects().locations().jobs().pause
 
     try:
-      func(name=self.job_path(job=job_id)).execute()
+      func(name=job_id).execute()
       return (True, None)
 
     except HttpError as error:
@@ -370,20 +361,20 @@ class Scheduler(Fetcher):
     func = self.service.projects().locations().jobs().create
 
     _target = {
-      'topicName': f"projects/{self.project}/topics/{job.get('topic', '')}",
-      'attributes': job.get('attributes', ''),
+        'topicName': f"projects/{self.project}/topics/{job.get('topic', '')}",
+        'attributes': job.get('attributes', ''),
     }
     body: dict = {
-      "name": self.job_path(job=job.get('name', '')),
-      "description": job.get('description', ''),
-      "schedule": job.get('schedule', ''),
-      "timeZone": job.get('timezone', ''),
-      'pubsubTarget': _target
+        "name": self.job_path(job=job.get('name', '')),
+        "description": job.get('description', ''),
+        "schedule": job.get('schedule', ''),
+        "timeZone": job.get('timezone', ''),
+        'pubsubTarget': _target
     }
 
     _args = {
-      'parent': f'{self.project_path}/{self.location_path}',
-      'body': body
+        'parent': f'{self.project_path}/{self.location_path}',
+        'body': body
     }
 
     try:
@@ -404,14 +395,22 @@ class Scheduler(Fetcher):
       Tuple[bool, Union[Job, Exception]]: success indicator, either Job
         definition or Exception.
     """
-    func = self.service.projects().locations().jobs().get
+    # find = lambda fun, lst: next((x for x in lst if fun(x)), None)
+    _job_suffix = f'/{job_id}'
 
     try:
-      job = func(
-        name=self.job_path(job=job_id)).execute()
+      func = self.service.projects().locations().jobs().get
+      # _job = \
+      #     find(lambda item: item['name'].find(_job_suffix), self.jobs)
+      _job = self._find(self.jobs, _job_suffix)
+      job = func(name=_job['name']).execute()
       return (True, job)
 
     except HttpError as error:
+      e = json.loads(error.content)
+      return (False, e)
+
+    except Exception as error:
       e = json.loads(error.content)
       return (False, e)
 
@@ -425,3 +424,11 @@ class Scheduler(Fetcher):
       str: [description]
     """
     return f'{self.project_path}/{self.location_path}/jobs/{job}'
+
+  def _find(self, lst: List[Job], name: str) -> Job:
+    raw_job = '/' + name.split('-')[-1]
+    for job in lst:
+      if job['name'].endswith(name) or job['name'].endswith(raw_job):
+        return job
+
+    raise Exception(f'Job {name} not found in job list.')

@@ -16,7 +16,7 @@ import logging
 import unittest
 
 from classes import firestore, scheduler
-from classes.report_manager import ReportManager
+from classes.report_manager import ManagerConfiguration, ReportManager
 from classes.report_type import Type
 from unittest import mock
 
@@ -32,12 +32,6 @@ class MockValidator(object):
 
     def __eq__(self, other):
         return bool(self.validator(other))
-
-STANDARD_ARGS = {
-  'gcs_stored': True,
-  'email': 'luke@skywalker.com',
-  'project': 'test',
-}
 
 REPORT_CONFIG = {
   "viewId": "",
@@ -60,12 +54,23 @@ RUNNER =  {
   "date_ranges": [{"start_date": "7daysAgo", "end_date": "yesterday"}]
 }
 
+REPORT_TYPE = Type.GA360_RPT
+BUCKET = 'manager-bucket'
+PROJECT = 'test'
+CONFIG: ManagerConfiguration = ManagerConfiguration(
+    type=REPORT_TYPE,
+    project=PROJECT,
+    email='luke@skywalker.com',
+    file='bar.list',
+    table='updated_sa_inputs'
+)
+
 class ReportManagerTest(unittest.TestCase):
 
   class _Manager(ReportManager):
-    report_type = Type.GA360_RPT
-    bucket = 'manager-bucket'
-    project = 'test'
+    report_type = REPORT_TYPE
+    bucket = BUCKET
+    project = PROJECT
 
 
   def setUp(self):
@@ -80,10 +85,10 @@ class ReportManagerTest(unittest.TestCase):
       ['foo_0_0', 'foo_0_1'],
       ['foo']
     ]
+
     self.assertEqual(
       ['foo', '  foo_0_0', '  foo_0_1'],
-      manager.list(firestore=self.mock_firestore, report='bar',
-                   file='bar.list', **STANDARD_ARGS))
+      manager.list(report='bar', config=CONFIG))
 
   def test_add_basic(self):
     manager = ReportManagerTest._Manager()
@@ -91,8 +96,7 @@ class ReportManagerTest(unittest.TestCase):
     self.mock_firestore.update_document.return_value = None
     manager._lazy_firestore = self.mock_firestore
 
-    manager.add(firestore=self.mock_firestore, report='bar',
-                file='bar.list', **STANDARD_ARGS)
+    manager.add(report='bar', config=CONFIG)
     self.assertEqual(1, self.mock_firestore.update_document.call_count)
 
   def test_add_no_content(self):
@@ -100,8 +104,7 @@ class ReportManagerTest(unittest.TestCase):
     manager._read_json = mock.Mock(return_value=None)
     self.mock_firestore.update_document.return_value = None
 
-    manager.add(firestore=self.mock_firestore, report='bar',
-                file='bar.list', **STANDARD_ARGS)
+    manager.add(report='bar', config=CONFIG)
     self.assertEqual(0, self.mock_firestore.update_document.call_count)
 
   def test_delete_valid(self):
@@ -119,8 +122,7 @@ class ReportManagerTest(unittest.TestCase):
     manager._lazy_scheduler = mock_scheduler
     manager._lazy_firestore = self.mock_firestore
 
-    manager.delete(firestore=self.mock_firestore, report='bar',
-                   file='bar.list', **STANDARD_ARGS)
+    manager.delete(report='bar', config=CONFIG)
 
     self.assertEqual(1, self.mock_firestore.delete_document.call_count)
     self.assertEqual([
@@ -145,8 +147,7 @@ class ReportManagerTest(unittest.TestCase):
     manager._lazy_scheduler = None
     manager._lazy_firestore = self.mock_firestore
 
-    manager.delete(firestore=self.mock_firestore, report='bar',
-                   file='bar.list', **STANDARD_ARGS)
+    manager.delete(report='bar', config=CONFIG)
     self.assertEqual(1, self.mock_firestore.delete_document.call_count)
 
   def test_delete_no_email_in_file(self):
@@ -156,8 +157,7 @@ class ReportManagerTest(unittest.TestCase):
       manager._read_email = mock.Mock(return_value=None)
       manager._lazy_firestore = self.mock_firestore
 
-      manager.delete(firestore=self.mock_firestore, report='bar',
-                    file='bar.list', **STANDARD_ARGS)
+      manager.delete(report='bar', config=CONFIG)
       self.assertEqual(1, self.mock_firestore.delete_document.call_count)
       self.assertEqual(1, mock_logger.call_count)
       self.assertEqual(mock.call('No email found, cannot access scheduler.'),

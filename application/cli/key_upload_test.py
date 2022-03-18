@@ -23,12 +23,12 @@ from cli import key_upload
 from copy import deepcopy
 from typing import Any, Callable, Dict, Mapping
 
-CLASS_UNDER_TEST = 'cli.firestore_upload'
+CLASS_UNDER_TEST = 'cli.key_upload'
 
 
-class FirestoreUploadTest(unittest.TestCase):
+class KeyUploadTest(unittest.TestCase):
   def setUp(self) -> None:
-    self.valid_source = {'test_root': {'a': 'A', 'b': 'B'}}
+    self.valid_source = {'test_root': {'a': 'A', 'b': 'B'}, 'email': 'key'}
     self.open = mock.mock_open(read_data=json.dumps(self.valid_source))
     self.mock_datastore = mock.MagicMock()
     self.mock_datastore.update_document.return_value = None
@@ -48,7 +48,7 @@ class FirestoreUploadTest(unittest.TestCase):
         self.open.assert_called_with('test.json', 'r')
         self.open().read.assert_called()
         mock_method.assert_called()
-        mock_method.assert_called_with(Type._ADMIN, id='key',
+        mock_method.assert_called_with(type=Type._ADMIN, id='key',
                                        new_data=self.valid_source)
 
   def test_good_encoded(self):
@@ -57,7 +57,7 @@ class FirestoreUploadTest(unittest.TestCase):
                              'update_document',
                              return_value=None) as mock_method:
         event = {
-          'key': 'luke@skywalker.com',
+          'key': 'key',
           'file': 'test.json',
           'encode_key': True,
           'local_store': True,
@@ -67,9 +67,7 @@ class FirestoreUploadTest(unittest.TestCase):
         self.open().read.assert_called()
         mock_method.assert_called()
         expected = deepcopy(self.valid_source)
-        expected['test_root']['_key'] = 'test_root'
-        expected['dGVzdF9yb290'] = expected.pop('test_root')
 
-        mock_method.assert_called_with(Type._ADMIN, id='luke@skywalker.com',
+        mock_method.assert_called_with(type=Type._ADMIN, id='a2V5',
                                        new_data=expected)
 

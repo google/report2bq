@@ -287,7 +287,7 @@ class SA360Web(ReportFetcher):
     header, buffer = self.extract_keys(buffer=buffer, key='thead')
     if header:
       fieldnames = [
-        csv_helpers.sanitize_string(field)
+        csv_helpers.sanitize_column(field)
         for field in re.findall(r'\<th[^>]*\>([^<]*)\<\/th\>', header)
       ]
       del header

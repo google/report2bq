@@ -18,12 +18,13 @@ from classes import csv_helpers
 
 from messytables import types
 
-CSV = '''string,int,float,date,datetime,string
+CSV = '''string,int,float,date,datetime,*Sales Confirm - Revenue - DDA
 "Hello, my name is Inigo Montoya",0,1.00,1967-06-18,1967-06-18 06:30:00,aaa
 "Hello, my name is Inigo Montoya",-1,1.20,1967-06-18,1967-06-18 06:30:00,aaa
 "Hello, my name is Inigo Montoya",15,1.00,1967-06-18,1967-06-18 06:30:00,aaa
 '''
-HEADER = ['string', 'int', 'float', 'date', 'datetime', 'string', ]
+HEADER = ['string', 'int', 'float', 'date', 'datetime',
+          '*Sales Confirm - Revenue - DDA', ]
 TYPES = [
     types.StringType(),
     types.IntegerType(),
@@ -33,24 +34,30 @@ TYPES = [
     types.StringType(),
 ]
 
-HEADER_ONLY_CSV = '''string,int,float,date,datetime,string'''
+HEADER_ONLY_CSV = '''string,int,float,date,datetime,*Sales Confirm - Revenue - DDA'''
 
 
 class CSVHelpersTest(unittest.TestCase):
   def test_sanitize_string_valid(self):
     self.assertEqual('This_is_Sparta0x21',
-                     csv_helpers.sanitize_string('This is Sparta!'))
+                     csv_helpers.sanitize_title('This is Sparta!'))
     self.assertEqual('_I_Can0x27t_Get_No__Satisfaction',
-                     csv_helpers.sanitize_string(
+                     csv_helpers.sanitize_title(
                          "(I Can't Get No) Satisfaction"))
-    self.assertEqual('Jack-in-the-Green',
-                     csv_helpers.sanitize_string("Jack_in_the_Green"))
+    self.assertEqual('Jack_in_the_Green',
+                     csv_helpers.sanitize_title("Jack-in-the-Green"))
     self.assertEqual('abc123ABC_',
-                     csv_helpers.sanitize_string('abc123ABC_'))
+                     csv_helpers.sanitize_title('abc123ABC_'))
+    self.assertEqual('0x2aSales_Confirm___Revenue___DDA',
+                     csv_helpers.sanitize_title(
+                         '*Sales Confirm - Revenue - DDA'))
+    self.assertEqual('X0x2aSales_Confirm___Revenue___DDA',
+                     csv_helpers.sanitize_column(
+                         '*Sales Confirm - Revenue - DDA'))
 
   def test_sanitize_string_invalid(self):
     with self.assertRaises(TypeError):
-      csv_helpers.sanitize_string(None)
+      csv_helpers.sanitize_title(None)
 
   def test_get_column_types(self):
     data = io.BytesIO(CSV.encode('utf-8'))
@@ -66,7 +73,9 @@ class CSVHelpersTest(unittest.TestCase):
         {'name': 'float', 'type': 'FLOAT', 'mode': 'NULLABLE'},
         {'name': 'date', 'type': 'DATE', 'mode': 'NULLABLE'},
         {'name': 'datetime', 'type': 'DATETIME', 'mode': 'NULLABLE'},
-        {'name': 'string', 'type': 'STRING', 'mode': 'NULLABLE'},
+        {'name': 'X0x2aSales_Confirm___Revenue___DDA',
+         'type': 'STRING',
+         'mode': 'NULLABLE'},
     ], schema)
 
   def test_header_only_csv(self):
@@ -77,6 +86,6 @@ class CSVHelpersTest(unittest.TestCase):
 
   def test_empty_csv(self):
     data = io.BytesIO()
-    _headers, _types = csv_helpers.get_column_types(data)
-    self.assertEqual([], _headers)
-    self.assertEqual([], _types)
+    headers, types = csv_helpers.get_column_types(data)
+    self.assertEqual([], headers)
+    self.assertEqual([], types)

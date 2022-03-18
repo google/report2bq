@@ -100,7 +100,7 @@ class Report2BQ(object):
     if self._dest_dataset: report_data.dest_dataset = self._dest_dataset
 
     if self._dest_table:
-      table_name = '_' + (csv_helpers.sanitize_string(self._dest_table))
+      table_name = '_' + (csv_helpers.sanitize_title(self._dest_table))
     else:
       table_name = '_' + (report_data.report_name or 'unnamed_report')
 
@@ -137,7 +137,7 @@ class Report2BQ(object):
     if self._dest_project: report_data.dest_project = self._dest_project
     if self._dest_dataset: report_data.dest_dataset = self._dest_dataset
     if self._dest_table:
-      table_suffix = '_' + csv_helpers.sanitize_string(self._dest_table)
+      table_suffix = '_' + csv_helpers.sanitize_title(self._dest_table)
     else:
       table_suffix = ''
     report_data.dest_table = f'{Type.SA360}_{id}{table_suffix}'

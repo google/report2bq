@@ -27,7 +27,7 @@ from typing import Dict, List, Tuple
 
 
 def get_column_types(data: io.BytesIO) \
-  -> Tuple[List[str], List[types.CellType]]:
+        -> Tuple[List[str], List[types.CellType]]:
   """derive the column types
 
   Using messytables' CSV API, attempt to derive the column types based on a
@@ -52,7 +52,13 @@ def get_column_types(data: io.BytesIO) \
 
   return (csv_headers, csv_types)
 
-def sanitize_string(original: str) -> str:
+def sanitize_title(original: str) -> str:
+  return sanitize_string(original, False)
+
+def sanitize_column(original: str) -> str:
+  return sanitize_string(original, True)
+
+def sanitize_string(original: str, for_column: bool = False) -> str:
   """sanitize string
 
   Sanitize the header names (or any other string) to convert all
@@ -66,18 +72,25 @@ def sanitize_string(original: str) -> str:
 
   re.sub('[^a-zA-Z0-9,]', '_', original)
   """
-  replacement = ''
+  sanitized = ''
 
   for char in original:
-    if re.match('[a-zA-Z0-9_]', char): replacement += char
-    elif re.match('[ ():,-]', char): replacement += '_'
-    else: replacement += hex(ord(char))
+    if re.match('[a-zA-Z0-9_]', char):
+      sanitized += char
+    elif re.match('[ ():,-]', char):
+      sanitized += '_'
+    else:
+      sanitized += hex(ord(char))
 
-  return replacement
+  if for_column and sanitized.startswith(tuple([c for c in '0123456789'])):
+    sanitized = 'X' + sanitized
+
+  return sanitized
+
 
 def create_table_schema(column_headers: List[str] = None,
                         column_types: List[types.CellType] = None) \
-  -> List[Dict[str, str]]:
+        -> List[Dict[str, str]]:
   """create big query table schema
 
   Takes the list of column names and produces a json format Big Query schema
@@ -122,7 +135,7 @@ def create_table_schema(column_headers: List[str] = None,
 
   for col in column_headers:
     new_field = field_template.copy()
-    new_field['name'] = sanitize_string(col)
+    new_field['name'] = sanitize_string(col, for_column=True)
     new_field['type'] = _sql_field(master.get(col))
     field_list.append(new_field)
 

@@ -21,6 +21,7 @@ from datetime import datetime
 
 import gcsfs
 from absl import app, flags
+from classes.credentials_helpers import encode_key
 from classes.report_type import Type
 
 logging.basicConfig(
@@ -45,31 +46,7 @@ flags.mark_bool_flags_as_mutual_exclusive(
     ['local', 'firestore', 'secret_manager'], required=True)
 
 
-def encode(key: str) -> str:
-  """The key to use.
-
-  Converts an string to a base64 version to use as a key since
-  Firestore can only have [A-Za-z0-9] in keys. Stripping the '=' padding is
-  fine as the value will never have to be translated back.
-
-  Args:
-      key (Str): the key to be encoded.
-
-  Returns:
-      str: base64 representation of the key value.
-  """
-  if key:
-    try:
-      _key = \
-          base64.b64encode(key.encode('utf-8')).decode('utf-8').rstrip('=')
-    except Exception:
-      _key = 'invalid_key'
-  else:
-    _key = 'unknown_key'
-  return _key
-
-
-def upload(**args) -> None: # key: str, file: str, encode_key: bool, local_store: bool) -> None:
+def upload(**args) -> None:
   """Uploads data to firestore.
 
   Args:
@@ -78,15 +55,12 @@ def upload(**args) -> None: # key: str, file: str, encode_key: bool, local_store
       encode_key (bool): should the key be encoded (eg is it an email).
       local_store (bool): local storage (True) or Firestore (False).
   """
-  data = None
-
   _project = args.get('project')
   _key = args.get('key')
-  fs = gcsfs.GCSFileSystem(project=_project)
 
   if file := args.get('file'):
     if file.startswith('gs://'):
-      with fs.open(file, 'r') as data_file:
+      with gcsfs.GCSFileSystem(project=_project).open(file, 'r') as data_file:
         src_data = json.loads(data_file.read())
     else:
       # Assume locally stored token file
@@ -94,7 +68,7 @@ def upload(**args) -> None: # key: str, file: str, encode_key: bool, local_store
         src_data = json.loads(data_file.read())
 
   if args.get('encode_key'):
-    key = encode(_key)
+    key = encode_key(_key)
 
   else:
     key = _key

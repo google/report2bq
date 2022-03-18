@@ -161,7 +161,7 @@ class ReportLoader(object):
     table_name = \
         config.get('table_name') or \
         config.get('dest_table') or \
-        csv_helpers.sanitize_string(base_file)
+        csv_helpers.sanitize_title(base_file)
 
     logging.info('bucket %s, table %s, file_name %s',
                  bucket, table_name, file)

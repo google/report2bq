@@ -167,7 +167,7 @@ class DCM(ReportFetcher, Fetcher):
         'id': report_object['id'],
         'profile_id': report_object['ownerProfileId'],
         'name': report_object['name'],
-        'report_name': csv_helpers.sanitize_string(report_object['name']),
+        'report_name': csv_helpers.sanitize_title(report_object['name']),
         'type': report_object['type'],
         'current_path': gcs_path,
         'last_updated':

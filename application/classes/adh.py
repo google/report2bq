@@ -129,7 +129,7 @@ class ADH(object):
         report['dest_table'] = self.dest_table
 
       report['table_name'] = \
-        csv_helpers.sanitize_string(query_details['title'])
+        csv_helpers.sanitize_title(query_details['title'])
 
       self.firestore.store_document(type=Type.ADH, document=report,
                                     id=self.adh_query)

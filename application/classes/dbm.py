@@ -156,7 +156,7 @@ class DBM(ReportFetcher, Fetcher):
         'id': query_object['queryId'],
         'name': query_object['metadata']['title'],
         'report_name':
-        csv_helpers.sanitize_string(query_object['metadata']['title']),
+        csv_helpers.sanitize_title(query_object['metadata']['title']),
         'type': query_object['params']['type'],
         'current_path': gcs_path,
         'last_updated':

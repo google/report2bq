@@ -16,11 +16,16 @@ import unittest
 from classes import services
 
 SA360_DEFINITION = \
-  services.ServiceDefinition(name='doubleclicksearch', version='v2')
+    services.ServiceDefinition(
+        name='doubleclicksearch',
+        uri='https://doubleclicksearch.googleapis.com/$discovery/rest?version=v2',
+        version='v2')
 GMAIL_ARGS = {
-  'serviceName': 'gmail',
-  'version': 'v1',
+    'serviceName': 'gmail',
+    'discoveryServiceUrl': 'https://gmail.googleapis.com/$discovery/rest?version=v1',
+    'version': 'v1',
 }
+
 
 class ServicesTest(unittest.TestCase):
   def test_valid_service(self):
@@ -31,12 +36,6 @@ class ServicesTest(unittest.TestCase):
 
   def test_single_to_args(self):
     self.assertEqual(GMAIL_ARGS, services.Service.GMAIL.definition.to_args)
-
-  def test_all_definitions(self):
-    self.assertEqual(8, len(services.Service))
-    for id in range(1, 8):
-      S = services.Service(id)
-      self.assertEqual(services.SERVICE_DEFINITIONS[S], S.definition)
 
 
 if __name__ == '__main__':
