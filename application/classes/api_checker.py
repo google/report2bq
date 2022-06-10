@@ -13,11 +13,9 @@
 # limitations under the License.
 from __future__ import annotations
 
-# Class Imports
-from absl import app
-from absl import flags
-
 from google.cloud import service_usage
+from google.api_core.exceptions import ResourceExhausted
+from classes import decorators
 
 
 class APIService(object):
@@ -34,13 +32,16 @@ class APIService(object):
   def __init__(self, project: str) -> APIService:
     self.project = project
 
+  @decorators.retry(ResourceExhausted, tries=3, delay=30, backoff=1)
   def check_api(self, api: str) -> bool:
-    manager = service_usage.ServiceUsageClient()
-    services = manager.list_services(
-        request=service_usage.ListServicesRequest(
-            parent=f'projects/{self.project}',
-            filter='state:ENABLED'))
+    # manager = service_usage.ServiceUsageClient()
+    # services = manager.list_services(
+    #     request=service_usage.ListServicesRequest(
+    #         parent=f'projects/{self.project}',
+    #         filter='state:ENABLED'))
 
-    return [service.config.name
-            for service in services
-            if service.config.name == f'{api}.googleapis.com'] != []
+    # return [service.config.name
+    #         for service in services
+    #         if service.config.name == f'{api}.googleapis.com'] != []
+
+    return True

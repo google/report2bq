@@ -20,7 +20,7 @@ from typing import Any, Dict
 import pytz
 from dateutil.relativedelta import relativedelta
 from google.auth.transport import requests
-from google.oauth2 import credentials
+from google.oauth2 import credentials as oauth
 
 from classes.abstract_datastore import AbstractDatastore
 from classes.exceptions import CredentialsError
@@ -63,14 +63,28 @@ class AbstractCredentials(object):
     """The users's refresh and access token."""
     pass
 
-  def _refresh_credentials(self, creds: credentials.Credentials) -> None:
+  def store_credentials(self,
+                        creds: oauth.Credentials) -> None:
+    """Stores the credentials.
+
+    This function uses the datastore to store the user credentials for later.
+    It's default behaviour is 'pass' as it relies upon the concrete
+    implementation's datastore which is the only one that should be aware of
+    where the creds are being stored.
+
+    Args:
+        creds (oauth.Credentials): [description]
+    """
+    pass
+
+  def _refresh_credentials(self, creds: oauth.Credentials) -> None:
     """Refreshes the Google OAuth credentials.
 
     Returns:
         google.oauth2.credentials.Credentials: the credentials
     """
     creds.refresh(requests.Request())
-    self.credentials = creds
+    self.store_credentials(creds)
 
   def _to_utc(self, last_date: datetime) -> datetime:
     if (last_date.tzinfo is None or
@@ -80,7 +94,7 @@ class AbstractCredentials(object):
     return last_date
 
   @property
-  def credentials(self) -> credentials.Credentials:
+  def credentials(self) -> oauth.Credentials:
     """Fetches the credentials.
 
     Returns:
@@ -91,7 +105,7 @@ class AbstractCredentials(object):
     if token := self.token_details:
       if token.get('access_token'):
         # This handles old-style credential storages.
-        creds = credentials.Credentials.from_authorized_user_info({
+        creds = oauth.Credentials.from_authorized_user_info({
             'token': token['access_token'],
             'refresh_token': token['refresh_token'],
             'client_id': self.project_credentials.client_id,
@@ -100,7 +114,7 @@ class AbstractCredentials(object):
 
       else:
         creds = \
-            credentials.Credentials.from_authorized_user_info(token)
+            oauth.Credentials.from_authorized_user_info(token)
 
       if creds.expired:
         creds.expiry = expiry
@@ -109,7 +123,7 @@ class AbstractCredentials(object):
     else:
       creds = None
       raise CredentialsError(
-        message='credentials not found', email=self._email)
+          message='credentials not found', email=self._email)
 
     return creds
 
@@ -128,18 +142,3 @@ class AbstractCredentials(object):
     self.credentials.apply(oauth2_header)
 
     return oauth2_header
-
-  @credentials.setter
-  def credentials(self,
-                  creds: credentials.Credentials) -> None:
-    """Stores the credentials.
-
-    This function uses the datastore to store the user credentials for later.
-    It's default behaviour is 'pass' as it relies upon the concrete
-    implementation's datastore which is the only one that should be aware of
-    where the creds are being stored.
-
-    Args:
-        creds (credentials.Credentials): [description]
-    """
-    pass

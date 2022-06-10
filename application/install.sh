@@ -96,6 +96,9 @@ function check_service {
   [[ "${ACTIVE_SERVICES}" =~ ${_SERVICE} ]]
 }
 
+# Constants
+PYTHON_RUNTIME=python39
+
 # Switch definitions
 PROJECT=
 USER=
@@ -521,7 +524,7 @@ if [ ${DEPLOY_MONITOR} -eq 1 ]; then
   ${DRY_RUN} gcloud functions deploy "report2bq-job-monitor" \
     --entry-point=job_monitor \
     --source=${SOURCE} \
-    --runtime python39 \
+    --runtime ${PYTHON_RUNTIME} \
     --memory=1024MB \
     --trigger-topic="report2bq-job-monitor" \
     --set-env-vars=${ENVIRONMENT} \
@@ -553,7 +556,7 @@ if [ ${DEPLOY_FETCHER} -eq 1 ]; then
   ${DRY_RUN} gcloud functions deploy "report2bq-fetcher" \
     --entry-point=report_fetch \
     --source=${SOURCE} \
-    --runtime=python39 \
+    --runtime=${PYTHON_RUNTIME} \
     --memory=8192MB \
     --trigger-topic="report2bq-fetcher" \
     --service-account=${USER} \
@@ -570,7 +573,7 @@ if [ ${DEPLOY_LOADER} -eq 1 ]; then
   ${DRY_RUN} gcloud functions deploy "report2bq-loader" \
     --entry-point=report_upload \
     --source=${SOURCE} \
-    --runtime=python39 \
+    --runtime=${PYTHON_RUNTIME} \
     --memory=4096MB \
     --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-upload" \
     --trigger-event="google.storage.object.finalize" \
@@ -589,7 +592,7 @@ if [ ${DEPLOY_RUNNERS} -eq 1 ]; then
   ${DRY_RUN} gcloud functions deploy "report2bq-runner" \
     --entry-point=report_runner \
     --source=${SOURCE} \
-    --runtime python39 \
+    --runtime ${PYTHON_RUNTIME} \
     --memory=2048MB \
     --trigger-topic="report2bq-runner" \
     --service-account=${USER} \
@@ -606,7 +609,7 @@ if [ ${DEPLOY_RUN_MONITOR} -eq 1 ]; then
   ${DRY_RUN} gcloud functions deploy "report2bq-run-monitor" \
     --entry-point=run_monitor \
     --source=${SOURCE} \
-    --runtime python39 \
+    --runtime ${PYTHON_RUNTIME} \
     --memory=1024MB \
     --trigger-topic="report2bq-run-monitor" \
     --service-account=${USER} \
@@ -636,7 +639,7 @@ if [ ${DEPLOY_POSTPROCESSOR} -eq 1 ]; then
   ${DRY_RUN} gcloud functions deploy "report2bq-postprocessor" \
     --entry-point=post_processor \
     --source=${SOURCE} \
-    --runtime python39 \
+    --runtime ${PYTHON_RUNTIME} \
     --memory=4096MB \
     --trigger-topic="report2bq-postprocessor" \
     --service-account=${USER} \
@@ -652,7 +655,7 @@ if [ ${DEPLOY_SA360_MANAGER} -eq 1 ]; then
   ${DRY_RUN} gcloud functions deploy "report2bq-sa360-manager" \
     --entry-point=report_manager \
     --source=${SOURCE} \
-    --runtime python39 \
+    --runtime ${PYTHON_RUNTIME} \
     --memory=4096MB \
     --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-sa360-manager" \
     --trigger-event="google.storage.object.finalize" \
@@ -665,7 +668,7 @@ if [ ${DEPLOY_SA360_MANAGER} -eq 1 ]; then
   ${DRY_RUN} gcloud functions deploy "report2bq-bq-sa360-report-creator" \
     --entry-point=sa360_report_creator \
     --source=${SOURCE} \
-    --runtime python39 \
+    --runtime ${PYTHON_RUNTIME} \
     --memory=4096MB \
     --trigger-topic="report2bq-bq-creator" \
     --service-account=${USER} \
@@ -693,7 +696,7 @@ if [ ${DEPLOY_GA360_MANAGER} -eq 1 ]; then
   ${DRY_RUN} gcloud functions deploy "report2bq-ga360-manager" \
     --entry-point=report_manager \
     --source=${SOURCE} \
-    --runtime python39 \
+    --runtime ${PYTHON_RUNTIME} \
     --memory=4096MB \
     --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-ga360-manager" \
     --trigger-event="google.storage.object.finalize" \

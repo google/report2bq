@@ -13,11 +13,9 @@
 # limitations under the License.
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 from classes.report_type import Type
-
-from google.cloud import bigquery
 
 
 class AbstractDatastore(object):
@@ -33,16 +31,16 @@ class AbstractDatastore(object):
   All unimplemented functions raise a NotImplementedError() rather than
   simply 'pass'.
   """
-  def get_document(self, type: Type, id: str,
-                   key: Optional[str]=None) -> Dict[str, Any]:
-    """Fetches a document (could be anything, 'type' identifies the root.)
+  def get_document(self, id: str, type: Optional[Type] = None,
+                   key: Optional[str] = None) -> Mapping[str, Any]:
+    """Fetches a document (could be anything).
 
     Fetch a document
 
     Arguments:
-        type (Type): document type (document root in firestore)
-        id (str): document id
-        key: Optional(str): the document collection sub-key
+        id (str): document id.
+        type (Type): Unused.
+        key: Optional(str): Unused.
 
     Returns:
         Dict[str, Any]: stored configuration dictionary, or None
@@ -50,42 +48,41 @@ class AbstractDatastore(object):
     """
     raise NotImplementedError('Must be implemented by child class.')
 
-  def store_document(self, type: Type, id: str,
-                     document: Dict[str, Any]) -> None:
+  def store_document(self,  id: str, document: Mapping[str, Any],
+                     type: Optional[Type] = None) -> None:
     """Stores a document.
 
-    Store a document in Firestore. They're all stored by Type
-    (DCM/DBM/SA360/ADH) and each one within the type is keyed by the
-    appropriate report id.
+    Store a document in Secret Manager. This will, for credentials, always be
+    the OAuth token.
 
     Arguments:
-        type (Type): product
-        id (str): report id
-        report_data (Dict[str, Any]): report configuration
+        id (str): The document id.
+        document (Dict[str, Any]): The document to store.
+        type (Optional[Type]): Unused.
     """
     raise NotImplementedError('Must be implemented by child class.')
 
-  def update_document(self, type: Type, id: str,
-                      new_data: Dict[str, Any]) -> None:
+  def update_document(self, id: str, new_data: Mapping[str, Any],
+                      type: Optional[Type] = None) -> None:
     """Updates a document.
 
-    Update a document in Firestore. If the document is not already there, it
-    will be created as a net-new document. If it is, it will be updated.
+    Update a document in Secret Manager. If the document is not already there,
+    it will be created as a net-new document. If it is, it will be updated.
 
     Args:
-        type (Type): the document type, which is the collection.
-        id (str): the id of the document within the collection.
+        id (str): the id of the document.
         new_data (Dict[str, Any]): the document content.
+        type (Optional[Type]): Unused.
     """
     raise NotImplementedError('Must be implemented by child class.')
 
-  def delete_document(self, type: Type, id: str,
-                      key: Optional[str]=None) -> None:
+  def delete_document(self, id: str, type: Optional[Type] = None,
+                      key: Optional[str] = None) -> None:
     """Deletes a document.
 
-    This removes a document or partial document from the Firestore. If a key is
-    supplied, then just that key is removed from the document. If no key is
-    given, the entire document will be removed from the collection.
+    This removes a document or version from the Secret Manager. If a key is
+    supplied, then just that key (version) is removed from the document. If no
+    key is given, the entire document will be removed.
 
     Args:
         type (Type): the document type, which is the collection.
@@ -94,7 +91,8 @@ class AbstractDatastore(object):
     """
     raise NotImplementedError('Must be implemented by child class.')
 
-  def list_documents(self, report_type: Type, key: str=None) -> List[str]:
+  def list_documents(self, type: Optional[Type] = None,
+                     key: Optional[str] = None) -> List[str]:
     """Lists documents in a collection.
 
     List all the documents in the collection 'type'. If a key is give, list
@@ -105,7 +103,7 @@ class AbstractDatastore(object):
       { 'holiday_2020', 'sa360_hourly_depleted', ...}
 
     Args:
-        type (Type): the document type, which is the collection.
+        type (Optional[Type]): the document type, which is the collection.
         key (str, optional): the sub-key. Defaults to None.
 
     Returns:

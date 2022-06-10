@@ -182,6 +182,7 @@ def report_runner(event: Dict[str, Any], context=None) -> None:
         'email': attributes.get('email'),
         'project': project,
     }
+
     if _command := {
         Type.DV360: {
             'runner':

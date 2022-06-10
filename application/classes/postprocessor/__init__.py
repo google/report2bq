@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 __author__ = [
-  'davidharcombe@google.com (David Harcombe)'
+    'davidharcombe@google.com (David Harcombe)'
 ]
 
 # Python logging
@@ -40,7 +40,10 @@ class PostProcessorFinder(abc.MetaPathFinder):
   'PostProcessor'. If it isn't, it won't be loaded.
   """
 
-  def find_spec(self, fullname: str, path: str, target: Optional[str] = None) -> machinery.ModuleSpec:
+  def find_spec(self,
+                fullname: str,
+                path: str,
+                target: Optional[str] = None) -> machinery.ModuleSpec:
     """
     Locate the file in GCS. The "spec" should then be
     fullname = fullname
@@ -62,7 +65,7 @@ class PostProcessorLoader(abc.Loader):
   """
 
   def create_module(self, spec: machinery.ModuleSpec):
-    return None # use default module creation semantics
+    return None  # use default module creation semantics
 
   def exec_module(self, module: types.ModuleType):
     try:
@@ -70,9 +73,8 @@ class PostProcessorLoader(abc.Loader):
       # GCS? BQ? Firestore? All good options
       filename = module.__name__.split('.')[-1]
       code = Cloud_Storage.fetch_file(
-        bucket=(f'{os.environ.get("GCP_PROJECT")}'
-          '-report2bq-postprocessor'),
-        file=f'{filename}.py'
+          bucket=(f'{os.environ.get("GCP_PROJECT")}-report2bq-postprocessor'),
+          file=f'{filename}.py'
       )
       exec(code, vars(module))
     except:
@@ -96,8 +98,8 @@ class PostProcessor(object):
     Commonly needed helper function
 
     Args:
-        project (str): the project to in which the dataset and table in question reside
-        dataset (str): the project to in which the dataset resides
+        project (str): the project where the dataset and table reside
+        dataset (str): the project where the dataset resides
         table (str): the table to look for
 
     Returns:
@@ -128,7 +130,7 @@ class PostProcessor(object):
     return result
 
   def run(self, context=None,
-    **attributes: Mapping[str, str]) -> Dict[str, Any]:
+          **attributes: Mapping[str, str]) -> Dict[str, Any]:
     """Run the user's PostProcessor code
 
     Args:

@@ -16,11 +16,9 @@ from __future__ import annotations
 import json
 
 from classes import decorators
-from classes import report_type
 from classes.abstract_datastore import AbstractDatastore
 from classes.report_type import Type
 
-from functools import wraps
 from typing import Any, Callable, Dict, List, Mapping, Optional
 
 DATASTORE_FILE = 'datastore.json'
@@ -54,9 +52,11 @@ class LocalDatastore(AbstractDatastore):
 
   def get_document(self, type: Type, id: str,
                    key: Optional[str]=None) -> Dict[str, Any]:
-    """Loads a document (could be anything, 'type' identifies the root.)
+    """Fetches a document (could be anything, 'type' identifies the root.)
 
-    Args:
+    Fetch a document
+
+    Arguments:
         type (Type): document type (document root in firestore)
         id (str): document id
         key: Optional(str): the document collection sub-key

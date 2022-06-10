@@ -57,8 +57,24 @@ class SecretManager(AbstractDatastore):
   def client(self) -> secretmanager.SecretManagerServiceClient:
     return secretmanager.SecretManagerServiceClient()
 
-  def list_documents(self, report_type: Optional[Type] = None,
+  def list_documents(self, type: Optional[Type] = None,
                      key: Optional[str] = None) -> List[str]:
+    """Lists documents in a collection.
+
+    List all the documents in the collection 'type'. If a key is give, list
+    all the sub-documents of that key. For example:
+
+    list_documents(Type.SA360_RPT) will show { '_reports', report_1, ... }
+    list_documents(Type.SA360_RPT, '_reports') will return
+      { 'holiday_2020', 'sa360_hourly_depleted', ...}
+
+    Args:
+        type (Optional[Type]): the document type, which is the collection.
+        key (str, optional): the sub-key. Defaults to None.
+
+    Returns:
+        List[str]: the list
+    """
     parent = f'projects/{self._project}'
     all_secrets = self.client.list_secrets(
         request={"parent": self.parent})
