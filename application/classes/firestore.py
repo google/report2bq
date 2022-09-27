@@ -15,20 +15,20 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from classes import decorators
-from classes.abstract_datastore import AbstractDatastore
-from classes.report_type import Type
-
 from google.cloud import firestore
 
+from classes import decorators
+from classes.report_type import Type
 
-class Firestore(AbstractDatastore):
+
+class Firestore(object):
   @decorators.lazy_property
   def client(self) -> Any:
     """The datastore client."""
     return firestore.Client()
 
-  def __init__(self, email: str=None, project: str=None) -> AbstractDatastore:
+  def __init__(self,
+               email: str = None, project: str = None) -> Firestore:
     self._project = project
     self._email = email
 
@@ -44,7 +44,7 @@ class Firestore(AbstractDatastore):
     return documents
 
   def get_document(self, type: Type, id: str,
-                   key: Optional[str]=None) -> Dict[str, Any]:
+                   key: Optional[str] = None) -> Dict[str, Any]:
     """Loads a document (could be anything, 'type' identifies the root.)
 
     Load a document
@@ -102,7 +102,7 @@ class Firestore(AbstractDatastore):
           document_ref.create(new_data)
 
   def delete_document(self, type: Type, id: str,
-                      key: Optional[str]=None) -> None:
+                      key: Optional[str] = None) -> None:
     """Deletes a document.
 
     This removes a document or partial document from the Firestore. If a key is
@@ -117,11 +117,11 @@ class Firestore(AbstractDatastore):
     if collection := self.client.collection(f'{type}'):
       if document_ref := collection.document(document_id=id):
         if key:
-          document_ref.update({ key: firestore.DELETE_FIELD })
+          document_ref.update({key: firestore.DELETE_FIELD})
         else:
           document_ref.delete()
 
-  def list_documents(self, report_type: Type, key: str=None) -> List[str]:
+  def list_documents(self, report_type: Type, key: str = None) -> List[str]:
     """Lists documents in a collection.
 
     List all the documents in the collection 'type'. If a key is give, list

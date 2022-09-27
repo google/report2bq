@@ -23,7 +23,7 @@ import os
 import sys
 
 from importlib import abc
-from importlib import types
+import types
 from importlib import machinery
 from typing import Any, Dict, Mapping, Optional
 

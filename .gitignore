@@ -9,7 +9,7 @@ report2bq-3.7/
 **/*.pyc
 .history/
 **/*.log
-**/report2bq.zip
+**/*.zip
 **/__pycache__/
 **/node_modules/
 **/.clasp.json
@@ -29,3 +29,6 @@ auth-appengine/test/
 **/tokens/
 **/*.iml
 application/cli/env.sh
+**/json/
+**/keys/
+admin-chat-app/

@@ -12,38 +12,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from classes import report_manager
-from classes.sa360_job import SA360Job, SA360ReportMetric
-from classes.query.report_manager import ManagerUpdate
-from googleapiclient import discovery as gdiscovery
-from classes.services import Service
-from classes import discovery
-from classes.sa360_report_validation import sa360_validator_factory
-
 import csv
 import dataclasses
-import dataclasses_json
 import enum
 import io
 import json
 import logging
 import os
 import random
-import stringcase
 import uuid
+from typing import Any, Dict, List, Tuple
 
-# Class Imports
-from typing import Any, Dict, List, Tuple, Union
-
-from classes import discovery
+import dataclasses_json
+import stringcase
+from auth.credentials import Credentials
+from auth.secret_manager import SecretManager
 from google.cloud import bigquery
+from googleapiclient import discovery as gdiscovery
+from service_framework import service_builder
+
 from classes.cloud_storage import Cloud_Storage
-from classes.secret_manager_credentials import Credentials
-from classes.report_manager import ManagerConfiguration, ManagerType, ReportManager
+from classes.query.report_manager import ActiveAccounts, ManagerUpdate
+from classes.report_manager import (ManagerConfiguration, ManagerType,
+                                    ReportManager)
 from classes.report_type import Type
+from classes.sa360_job import SA360Job, SA360ReportMetric
 from classes.sa360_report_validation import sa360_validator_factory
-from classes.scheduler import Scheduler
-from classes.services import Service
 
 
 class Validity(enum.Enum):
@@ -138,9 +132,11 @@ class SA360Manager(ReportManager):
     for sa360_object in sa360_objects:
       if sa360_object == '_reports':
         continue
-      creds = Credentials(project=config.project, email=sa360_object['email'])
+      creds = Credentials(datastore=SecretManager,
+                          project=config.project, email=sa360_object['email'])
       sa360_service = \
-          discovery.get_service(service=Service.SA360, credentials=creds)
+          service_builder.build_service(service=self.report_type.service,
+                                        key=creds.credentials)
 
       (valid, validation) = \
           self._report_validation(sa360_report_definitions,
@@ -258,12 +254,14 @@ class SA360Manager(ReportManager):
         runner['description'] = description
 
       if not (creds := credentials.get(runner['email'])):
-        creds = Credentials(project=config.project, email=runner['email'])
+        creds = Credentials(datastore=SecretManager,
+                            project=config.project, email=runner['email'])
         credentials[runner['email']] = creds
 
       if not (sa360_service := services.get(runner['email'])):
         sa360_service = \
-            discovery.get_service(service=Service.SA360, credentials=creds)
+            service_builder.build_service(service=self.report_type.service,
+                                          key=creds.credentials)
         services[runner['email']] = sa360_service
 
       (valid, validity) = self._report_validation(
@@ -279,6 +277,7 @@ class SA360Manager(ReportManager):
         if self.scheduler:
           results.append(self._schedule_job(project=config.project,
                                             runner=runner, id=id))
+
       else:
         logging.info('Invalid report: %s', id)
         results.append(f'{id} - Validation failed: {validity}')

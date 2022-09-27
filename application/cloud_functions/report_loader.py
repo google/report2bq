@@ -12,27 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__author__ = [
-    'davidharcombe@google.com (David Harcombe)'
-]
-
-import json
 import logging
 import os
+from typing import Any, Dict, List, Tuple
 
+from auth.credentials import Credentials as Report2BQCredentials
+from auth.secret_manager import SecretManager
+from classes import csv_helpers, decorators, firestore, gmail
+from classes.report_type import Type
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
 from google.oauth2.credentials import Credentials
-
-from typing import Any, Dict, List, Tuple
-
-from classes import csv_helpers
-from classes import decorators
-from classes import gmail
-from classes.abstract_datastore import AbstractDatastore
-from classes.cloud_storage import Cloud_Storage
-from classes.secret_manager_credentials import Credentials as Report2BQCredentials
-from classes.report_type import Type
 
 
 class ReportLoader(object):
@@ -50,8 +40,7 @@ class ReportLoader(object):
   """
 
   @decorators.lazy_property
-  def firestore(self) -> AbstractDatastore:
-    from classes import firestore
+  def firestore(self) -> firestore.Firestore:
     return firestore.Firestore()
 
   def process(self, data: Dict[str, Any], context):
@@ -225,7 +214,8 @@ class ReportLoader(object):
     if config.get('dest_project'):
       # authenticate against supplied project with supplied key
       project = config.get('dest_project')
-      r2bq = Report2BQCredentials(project=os.environ.get('GCP_PROJECT'),
+      r2bq = Report2BQCredentials(datastore=SecretManager,
+                                  project=os.environ.get('GCP_PROJECT'),
                                   email=config['email'])
       client_key = r2bq.token_details
       client_key['client_id'] = \
@@ -304,5 +294,6 @@ Table has schema:
       gmail.send_message(
           message=message,
           credentials=Report2BQCredentials(
+              datastore=SecretManager,
               email=email, project=os.environ.get('GCP_PROJECT'))
       )

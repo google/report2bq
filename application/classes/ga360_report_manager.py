@@ -11,20 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 import logging
 import os
 import random
 import uuid
 
-from typing import Any, Dict, List
+from typing import Any, Dict
 
-from classes import discovery
 from classes import report_manager
-from classes.secret_manager_credentials import Credentials
+from auth.credentials import Credentials
+from auth.secret_manager import SecretManager
 from classes.report_type import Type
-from classes.services import Service
+from service_framework import service_builder
 
 
 class GA360ReportManager(report_manager.ReportManager):
@@ -86,9 +84,10 @@ class GA360ReportManager(report_manager.ReportManager):
 
     for runner in runners:
       id = f'{runner["report"]}_{runner["view_id"]}'
-      creds = Credentials(project=config.project, email=runner.get('email'))
-      service = discovery.get_service(service=Service.GA360,
-                                      credentials=creds)
+      creds = Credentials(datastore=SecretManager,
+                          project=config.project, email=runner.get('email'))
+      service = service_builder.build_service(service=self.report_type.service,
+                                              key=creds.credentials)
 
       self.firestore.update_document(type=self.report_type,
                                      id=id, new_data=runner)

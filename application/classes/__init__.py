@@ -14,19 +14,18 @@
 
 import logging
 import os
+import traceback
+from typing import Any, Dict, Iterable, List, Mapping, Tuple, Union
 
 from googleapiclient.discovery import Resource
 from googleapiclient.errors import HttpError
-from messytables.types import CellType
-from typing import Any, Dict, Iterable, List, Mapping, Tuple, Union
+from service_framework import service_builder
+from service_framework import services
 
-from classes import secret_manager_credentials as credentials
-from classes import decorators
-from classes import discovery
-from classes import firestore
-from classes import gmail
-from classes import report_type
-from classes import services
+from classes import decorators, firestore, gmail, report_type
+from auth.credentials import Credentials
+from auth.secret_manager import SecretManager
+
 from classes.exceptions import CredentialsError
 from classes.report_config import ReportConfig
 
@@ -36,6 +35,23 @@ class Fetcher(object):
   def fetch(self, method, **kwargs: Mapping[str, str]) -> Dict[str, Any]:
     result = method(**kwargs).execute()
     return result
+
+  def error_to_trace(self, error: Exception = None) -> str:
+    """Pulls a python stack trace from an error.
+
+    Args:
+        error (Exception, optional): the exception. Defaults to None.
+
+    Returns:
+        str: the stack trace
+    """
+    trace = ''
+    if error:
+      tb = traceback.TracebackException.from_exception(error).format()
+      if tb:
+        trace = '\n\nTrace:\n\n' + ''.join(tb)
+
+    return f'{trace}'
 
 
 class ReportFetcher(object):
@@ -54,20 +70,22 @@ class ReportFetcher(object):
     Returns:
         Resource: the service definition
     """
-    return discovery.get_service(
-        service=self.service_definition,
-        credentials=credentials.Credentials(email=self.email,
-                                            project=self.project))
+    return service_builder.build_service(
+        service=self.report_type.service,
+        key=Credentials(datastore=SecretManager,
+                        email=self.email,
+                        project=self.project).credentials
+    )
 
   def read_header(self, report_details: ReportConfig) -> Tuple[List[str],
-                                                               List[CellType]]:
+                                                               List[str]]:
     """Reads the header of the report CSV file.
 
     Args:
         report_details (dict): the report definition
 
     Returns:
-        Tuple[List[str], List[CellType]]: the csv headers and column types
+        Tuple[List[str], List[str]]: the csv headers and column types
     """
     pass
 
@@ -219,13 +237,14 @@ class ReportRunner(object):
     cc = [administrator] if administrator else []
 
     try:
-      mailer_credentials = credentials.Credentials(
+      mailer_credentials = Credentials(
+          datastore=SecretManager,
           email=email, project=self.project)
     except CredentialsError:
       mailer_credentials = \
-          credentials.Credentials(
-              email=administrator,
-              project=self.project) if administrator else None
+          Credentials(datastore=SecretManager,
+                      email=administrator,
+                      project=self.project) if administrator else None
 
     body = f'{message}{gmail.error_to_trace(error)}'
     if mailer_credentials and (to or cc):
@@ -260,3 +279,21 @@ def strip_nulls(value: Iterable) -> Iterable:
     }
   else:
     return value
+
+
+def error_to_trace(error: Exception = None) -> str:
+  """Pulls a python stack trace from an error.
+
+  Args:
+      error (Exception, optional): the exception. Defaults to None.
+
+  Returns:
+      str: the stack trace
+  """
+  trace = ''
+  if error:
+    tb = traceback.TracebackException.from_exception(error).format()
+    if tb:
+      trace = '\n\nTrace:\n\n' + ''.join(tb)
+
+  return f'{trace}'

@@ -21,7 +21,7 @@ from datetime import datetime
 
 import gcsfs
 from absl import app, flags
-from classes.credentials_helpers import encode_key
+from auth.credentials_helpers import encode_key
 from classes.report_type import Type
 
 logging.basicConfig(
@@ -76,15 +76,15 @@ def upload(**args) -> None:
   src_data['email'] = _key
 
   if args.get('local_store'):
-    from classes.local_datastore import LocalDatastore
+    from auth.local_datastore import LocalDatastore
     f = LocalDatastore()
 
   if args.get('firestore'):
-    from classes.firestore import Firestore
+    from auth.firestore import Firestore
     f = Firestore()
 
   if args.get('secret_manager'):
-    from classes.secret_manager import SecretManager
+    from auth.secret_manager import SecretManager
     f = SecretManager(project=_project, email=args.get('email'))
 
   f.update_document(type=Type._ADMIN, id=key, new_data=src_data)

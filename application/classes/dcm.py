@@ -17,27 +17,24 @@ from __future__ import annotations
 import datetime
 import io
 import logging
-
-from googleapiclient import http
-from typing import Any, Dict, List, Mapping, Tuple
 from queue import Queue
+from typing import Any, Dict, List, Mapping, Tuple
 
-from messytables.types import CellType
+from auth import credentials
+from googleapiclient import http
+from service_framework.services import Service
 
-from classes import secret_manager_credentials as credentials
-from classes import csv_helpers
-from classes import Fetcher, ReportFetcher
+from classes import Fetcher, ReportFetcher, csv_helpers
 from classes.cloud_storage import Cloud_Storage
 from classes.decorators import retry
-from classes.report_config import ReportConfig
-from classes.services import Service
-from classes.report_type import Type
 from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
+from classes.report_config import ReportConfig
+from classes.report_type import Type
 
 
 class DCM(ReportFetcher, Fetcher):
   report_type = Type.CM
-  service_definition = Service.CM
+  service_definition = Type.CM.service
 
   def __init__(self, email: str, profile: str, project: str) -> DCM:
     self.project = project
@@ -204,14 +201,14 @@ class DCM(ReportFetcher, Fetcher):
 
   def read_header(self,
                   report_details: ReportConfig) -> Tuple[List[str],
-                                                         List[CellType]]:
+                                                         List[str]]:
     """Reads the header of the report CSV file.
 
     Args:
         report_details (dict): the report definition
 
     Returns:
-        Tuple[List[str], List[CellType]]: the csv headers and column types
+        Tuple[List[str], List[str]]: the csv headers and column types
     """
     if report_details.report_file:
       data = self._read_data_chunk(report_details, 163840)

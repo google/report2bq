@@ -16,7 +16,7 @@ from __future__ import annotations
 import immutabledict
 import enum
 
-from classes.ga360_report import GA360ReportDefinition
+from service_framework.services import Service
 
 
 class Type(enum.Enum):
@@ -63,8 +63,8 @@ class Type(enum.Enum):
       return cls._UNKNOWN
 
   @property
-  def api_name(self) -> str:
-    return API_NAMES.get(self)
+  def service(self) -> Service:
+    return SERVICE.get(self)
 
   def runner(self, report_id: str) -> str:
     return None if self.name.startswith('_') \
@@ -81,11 +81,11 @@ class Type(enum.Enum):
     return str(self.value)
 
 
-API_NAMES: immutabledict.immutabledict = immutabledict.immutabledict({
-    Type.ADH: 'adsdatahub',
-    Type.CM: 'dfareporting',
-    Type.DV360: 'doubleclickbidmanager',
-    Type.GA360_RPT: 'analyticsreporting',
-    Type.SA360: 'doubleclicksearch',
-    Type.SA360_RPT: 'doubleclicksearch',
+SERVICE: immutabledict.immutabledict = immutabledict.immutabledict({
+    Type.ADH: Service.ADSDATAHUB,
+    Type.CM: Service.DFAREPORTING,
+    Type.DV360: Service.DOUBLECLICKBIDMANAGER,
+    Type.GA360_RPT: Service.ANALYTICSREPORTING,
+    Type.SA360: Service.DOUBLECLICKSEARCH,
+    Type.SA360_RPT: Service.DOUBLECLICKSEARCH,
 })

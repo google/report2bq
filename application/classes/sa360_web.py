@@ -13,33 +13,28 @@
 # limitations under the License.
 from __future__ import annotations
 
-from classes.report_config import ReportConfig
-from classes import ReportFetcher
 import csv
 import logging
 import os
 import re
-import requests as req
-
 from html.parser import unescape
-from io import BytesIO, StringIO, SEEK_END
-from typing import Dict, Generator, List, Any, Tuple
-from urllib.parse import unquote
-from classes import secret_manager_credentials as credentials
+from io import BytesIO, StringIO
+from queue import Queue
+from typing import Any, Generator, List, Tuple
 
-from classes.secret_manager_credentials import Credentials
-from classes.cloud_storage import Cloud_Storage
-from classes import csv_helpers
-from classes.decorators import retry, timeit, measure_memory
-from classes.firestore import Firestore
-from classes.report_type import Type
-from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
-
+import requests as req
+from auth.credentials import Credentials
+from auth.secret_manager import SecretManager
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import storage
 
-from queue import Queue
-from urllib.request import urlopen
+from classes import ReportFetcher, csv_helpers
+from classes.cloud_storage import Cloud_Storage
+from classes.decorators import retry, timeit
+from classes.firestore import Firestore
+from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
+from classes.report_config import ReportConfig
+from classes.report_type import Type
 
 
 class SA360Exception(Exception):
@@ -70,7 +65,8 @@ class SA360Web(ReportFetcher):
                infer_schema: bool = False) -> SA360Web:
     self.email = email
     self.project = project
-    self.creds = Credentials(email=email, project=project)
+    self.creds = Credentials(datastore=SecretManager,
+                             email=email, project=project)
     self.credentials = storage.Client()._credentials
     self.transport = AuthorizedSession(credentials=self.credentials)
     self.append = append
@@ -86,7 +82,7 @@ class SA360Web(ReportFetcher):
 
   @retry(SA360Exception, tries=2)
   def stream_to_gcs(self, bucket: str, report_details: ReportConfig) \
-    -> Tuple[List[str], List[str]]:
+          -> Tuple[List[str], List[str]]:
     """Streams the data to Google Cloud Storage.
 
     This is to allow us to process much larger files than can be easily
@@ -118,13 +114,12 @@ class SA360Web(ReportFetcher):
     chunk_size = self.chunk_multiplier * 1024 * 1024
 
     streamer = ThreadedGCSObjectStreamUpload(
-      client=Cloud_Storage.client(credentials=self.creds),
-      creds=credentials.Credentials(
-        email=self.email, project=self.project).credentials,
-      bucket_name=bucket,
-      blob_name=f'{report_details.id}.csv',
-      chunk_size=chunk_size,
-      streamer_queue=queue)
+        client=Cloud_Storage.client(credentials=self.creds),
+        creds=self.creds.credentials,
+        bucket_name=bucket,
+        blob_name=f'{report_details.id}.csv',
+        chunk_size=chunk_size,
+        streamer_queue=queue)
     streamer.daemon = True
     streamer.start()
 
@@ -155,7 +150,7 @@ class SA360Web(ReportFetcher):
         fieldnames, chunk = self.find_fieldnames(buffer=chunk)
         if len(fieldnames) == 1 and fieldnames[0] == 'Error':
           error = \
-            unescape(re.sub(r'<[^.]+>', '', chunk.getvalue().decode('utf-8')))
+              unescape(re.sub(r'<[^.]+>', '', chunk.getvalue().decode('utf-8')))
           # logging.error('SA360 Error: %s', error)
           streamer.stop()
           raise SA360Exception(error)
@@ -178,8 +173,8 @@ class SA360Web(ReportFetcher):
         tr, chunk = self.extract_keys(chunk, 'tr')
         if chunk:
           rows.append([
-            unescape(field)
-            for field in re.findall(r'\<td[^>]*\>([^<]*)\<\/td\>', tr)
+              unescape(field)
+              for field in re.findall(r'\<td[^>]*\>([^<]*)\<\/td\>', tr)
           ])
         else:
           break
@@ -199,8 +194,8 @@ class SA360Web(ReportFetcher):
 
       if first:
         _, fieldtypes = \
-          csv_helpers.get_column_types(
-            BytesIO(output_buffer.getvalue().encode('utf-8')))
+            csv_helpers.get_column_types(
+                BytesIO(output_buffer.getvalue().encode('utf-8')))
 
       queue.put(output_buffer.getvalue().encode('utf-8'))
       chunk_id += 1
@@ -213,7 +208,7 @@ class SA360Web(ReportFetcher):
     queue.join()
     streamer.stop()
     report_details.schema = \
-      csv_helpers.create_table_schema(fieldnames, fieldtypes)
+        csv_helpers.create_table_schema(fieldnames, fieldtypes)
 
     return fieldnames, fieldtypes
 
@@ -287,8 +282,8 @@ class SA360Web(ReportFetcher):
     header, buffer = self.extract_keys(buffer=buffer, key='thead')
     if header:
       fieldnames = [
-        csv_helpers.sanitize_column(field)
-        for field in re.findall(r'\<th[^>]*\>([^<]*)\<\/th\>', header)
+          csv_helpers.sanitize_column(field)
+          for field in re.findall(r'\<th[^>]*\>([^<]*)\<\/th\>', header)
       ]
       del header
     else:

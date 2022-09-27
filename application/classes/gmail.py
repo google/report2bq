@@ -16,27 +16,25 @@ from __future__ import annotations
 import logging
 import os
 import traceback
-
-from classes import secret_manager_credentials as credentials
-from classes import discovery
-from classes import firestore
-from classes import report_type
-from classes import services
-
 from base64 import urlsafe_b64encode
 from email.mime import text
 from typing import Any, Dict, List
 
+from auth.credentials import Credentials
+from service_framework import service_builder, services
+
+from classes import firestore, report_type
+
 
 class GMailMessage(object):
-  def __init__(self, to: List[str]=[], cc: List[str]=[], subject: str=None,
-               body: str='', snippet: str=None,
-               project: str=None) -> GMailMessage:
+  def __init__(self, to: List[str] = [], cc: List[str] = [], subject: str = None,
+               body: str = '', snippet: str = None,
+               project: str = None) -> GMailMessage:
     self._to = to
     self._cc = cc
     self._subject = (
-      f'[REPORT2BQ on {project or os.environ.get("GCP_PROJECT")}]: '
-      f'{subject or "Important Report2BQ message"}')
+        f'[REPORT2BQ on {project or os.environ.get("GCP_PROJECT")}]: '
+        f'{subject or "Important Report2BQ message"}')
     self._body = body
     self._snippet = snippet
     self._project = project or os.environ.get('GCP_PROJECT')
@@ -51,19 +49,20 @@ class GMailMessage(object):
     message['to'] = ','.join(self._to)
     message['cc'] = ','.join(self._cc)
     message['from'] = \
-      f'Report2BQ on {self._project} <noreply-report2bq@google.com>'
+        f'Report2BQ on {self._project} <noreply-report2bq@google.com>'
     message['subject'] = self._subject
     body = \
-      {
-        'raw':
-        urlsafe_b64encode(message.as_string().encode('utf-8')).decode('utf-8')
-      }
+        {
+            'raw':
+            urlsafe_b64encode(
+                message.as_string().encode('utf-8')).decode('utf-8')
+        }
 
     return body
 
 
 def send_message(message: GMailMessage,
-                 credentials: credentials.Credentials,
+                 credentials: Credentials,
                  **unused) -> None:
   """Sends a message via the Gmail API.
 
@@ -71,14 +70,15 @@ def send_message(message: GMailMessage,
       message (GMailMessage): the message.
       credentials (Credentials): credentials valid for the gmail scope.
   """
-  gmail = discovery.get_service(service=services.Service.GMAIL,
-                                credentials=credentials)
+  gmail = service_builder.build_service(service=services.Service.GMAIL,
+                                        key=credentials.credentials)
   request = gmail.users().messages().send(userId='me',
                                           body=message.create_message())
   response = request.execute()
   logging.info(response)
 
-def error_to_trace(error: Exception=None) -> str:
+
+def error_to_trace(error: Exception = None) -> str:
   """Pulls a python stack trace from an error.
 
   Args:
@@ -94,6 +94,7 @@ def error_to_trace(error: Exception=None) -> str:
       trace = '\n\nTrace:\n\n' + ''.join(tb)
 
   return f'{trace}'
+
 
 def create_error_email(email: str,
                        product: str,
@@ -121,8 +122,8 @@ def create_error_email(email: str,
   )
   if not (administrator := os.environ.get('ADMINISTRATOR_EMAIL')):
     if firestore_admin := \
-      firestore.Firestore().get_document(type=report_type.Type._ADMIN,
-                                       id='admin'):
+        firestore.Firestore().get_document(type=report_type.Type._ADMIN,
+                                           id='admin'):
       administrator = firestore_admin.get('email')
   cc = [administrator] if administrator else []
 

@@ -1,31 +1,24 @@
-"""
-Copyright 2020 Google LLC
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-__author__ = [
-    'davidharcombe@google.com (David Harcombe)'
-]
-
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 from contextlib import suppress
 import logging
 import os
 import re
 
-from classes import secret_manager_credentials as credentials
+from auth import credentials
+from auth.secret_manager import SecretManager
 from classes import decorators
-from classes.abstract_datastore import AbstractDatastore
 from classes.firestore import Firestore
 from classes.report_type import Type
 from concurrent import futures
@@ -47,7 +40,7 @@ class JobMonitor(object):
   in GCS.
   """
   @decorators.lazy_property
-  def firestore(self) -> AbstractDatastore:
+  def firestore(self) -> Firestore:
     return Firestore()
 
   def process(self, data: Dict[str, Any], context) -> None:
@@ -65,7 +58,8 @@ class JobMonitor(object):
         if config := self.firestore.get_document(product, document.id):
           if config.get('dest_project'):
             user_creds = \
-                credentials.Credentials(email=config['email'],
+                credentials.Credentials(datastore=SecretManager,
+                                        email=config['email'],
                                         project=config['dest_project'])
             bq = bigquery.Client(project=config['dest_project'],
                                  credentials=user_creds.credentials)

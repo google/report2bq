@@ -42,9 +42,11 @@ flags.DEFINE_bool('delete', False,
 flags.DEFINE_bool('install', False,
                   'Add runners for a named report from a JSON file.')
 flags.DEFINE_bool('validate', False, 'Validate a defined report (SA360 only).')
+flags.DEFINE_bool('maddie', False, 'Maddie Pellman Special (SA360 only).')
+flags.DEFINE_bool('pcrawf', False, 'Maddie Pellman Special (SA360 only).')
 
 flags.mark_bool_flags_as_mutual_exclusive([
-  'list', 'show', 'add', 'delete', 'install', 'validate',
+  'list', 'show', 'add', 'delete', 'install', 'validate', 'maddie', 'pcrawf'
 ])
 
 # add
@@ -74,6 +76,8 @@ def main(unused_argv):
   elif FLAGS.install: action = 'install'
   elif FLAGS.delete: action = 'delete'
   elif FLAGS.validate: action = 'validate'
+  elif FLAGS.maddie: action = 'maddie'
+  elif FLAGS.pcrawf: action = 'pcrawf'
   else: raise NotImplementedError()
 
   args = {

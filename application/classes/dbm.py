@@ -16,30 +16,26 @@ from __future__ import annotations
 import datetime
 import io
 import logging
-
-
-from classes import secret_manager_credentials as credentials
-from classes import csv_helpers
-from classes import decorators
-from classes.gmail import error_to_trace
-from classes import Fetcher, ReportFetcher
-from classes.cloud_storage import Cloud_Storage
-from classes.report_config import ReportConfig
-from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
-from classes.report_type import Type
-from classes.services import Service
-from messytables.types import CellType
-from googleapiclient.errors import HttpError
-
 from contextlib import closing
 from queue import Queue
-from typing import Dict, Any, List, Mapping, Tuple, Union
+from typing import Any, Dict, List, Mapping, Tuple, Union
 from urllib.request import urlopen
+
+from auth import credentials
+from googleapiclient.errors import HttpError
+from service_framework.services import Service
+
+from classes import Fetcher, ReportFetcher, csv_helpers, decorators
+from classes.cloud_storage import Cloud_Storage
+from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
+from classes.gmail import error_to_trace
+from classes.report_config import ReportConfig
+from classes.report_type import Type
 
 
 class DBM(ReportFetcher, Fetcher):
   report_type = Type.DV360
-  service_definition = Service.DV360
+  service_definition = Type.DV360.service
 
   def __init__(self, email: str, project: str, profile: str = None) -> DBM:
     self.email = email
@@ -52,7 +48,7 @@ class DBM(ReportFetcher, Fetcher):
       result (Dict): the list of reports for the current user.
     """
     result = self.fetch(
-        self.service.queries().listqueries,
+        self.service.queries().list,
         **{'fields':
            ('queries(metadata(googleCloudStoragePathForLatestReport,'
             'latestReportRunTimeMs,title),params/type,queryId,'
@@ -71,7 +67,7 @@ class DBM(ReportFetcher, Fetcher):
                      not yet run.
     """
     report = {}
-    if all_results := self.fetch(self.service.reports().listreports,
+    if all_results := self.fetch(self.service.queries().reports().list,
                                  **{'queryId': report_id}):
       if 'reports' in all_results:
         # filter out any still running reports or ones with no 'finishTimeMs'
@@ -101,7 +97,7 @@ class DBM(ReportFetcher, Fetcher):
         Mapping[str, Any]: [description]
     """
     report = self.fetch(
-        method=self.service.queries().getquery,
+        method=self.service.queries().get,
         **{'queryId': report_id})
 
     return report
@@ -117,7 +113,7 @@ class DBM(ReportFetcher, Fetcher):
         Union[str, Mapping[str, Any]]: [description]
     """
     try:
-      response = self.service.queries().createquery(
+      response = self.service.queries().create(
           body=report).execute()
       return response
 
@@ -141,7 +137,7 @@ class DBM(ReportFetcher, Fetcher):
       result (Dict): the normalized data structure
     """
     query_object = \
-        self.service.queries().getquery(queryId=report_id).execute()
+        self.service.queries().get(queryId=report_id).execute()
 
     # Check if report has ever completed a run
     try:
@@ -186,14 +182,14 @@ class DBM(ReportFetcher, Fetcher):
 
     else:
       result = \
-          self.service.queries().runquery(queryId=report_id,
-                                          asynchronous=asynchronous).execute()
+          self.service.queries().run(queryId=report_id,
+                                     asynchronous=asynchronous).execute()
 
     return result
 
   @decorators.retry(Exception, tries=3, delay=15, backoff=2)
   def report_state(self, report_id: int) -> str:
-    request = self.service.reports().listreports(queryId=report_id)
+    request = self.service.queries().reports().list(queryId=report_id)
     results = request.execute()
 
     if reports := results.get('reports'):
@@ -207,14 +203,14 @@ class DBM(ReportFetcher, Fetcher):
 
   def read_header(self,
                   report_details: ReportConfig) -> Tuple[List[str],
-                                                         List[CellType]]:
+                                                         List[str]]:
     """Reads the header of the report CSV file.
 
     Args:
         report_details (dict): the report definition
 
     Returns:
-        Tuple[List[str], List[CellType]]: the csv headers and column types
+        Tuple[List[str], List[str]]: the csv headers and column types
     """
     if path := report_details.current_path:
       with closing(urlopen(path)) as report:

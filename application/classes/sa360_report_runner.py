@@ -14,18 +14,16 @@
 from __future__ import annotations
 
 import logging
-import os
-import pytz
-
-from classes import ReportRunner
-from classes import discovery
-from classes.report_type import Type
-from classes.sa360_reports import SA360ReportTemplate
-from classes.sa360_dynamic import SA360Dynamic
-from classes.services import Service
-
 from datetime import datetime, timedelta
 from typing import Any, Dict
+
+import pytz
+from service_framework import service_builder
+
+from classes import ReportRunner
+from classes.report_type import Type
+from classes.sa360_dynamic import SA360Dynamic
+from classes.sa360_reports import SA360ReportTemplate
 
 
 class SA360ReportRunner(ReportRunner):
@@ -35,8 +33,8 @@ class SA360ReportRunner(ReportRunner):
   """
   report_type = Type.SA360_RPT
 
-  def __init__(self, report_id: str, email: str, project: str=None,
-               timezone: str=None, **unused) -> SA360ReportRunner:
+  def __init__(self, report_id: str, email: str, project: str = None,
+               timezone: str = None, **unused) -> SA360ReportRunner:
     """Initialize the runner.
 
     The runner inherits from ReportRunner, which mandates the 'run' method.
@@ -85,46 +83,47 @@ class SA360ReportRunner(ReportRunner):
     try:
 
       report_config = \
-        self.firestore.get_document(type=Type.SA360_RPT, id=self.report_id)
+          self.firestore.get_document(type=Type.SA360_RPT, id=self.report_id)
       if not report_config:
         raise NotImplementedError(f'No such runner: {self.report_id}')
 
       _tz = \
-        pytz.timezone(report_config.get('timezone') or
-          self.timezone or 'America/Toronto')
+          pytz.timezone(report_config.get('timezone') or
+                        self.timezone or 'America/Toronto')
       _today = datetime.now(_tz)
 
       report_config['StartDate'] = \
-        (_today - timedelta(
-          days=(report_config.get('offset', 0)))).strftime('%Y-%m-%d')
+          (_today - timedelta(
+              days=(report_config.get('offset', 0)))).strftime('%Y-%m-%d')
       report_config['EndDate'] = \
-        (_today - timedelta(
-          days=(report_config.get('lookback', 0)))).strftime('%Y-%m-%d')
+          (_today - timedelta(
+              days=(report_config.get('lookback', 0)))).strftime('%Y-%m-%d')
 
       template = \
-        self.firestore.get_document(Type.SA360_RPT,
-                                    '_reports').get(report_config['report'])
+          self.firestore.get_document(Type.SA360_RPT,
+                                      '_reports').get(report_config['report'])
       request_body = \
-        SA360ReportTemplate().prepare(template=template, values=report_config)
+          SA360ReportTemplate().prepare(template=template, values=report_config)
       sa360_service = \
-        discovery.get_service(service=Service.SA360, credentials=sa360.creds)
+          service_builder.build_service(service=self.report_type.service,
+                                        key=sa360.creds.credentials)
       request = sa360_service.reports().request(body=request_body)
       response = request.execute()
       logging.info(response)
 
       runner = {
-        'type': Type.SA360_RPT.value,
-        'project': self.project,
-        'report_id': self.report_id,
-        'email': self.email,
-        'file_id': response['id']
+          'type': Type.SA360_RPT.value,
+          'project': self.project,
+          'report_id': self.report_id,
+          'email': self.email,
+          'file_id': response['id']
       }
       self.firestore.store_document(type=Type._RUNNING,
                                     id=runner['report_id'], document=runner)
 
     except Exception as e:
       self._email_error(email=self.email, error=e, report_config=report_config,
-        message=f'Error in SA360 Report Runner for report {self.report_id}\n\n')
+                        message=f'Error in SA360 Report Runner for report {self.report_id}\n\n')
 
     finally:
       return runner

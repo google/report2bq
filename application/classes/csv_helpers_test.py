@@ -16,8 +16,6 @@ import unittest
 
 from classes import csv_helpers
 
-from messytables import types
-
 CSV = '''string,int,float,date,datetime,*Sales Confirm - Revenue - DDA
 "Hello, my name is Inigo Montoya",0,1.00,1967-06-18,1967-06-18 06:30:00,aaa
 "Hello, my name is Inigo Montoya",-1,1.20,1967-06-18,1967-06-18 06:30:00,aaa
@@ -26,12 +24,12 @@ CSV = '''string,int,float,date,datetime,*Sales Confirm - Revenue - DDA
 HEADER = ['string', 'int', 'float', 'date', 'datetime',
           '*Sales Confirm - Revenue - DDA', ]
 TYPES = [
-    types.StringType(),
-    types.IntegerType(),
-    types.DecimalType(),
-    types.DateType('%Y-%m-%d'),
-    types.DateType('%Y-%m-%d %H:%M:%S'),
-    types.StringType(),
+    'STRING',
+    'INTEGER',
+    'FLOAT',
+    'DATETIME',
+    'DATETIME',
+    'STRING',
 ]
 
 HEADER_ONLY_CSV = '''string,int,float,date,datetime,*Sales Confirm - Revenue - DDA'''
@@ -71,7 +69,7 @@ class CSVHelpersTest(unittest.TestCase):
         {'name': 'string', 'type': 'STRING', 'mode': 'NULLABLE'},
         {'name': 'int', 'type': 'INTEGER', 'mode': 'NULLABLE'},
         {'name': 'float', 'type': 'FLOAT', 'mode': 'NULLABLE'},
-        {'name': 'date', 'type': 'DATE', 'mode': 'NULLABLE'},
+        {'name': 'date', 'type': 'DATETIME', 'mode': 'NULLABLE'},
         {'name': 'datetime', 'type': 'DATETIME', 'mode': 'NULLABLE'},
         {'name': 'X0x2aSales_Confirm___Revenue___DDA',
          'type': 'STRING',

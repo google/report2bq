@@ -16,34 +16,30 @@ limitations under the License.
 
 __author__ = ['davidharcombe@google.com (David Harcombe)']
 
-# Python Imports
-from classes import ReportFetcher
 import logging
-import urllib.request
 import os
-
+import urllib.request
+# Other imports
+from contextlib import closing
 from io import BytesIO
-from typing import Dict, List, Any, Tuple
-from classes import secret_manager_credentials as credentials
+from queue import Queue
+from typing import Any, Dict
+from urllib.request import urlopen
 
-from classes.secret_manager_credentials import Credentials
-from classes.cloud_storage import Cloud_Storage
-from classes import csv_helpers
-from classes.decorators import measure_memory
-from classes import discovery
-from classes.firestore import Firestore
-from classes.report_type import Type
-from classes.services import Service
-from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
-
+from auth.credentials import Credentials
+from auth.secret_manager import SecretManager
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import storage
 from googleapiclient.discovery import Resource
+from service_framework import service_builder
 
-# Other imports
-from contextlib import closing
-from queue import Queue
-from urllib.request import urlopen
+# Python Imports
+from classes import ReportFetcher, csv_helpers
+from classes.cloud_storage import Cloud_Storage
+from classes.decorators import measure_memory
+from classes.firestore import Firestore
+from classes.gcs_streaming import ThreadedGCSObjectStreamUpload
+from classes.report_type import Type
 
 
 class SA360Dynamic(ReportFetcher):
@@ -59,7 +55,8 @@ class SA360Dynamic(ReportFetcher):
                infer_schema: bool = False):
     self.email = email
     self.project = project
-    self.creds = Credentials(email=email, project=project)
+    self.creds = Credentials(email=email,
+                             project=project, datastore=SecretManager)
     self.credentials = storage.Client()._credentials
     self.transport = AuthorizedSession(credentials=self.credentials)
     self.append = append
@@ -71,7 +68,8 @@ class SA360Dynamic(ReportFetcher):
     self.bucket = f'{self.project}-report2bq-upload'
 
   def service(self) -> Resource:
-    return discovery.get_service(service=Service.SA360, credentials=self.creds)
+    return service_builder.build_service(service=self.report_type.service,
+                                         key=self.creds.credentials)
 
   def handle_report(self, run_config: Dict[str, Any]) -> bool:
     sa360_service = self.service()
@@ -82,7 +80,7 @@ class SA360Dynamic(ReportFetcher):
 
       if report['isReportReady']:
         report_config = self.firestore.get_document(
-          type=Type.SA360_RPT, id=run_config['report_id'])
+            type=Type.SA360_RPT, id=run_config['report_id'])
 
         csv_header, _ = self.read_header(report)
         schema = csv_helpers.create_table_schema(csv_header, None)
@@ -107,7 +105,7 @@ class SA360Dynamic(ReportFetcher):
 
     except Exception as e:
       logging.error(
-        f'Report fetch error: Run {run_config["file_id"]} for report {run_config["report_id"]}'
+          f'Report fetch error: Run {run_config["file_id"]} for report {run_config["report_id"]}'
       )
       return False
 
@@ -142,14 +140,13 @@ class SA360Dynamic(ReportFetcher):
     out_file = BytesIO()
 
     streamer = \
-      ThreadedGCSObjectStreamUpload(
-        client=Cloud_Storage.client(),
-        creds=credentials.Credentials(
-          email=self.email, project=self.project).credentials,
-        bucket_name=self.bucket,
-        blob_name=f'{report_id}.csv',
-        chunk_size=chunk_size,
-        streamer_queue=queue)
+        ThreadedGCSObjectStreamUpload(
+            client=Cloud_Storage.client(),
+            creds=self.creds.credentials,
+            bucket_name=self.bucket,
+            blob_name=f'{report_id}.csv',
+            chunk_size=chunk_size,
+            streamer_queue=queue)
     streamer.start()
 
     r = urllib.request.Request(report_details['files'][0]['url'])

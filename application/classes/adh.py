@@ -14,24 +14,20 @@
 from __future__ import annotations
 
 import logging
-import pytz
 import re
-
-from datetime import datetime
-from datetime import timedelta
-
+from datetime import datetime, timedelta
 from typing import Any, Dict
 
-from classes import csv_helpers
-from classes import decorators
-from classes import discovery
-from classes.secret_manager_credentials import Credentials
+import pytz
+from auth.credentials import Credentials
+from auth.secret_manager import SecretManager
+from googleapiclient.discovery import Resource
+from service_framework import service_builder
+
+from classes import csv_helpers, decorators, report_type
 from classes.cloud_storage import Cloud_Storage
 from classes.firestore import Firestore
 from classes.report_type import Type
-from classes.services import Service
-
-from googleapiclient.discovery import Resource
 
 
 class ADH(object):
@@ -45,10 +41,10 @@ class ADH(object):
   """
 
   def __init__(self,
-    email: str, project: str, adh_customer: str,
-    adh_query: str, api_key: str, days: int,
-    dest_project: str=None, dest_dataset: str=None, dest_table: str=None,
-    **unused) -> ADH:
+               email: str, project: str, adh_customer: str,
+               adh_query: str, api_key: str, days: int,
+               dest_project: str = None, dest_dataset: str = None, dest_table: str = None,
+               **unused) -> ADH:
     """Constructor
 
     Setus up the ADH helper
@@ -81,7 +77,8 @@ class ADH(object):
     Returns:
         Credentials: credentials
     """
-    return Credentials(email=self.email, project=self.project)
+    return Credentials(datastore=SecretManager,
+                       email=self.email, project=self.project)
 
   @decorators.lazy_property
   def storage(self) -> Cloud_Storage:
@@ -101,7 +98,7 @@ class ADH(object):
     """
     return Firestore()
 
-  def run(self, unattended: bool=True):
+  def run(self, unattended: bool = True):
     """Run the ADH query
 
     Execute the ADH query, storing the run job result in Firestore. The data itself will be written
@@ -115,9 +112,9 @@ class ADH(object):
     query_details = self.fetch_query_details()
     if query_details:
       report = {
-        'id': self.adh_query,
-        'details': query_details,
-        'customer_id': self.adh_customer,
+          'id': self.adh_query,
+          'details': query_details,
+          'customer_id': self.adh_customer,
       }
       if self.dest_project:
         report['dest_project'] = self.dest_project
@@ -129,7 +126,7 @@ class ADH(object):
         report['dest_table'] = self.dest_table
 
       report['table_name'] = \
-        csv_helpers.sanitize_title(query_details['title'])
+          csv_helpers.sanitize_title(query_details['title'])
 
       self.firestore.store_document(type=Type.ADH, document=report,
                                     id=self.adh_query)
@@ -149,9 +146,9 @@ class ADH(object):
     Returns:
         Resource: ADH service
     """
-    adh_service = \
-      discovery.get_service(service=Service.ADH,
-        credentials=self.credentials, api_key=self.api_key)
+    adh_service = service_builder.build_service(
+        service=report_type.Type.ADH.service,
+        key=self.credentials.credentials, api_key=self.api_key)
     return adh_service
 
   def fetch_query_details(self) -> Dict[str, Any]:
@@ -161,8 +158,8 @@ class ADH(object):
         Dict[str, Any]: [description]
     """
     query_id = 'customers/{customer_id}/analysisQueries/{query_id}'.format(
-      customer_id=self.adh_customer,
-      query_id=self.adh_query)
+        customer_id=self.adh_customer,
+        query_id=self.adh_query)
     query = self.adh.customers().analysisQueries().get(name=query_id).execute()
 
     return query
@@ -180,26 +177,26 @@ class ADH(object):
     earliest = yesterday - timedelta(days=60)
 
     body = {
-      "spec": {
-        "startDate": {
-          "year": earliest.year,
-          "month": earliest.month,
-          "day": earliest.day
+        "spec": {
+            "startDate": {
+                "year": earliest.year,
+                "month": earliest.month,
+                "day": earliest.day
+            },
+            "endDate": {
+                "year": yesterday.year,
+                "month": yesterday.month,
+                "day": yesterday.day
+            }
         },
-        "endDate": {
-          "year": yesterday.year,
-          "month": yesterday.month,
-          "day": yesterday.day
-        }
-      },
-      "destTable": '{project}.{dataset}.{table_name}'.format(
-        project=query_details['dest_project'] if 'dest_project' in query_details else self.project,
-        dataset=query_details['dest_dataset'] if 'dest_dataset' in query_details else 'adh_results',
-        table_name=query_details['table_name']
-      ),
-      "customerId": query_details['customer_id']
+        "destTable": '{project}.{dataset}.{table_name}'.format(
+            project=query_details['dest_project'] if 'dest_project' in query_details else self.project,
+            dataset=query_details['dest_dataset'] if 'dest_dataset' in query_details else 'adh_results',
+            table_name=query_details['table_name']
+        ),
+        "customerId": query_details['customer_id']
     }
     result = self.adh.customers().analysisQueries().start(
-      name=query_details['details']['name'], body=body).execute()
+        name=query_details['details']['name'], body=body).execute()
 
     return result

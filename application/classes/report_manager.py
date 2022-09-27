@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import dataclasses
 import enum
-import io
 import json
 import logging
 import os
@@ -24,7 +23,7 @@ import gcsfs
 import uuid
 
 from typing import Any, Dict, Iterable, List, Optional
-from classes import firestore
+from classes import error_to_trace
 
 from classes.cloud_storage import Cloud_Storage
 from classes.decorators import lazy_property
@@ -350,8 +349,10 @@ class ReportManager(object):
       present, _ = self.scheduler.process(**args)
 
     except Exception as e:
-      logging.error('%s - Check if already defined failed: %s', job_id, e)
-      return f'{job_id} - Check if already defined failed: {e}'
+      err = error_to_trace(e)
+      logging.error('%s - Check if already defined failed: %s',
+                    job_id, err)
+      return f'{job_id} - Check if already defined failed: {err}'
 
     if present:
       args = {

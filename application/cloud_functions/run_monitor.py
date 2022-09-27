@@ -15,20 +15,17 @@
 import datetime
 import logging
 import os
+from typing import Any, Dict
 
-from typing import Dict, List, Any
-
-from classes import secret_manager_credentials as credentials
-from classes import decorators
-from classes import firestore
-from classes import gmail
-from classes.abstract_datastore import AbstractDatastore
+from auth import credentials
+from auth.secret_manager import SecretManager
+from classes import decorators, firestore, gmail
 from classes.dbm import DBM
 from classes.dcm import DCM
 from classes.report_type import Type
 from classes.scheduler import Scheduler
-
 from google.cloud import pubsub
+from google.cloud.scheduler import Job
 
 
 class RunMonitor(object):
@@ -47,7 +44,7 @@ class RunMonitor(object):
   """
 
   @decorators.lazy_property
-  def firestore_client(self) -> AbstractDatastore:
+  def firestore_client(self) -> firestore.Firestore:
     """The Firestore client."""
     return firestore.Firestore()
 
@@ -100,14 +97,23 @@ class RunMonitor(object):
     for document in documents:
       run_config = document.get().to_dict()
       T = Type(run_config.get('type'))
-      (success, job_config) = \
-          self._fetch_schedule(type=T, run_config=run_config)
+      (success, job_config) = self._fetch_schedule(type=T,
+                                                   run_config=run_config)
 
       try:
         if success:
           logging.info('Processing job %s', run_config['report_id'])
-          report_checker.get(T, self._invalid_type)(
-              run_config=run_config, job_config=job_config)
+          match T:
+            case Type.DV360: self._check_dv360_report(
+                run_config=run_config, job_config=job_config)
+            case Type.CM: self._check_cm_report(
+                run_config=run_config, job_config=job_config)
+            case Type.SA360: self._check_sa360_report(
+                run_config=run_config, job_config=job_config)
+            case Type.SA360_RPT: self._check_sa360_report(
+                run_config=run_config, job_config=job_config)
+            case _: self._invalid_type(
+                run_config=run_config, job_config=job_config)
         else:
           # Invalid job; remove this runner
           self.remove_report_runner(document.id)
@@ -116,8 +122,8 @@ class RunMonitor(object):
         logging.error(gmail.error_to_trace(e))
         self._email_error(
             message=(
-                f'Error in run monitor for job {run_config["report_id"]}. Report'
-                f' config is: {job_config}'),
+                f'Error in run monitor for job {run_config["report_id"]}. '
+                f'Report config is: {job_config}'),
             error=e)
 
   def _fetch_schedule(self,
@@ -133,13 +139,13 @@ class RunMonitor(object):
         Dict[str, Any]: the schedule details.
     """
     scheduler = Scheduler()
-    return scheduler.process(**{
-        'action': 'get',
-        'project': os.environ['GCP_PROJECT'],
-        'email': run_config.get('email'),
-        'html': False,
-        'job_id': type.runner(run_config.get('report_id'))
-    })
+    return scheduler.process(
+        action='get',
+        project=os.environ['GCP_PROJECT'],
+        email=run_config.get('email'),
+        html=False,
+        job_id=type.runner(run_config.get('report_id'))
+    )
 
   def _invalid_type(self,
                     job_config: Dict[str, Any],
@@ -156,7 +162,7 @@ class RunMonitor(object):
     raise NotImplementedError('Invalid job type requested')
 
   def _check_dv360_report(self,
-                          job_config: Dict[str, Any],
+                          job_config: Job,
                           run_config: Dict[str, Any]) -> None:
     """Check a running DV360 report for completion.
 
@@ -164,7 +170,7 @@ class RunMonitor(object):
         job_config (Dict[str, Any]): job configuration
         run_config (Dict[str, Any]): current run configuration
     """
-    job_attributes = job_config['pubsubTarget']['attributes']
+    job_attributes = job_config.pubsub_target.attributes
     dbm = DBM(email=job_attributes['email'], project=job_attributes['project'])
     status = dbm.report_state(run_config['report_id'])
 
@@ -191,7 +197,7 @@ class RunMonitor(object):
       self.update_report_runner(run_config['report_id'], status)
 
   def _check_cm_report(self,
-                       job_config: Dict[str, Any],
+                       job_config: Job,
                        run_config: Dict[str, Any]) -> None:
     """Check a running CM360 report for completion.
 
@@ -199,7 +205,7 @@ class RunMonitor(object):
         job_config (Dict[str, Any]): job configuration
         run_config (Dict[str, Any]): current run configuration
     """
-    job_attributes = job_config['pubsubTarget']['attributes']
+    job_attributes = job_config.pubsub_target.attributes
     dcm = DCM(email=job_attributes['email'],
               project=job_attributes['project'],
               profile=job_attributes['profile'])
@@ -226,7 +232,7 @@ class RunMonitor(object):
       self.update_report_runner(run_config['report_id'], status)
 
   def _check_sa360_report(self,
-                          job_config: Dict[str, Any],
+                          job_config: Job,
                           run_config: Dict[str, Any]) -> None:
     """Check a running SA360 report for completion.
 
@@ -235,9 +241,7 @@ class RunMonitor(object):
         run_config (Dict[str, Any]): current run configuration
     """
     # Merge configs
-    job_attributes = \
-        job_config['pubsubTarget']['attributes'] \
-        if 'pubsubTarget' in job_config else {}
+    job_attributes = job_config.pubsub_target.attributes
     config = {**run_config, **job_attributes}
 
     # Send pubsub to trigger report2bq now
@@ -248,8 +252,8 @@ class RunMonitor(object):
 
   def _email_error(self,
                    message: str,
-                   email: str=None,
-                   error: Exception=None) -> None:
+                   email: str = None,
+                   error: Exception = None) -> None:
     """Emails the error details.
 
     Emails an error and the stack trace to the job owner and the administrator,
@@ -262,21 +266,21 @@ class RunMonitor(object):
     """
     to = [email] if email else []
     administrator = \
-      os.environ.get('ADMINISTRATOR_EMAIL') or \
+        os.environ.get('ADMINISTRATOR_EMAIL') or \
         self.FIRESTORE.get_document(Type._ADMIN, 'admin').get('email')
     cc = [administrator] if administrator else []
-    body=f'{message}{gmail.error_to_trace(error)}'
+    body = f'{message}{gmail.error_to_trace(error)}'
 
     if to or cc:
       message = gmail.GMailMessage(
-        to=to,
-        cc=cc,
-        subject=f'Error in run-monitor',
-        body=body,
-        project=os.environ.get('GCP_PROJECT'))
+          to=to,
+          cc=cc,
+          subject=f'Error in run-monitor',
+          body=body,
+          project=os.environ.get('GCP_PROJECT'))
 
       gmail.send_message(
-        message=message,
-        credentials=credentials.Credentials(
-          email=email or administrator, project=os.environ.get('GCP_PROJECT'))
+          message=message,
+          credentials=credentials.Credentials(datastore=SecretManager,
+                                              email=email or administrator, project=os.environ.get('GCP_PROJECT'))
       )

@@ -13,8 +13,11 @@
 # limitations under the License.
 from __future__ import annotations
 
-from classes.query import query
+from typing import Any, Dict, List, Optional
+
 from classes import report_manager
+from classes.query import query
+from google.cloud import bigquery
 
 
 class ManagerInput(query.Query):
@@ -142,3 +145,51 @@ class ManagerUpdate(query.Query):
 
     TRUNCATE TABLE `{config.project}.{config.dataset}.{config.table}`;
     """)
+
+
+class ActiveAccounts(query.Query):
+  def __init__(self,
+               config: report_manager.ManagerConfiguration) -> ManagerInput:
+    super().__init__(project=config.project, dataset=config.dataset)
+
+  def fetch(self, params: Optional[List[Any]] = []) -> bigquery.QueryJob:
+    self.query = f"""
+    SELECT
+      SAFE_CAST(ds_agency_id AS STRING) AS ds_agency_id,
+      SAFE_CAST(ds_advertiser_id AS STRING) AS ds_advertiser_id
+    FROM
+      `{self.project}.{self.dataset}.active_sa_accounts`
+    """
+
+    return self.execute(params=params)
+
+  def truncate(self) -> bigquery.QueryJob:
+    self.query = f"""
+    CREATE TABLE IF NOT EXISTS
+      `{self.project}.{self.dataset}.custom_columns` (
+      agency STRING,
+      advertiser STRING,
+      columns ARRAY<STRING>
+    );
+
+    TRUNCATE TABLE `{self.project}.{self.dataset}.custom_columns`;
+    """
+    return self.execute()
+
+  def insert(self, row: Dict[str, Any]) -> bigquery.QueryJob:
+    self.query = f"""
+    INSERT INTO
+      `{self.project}.{self.dataset}.custom_columns`
+    (
+      agency,
+      advertiser,
+      columns
+    )
+    VALUES (
+      {row['agency']},
+      {row['advertiser']},
+      {row['columns']}
+    )
+    """
+
+    return self.execute()

@@ -15,20 +15,17 @@ from __future__ import annotations
 
 import json
 import os
-
-from classes import csv_helpers, decorators
-from classes import discovery
-from classes import ReportRunner
-from classes import ga360_report
-from classes import ga360_report_response
-from classes import report_type
-from classes.secret_manager_credentials import Credentials
-from classes.gcs_streaming import GCSObjectStreamUpload
-from classes.report_type import Type
-from classes.services import Service
-
 from io import BytesIO, StringIO
 from typing import Any, Dict
+
+from auth.credentials import Credentials
+from auth.secret_manager import SecretManager
+from service_framework import service_builder
+
+from classes import (ReportRunner, csv_helpers, decorators, ga360_report,
+                     ga360_report_response)
+from classes.gcs_streaming import GCSObjectStreamUpload
+from classes.report_type import Type
 
 
 class GA360ReportRunner(ReportRunner):
@@ -38,7 +35,7 @@ class GA360ReportRunner(ReportRunner):
   """
   report_type = Type.GA360_RPT
 
-  def __init__(self, report_id: str, email: str, project: str=None,
+  def __init__(self, report_id: str, email: str, project: str = None,
                **kwargs) -> GA360ReportRunner:
     """Initialize the runner.
 
@@ -61,9 +58,10 @@ class GA360ReportRunner(ReportRunner):
 
   @decorators.lazy_property
   def credentials(self) -> Credentials:
-    return Credentials(project=self._project, email=self._email)
+    return Credentials(datastore=SecretManager, project=self._project,
+                       email=self._email)
 
-  def run(self, unattended: bool=False) -> Dict[str, Any]:
+  def run(self, unattended: bool = False) -> Dict[str, Any]:
     """Perform the report run
 
     Args:
@@ -84,14 +82,13 @@ class GA360ReportRunner(ReportRunner):
     runner = None
     report_config = None
     try:
-      runner = \
-        self.firestore.get_document(type=Type.GA360_RPT, id=self._report_id)
+      runner = self.firestore.get_document(
+          type=self.report_type, id=self._report_id)
 
-      if report_config := \
-        self.firestore.get_document(type=Type.GA360_RPT, id='_reports',
-                                    key=runner.get('report')):
-        definition = \
-          ga360_report.GA360ReportDefinition.from_json(
+      if report_config := self.firestore.get_document(type=self.report_type,
+                                                      id='_reports',
+                                                      key=runner.get('report')):
+        definition = ga360_report.GA360ReportDefinition.from_json(
             json.dumps(report_config))
       else:
         raise NotImplementedError(f'No such runner: {self._report_id}')
@@ -100,17 +97,19 @@ class GA360ReportRunner(ReportRunner):
       ranges = []
       for date_range in runner.get('date_ranges'):
         range = \
-          ga360_report.GA360DateRange(start_date=date_range.get('start_date'),
-                                      end_date=date_range.get('end_date'))
+            ga360_report.GA360DateRange(start_date=date_range.get('start_date'),
+                                        end_date=date_range.get('end_date'))
         ranges.append(range)
       definition.date_ranges = ranges
 
       request_body = {
-        'reportRequests': [
-          definition.report_request
-        ]
+          'reportRequests': [
+              definition.report_request
+          ]
       }
-      ga360_service = discovery.get_service(Service.GA360, self.credentials)
+      ga360_service = service_builder.build_service(
+          service=self.report_type.service,
+          key=self.credentials.credentials)
       request = ga360_service.reports().batchGet(body=request_body)
       response = request.execute()
 
@@ -124,7 +123,7 @@ class GA360ReportRunner(ReportRunner):
       if report := response.get('reports'):
         report_json = json.dumps(report[0])
         result = \
-          ga360_report_response.GA360ReportResponse.from_json(report_json)
+            ga360_report_response.GA360ReportResponse.from_json(report_json)
 
         # Convert report into CSV - handled by the dataclass itself.
         output_buffer = StringIO()
@@ -132,10 +131,10 @@ class GA360ReportRunner(ReportRunner):
 
         # Write schema to Firestore - update like any other.
         headers, types = csv_helpers.get_column_types(
-              BytesIO(output_buffer.getvalue().encode('utf-8')))
+            BytesIO(output_buffer.getvalue().encode('utf-8')))
         schema = \
-          csv_helpers.create_table_schema(column_headers=headers,
-                                          column_types=None)
+            csv_helpers.create_table_schema(column_headers=headers,
+                                            column_types=None)
         runner['schema'] = schema
         self.firestore.update_document(self.report_type, self._report_id,
                                        runner)
@@ -149,11 +148,10 @@ class GA360ReportRunner(ReportRunner):
         # ThreadedGCSObjectStreamUpload version.
         chunk_size = os.environ.get('CHUNK_MULTIPLIER', 128) * 1024 * 1024
         streamer = GCSObjectStreamUpload(
-          creds=Credentials(email=self._email,
-                            project=self._project).credentials,
-          bucket_name=f'{self._project}-report2bq-upload',
-          blob_name=f'{self._report_id}.csv',
-          chunk_size=chunk_size)
+            creds=self.credentials.credentials,
+            bucket_name=f'{self._project}-report2bq-upload',
+            blob_name=f'{self._report_id}.csv',
+            chunk_size=chunk_size)
         streamer.begin()
 
         output_buffer.seek(0)
@@ -166,7 +164,7 @@ class GA360ReportRunner(ReportRunner):
 
     except Exception as e:
       self._email_error(email=self._email, error=e, report_config=report_config,
-        message=f'Error in GA360 Report Runner for report {self._report_id}\n\n')
+                        message=f'Error in GA360 Report Runner for report {self._report_id}\n\n')
 
     finally:
       return runner

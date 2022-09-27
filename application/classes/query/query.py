@@ -13,12 +13,11 @@
 # limitations under the License.
 from __future__ import annotations
 
-import os
+from typing import Any, List, Optional, Union
 
-from classes import secret_manager_credentials as creds
+from auth import credentials as creds
 from google.cloud import bigquery
 from google.oauth2 import credentials as oauth
-from typing import Any, List, Optional, Union
 
 
 class Query():

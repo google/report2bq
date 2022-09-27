@@ -16,7 +16,7 @@ import json
 import unittest
 from unittest import mock
 
-from classes import local_datastore
+from auth import local_datastore
 from classes.report_type import Type
 from cli import key_upload
 

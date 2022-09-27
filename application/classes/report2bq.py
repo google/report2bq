@@ -33,12 +33,12 @@ from urllib.parse import unquote
 
 
 class Report2BQ(object):
-  def __init__(self, product: Type, email: str=None, project: str=None,
-    report_id: str=None, profile: str=None, sa360_url: str=None,
-    force: bool=False, append: bool=False, infer_schema: bool=False,
-    dest_project: str=None, dest_dataset: str='report2bq', dest_table: str=None,
-    notify_message: str=None, file_id: str=None, partition: str=None,
-    **unused) -> Report2BQ:
+  def __init__(self, product: Type, email: str = None, project: str = None,
+               report_id: str = None, profile: str = None, sa360_url: str = None,
+               force: bool = False, append: bool = False, infer_schema: bool = False,
+               dest_project: str = None, dest_dataset: str = 'report2bq', dest_table: str = None,
+               notify_message: str = None, file_id: str = None, partition: str = None,
+               **unused) -> Report2BQ:
     self._product = product
 
     self._force = force
@@ -65,12 +65,12 @@ class Report2BQ(object):
 
   @decorators.lazy_property
   def firestore(self) -> Firestore:
-    return Firestore() #email=self.email, project=self.project)
+    return Firestore()  # email=self.email, project=self.project)
 
   def handle_report_fetcher(self, fetcher: ReportFetcher) -> None:
     def _schema(field):
       if self._partition == 'infer' and \
-        field['type'] not in ['DATE', 'DATETIME']:
+              field['type'] not in ['DATE', 'DATETIME']:
         field['type'] = 'STRING'
       return field
 
@@ -88,7 +88,7 @@ class Report2BQ(object):
       last_run = ReportConfig(id=self._report_id, email=self._email)
 
     if report_data.last_updated == last_run.last_updated and \
-        not self._force:
+            not self._force:
       logging.info('No change: ignoring.')
       return
 
@@ -96,8 +96,10 @@ class Report2BQ(object):
     report_data.append = self._append
     report_data.force = self._force
 
-    if self._dest_project: report_data.dest_project = self._dest_project
-    if self._dest_dataset: report_data.dest_dataset = self._dest_dataset
+    if self._dest_project:
+      report_data.dest_project = self._dest_project
+    if self._dest_dataset:
+      report_data.dest_dataset = self._dest_dataset
 
     if self._dest_table:
       table_name = '_' + (csv_helpers.sanitize_title(self._dest_table))
@@ -105,16 +107,17 @@ class Report2BQ(object):
       table_name = '_' + (report_data.report_name or 'unnamed_report')
 
     report_data.dest_table = \
-      f'{fetcher.report_type}_{self._report_id}{table_name}'
+        f'{fetcher.report_type}_{self._report_id}{table_name}'
 
     if self._notify_message:
-      report_data.notifier = report_config.Notifier(message=self._notify_message)
+      report_data.notifier = report_config.Notifier(
+          message=self._notify_message)
 
     if report_object:
       csv_header, csv_types = fetcher.read_header(report_data)
       if csv_header:
         self._handle_partitioning(
-          report_data=report_data, csv_header=csv_header, csv_types=csv_types)
+            report_data=report_data, csv_header=csv_header, csv_types=csv_types)
 
         fetcher.stream_to_gcs(f'{self._project}-report2bq-upload', report_data)
 
@@ -123,10 +126,10 @@ class Report2BQ(object):
 
   def handle_sa360(self):
     sa360 = SA360Web(
-      project=self._project,
-      email=self._email,
-      infer_schema=self._infer_schema,
-      append=self._append)
+        project=self._project,
+        email=self._email,
+        infer_schema=self._infer_schema,
+        append=self._append)
     logging.info(self._sa360_url)
     id = re.match(r'^.*rid=([0-9]+).*$', self._sa360_url).group(1)
     if _config := self.firestore.get_document(Type.SA360, id):
@@ -134,8 +137,10 @@ class Report2BQ(object):
     else:
       report_data = ReportConfig(id=id, url=self._sa360_url, email=self._email)
 
-    if self._dest_project: report_data.dest_project = self._dest_project
-    if self._dest_dataset: report_data.dest_dataset = self._dest_dataset
+    if self._dest_project:
+      report_data.dest_project = self._dest_project
+    if self._dest_dataset:
+      report_data.dest_dataset = self._dest_dataset
     if self._dest_table:
       table_suffix = '_' + csv_helpers.sanitize_title(self._dest_table)
     else:
@@ -143,33 +148,34 @@ class Report2BQ(object):
     report_data.dest_table = f'{Type.SA360}_{id}{table_suffix}'
 
     if self._notify_message:
-      report_data.notifier = report_config.Notifier(message=self._notify_message)
+      report_data.notifier = report_config.Notifier(
+          message=self._notify_message)
 
     csv_header, csv_types = sa360.stream_to_gcs(
-      bucket=f'{self._project}-report2bq-upload',
-      report_details=report_data)
+        bucket=f'{self._project}-report2bq-upload',
+        report_details=report_data)
 
     self._handle_partitioning(
-      report_data=report_data, csv_header=csv_header, csv_types=csv_types)
+        report_data=report_data, csv_header=csv_header, csv_types=csv_types)
 
     self.firestore.store_document(type=Type.SA360, id=id,
                                   document=strip_nulls(report_data.to_dict()))
 
   def handle_sa360_report(self):
     sa360 = SA360Dynamic(
-      project=self._project,
-      email=self._email,
-      infer_schema=self._infer_schema,
-      append=self._append)
+        project=self._project,
+        email=self._email,
+        infer_schema=self._infer_schema,
+        append=self._append)
     logging.info(f'Handling SA360 report {self._report_id}')
 
     # Merge configs
     run_config = {
-      "email": self._email,
-      "file_id": self._file_id,
-      "project": self._project,
-      "report_id": self._report_id,
-      "type": self._product,
+        "email": self._email,
+        "file_id": self._file_id,
+        "project": self._project,
+        "report_id": self._report_id,
+        "type": self._product,
     }
     if sa360.handle_report(run_config=run_config):
       self.firestore.delete_document(Type._RUNNING, self._report_id)
@@ -191,19 +197,19 @@ class Report2BQ(object):
       return field
 
     schema = list(
-      map(_field_fix, csv_helpers.create_table_schema(csv_header, csv_types)))
+        map(_field_fix, csv_helpers.create_table_schema(csv_header, csv_types)))
     report_data.schema = schema
     if self._partition == 'infer':
-      msg = [ f'{F["name"]} - {F["type"]}' for F in schema ]
+      msg = [f'{F["name"]} - {F["type"]}' for F in schema]
       date_columns = \
-        [F['name'] for F in schema if F['type'] in ['DATE', 'DATETIME']]
+          [F['name'] for F in schema if F['type'] in ['DATE', 'DATETIME']]
       if date_columns:
         report_data.partition = report_config.Partitioning.INFER
         report_data.partition_column = date_columns[0]
       else:
         logging.info(
-          'Inferred partitioning requested, but no DATE[TIME] columns '
-          'found in schema: %s', ", ".join(msg))
+            'Inferred partitioning requested, but no DATE[TIME] columns '
+            'found in schema: %s', ", ".join(msg))
         if 'partition' in report_data:
           report_data.pop('partition')
     elif self._partition:
@@ -211,18 +217,20 @@ class Report2BQ(object):
 
   def run(self):
     logging.info(f'Product: {self._product}')
-    if self._product in [ Type.DV360, Type.CM ]:
-      fetcher = fetcher_factory.create_fetcher(self._product,
-                                               email=self._email,
-                                               project=self._project,
-                                               profile=self._cm_profile)
-      self.handle_report_fetcher(fetcher=fetcher)
+    match self._product:
+      case Type.DV360 | Type.CM:
+        fetcher = fetcher_factory.create_fetcher(self._product,
+                                                 email=self._email,
+                                                 project=self._project,
+                                                 profile=self._cm_profile)
+        self.handle_report_fetcher(fetcher=fetcher)
 
-    elif self._product == Type.SA360:
-      self.handle_sa360()
+      case Type.SA360:
+        self.handle_sa360()
 
-    elif self._product == Type.SA360_RPT:
-      self.handle_sa360_report()
+      case Type.SA360_RPT:
+        self.handle_sa360_report()
 
-    else:
-      raise NotImplementedError('Unknown report type requested')
+      case _:
+        raise NotImplementedError(
+            f'Unknown report type "{self._product}" requested')

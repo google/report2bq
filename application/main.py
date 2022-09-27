@@ -11,18 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import base64
 import logging
 import os
-
 from importlib import import_module
 from typing import Any, Dict
 
+import flask
+import functions_framework
+from auth.credentials import Credentials
+from auth.secret_manager import SecretManager
+
 from classes import gmail
 from classes.adh import ADH
+from classes.api_checker import APIService
 from classes.cloud_storage import Cloud_Storage
-from classes.secret_manager_credentials import Credentials
 from classes.dbm_report_runner import DBMReportRunner
 from classes.dcm_report_runner import DCMReportRunner
 from classes.decorators import measure_memory
@@ -33,11 +36,11 @@ from classes.report2bq import Report2BQ
 from classes.report_type import Type
 from classes.sa360_report_manager import SA360Manager
 from classes.sa360_report_runner import SA360ReportRunner
-from classes.api_checker import APIService
-
+from classes.scheduler import Scheduler
 from cloud_functions.job_monitor import JobMonitor
-from cloud_functions.run_monitor import RunMonitor
 from cloud_functions.report_loader import ReportLoader
+from cloud_functions.run_monitor import RunMonitor
+from google.cloud.scheduler import Job
 
 
 @measure_memory
@@ -100,7 +103,8 @@ def report_fetch(event: Dict[str, Any], context=None) -> None:
       else:
         kwargs['product'] = Type.DV360
 
-      if not APIService(project=project).check_api(kwargs['product'].api_name):
+      if not APIService(
+              project=project).check_api(kwargs['product'].service.name):
         api_not_enabled(kwargs['product'].fetcher(kwargs['report_id']))
       else:
         Report2BQ(**kwargs).run()
@@ -112,6 +116,7 @@ def report_fetch(event: Dict[str, Any], context=None) -> None:
                                            event=event, error=e)
         gmail.send_message(message,
                            credentials=Credentials(
+                               datastore=SecretManager,
                                project=os.environ['GCP_PROJECT'],
                                email=email))
 
@@ -183,61 +188,45 @@ def report_runner(event: Dict[str, Any], context=None) -> None:
         'project': project,
     }
 
-    if _command := {
-        Type.DV360: {
-            'runner':
-                DBMReportRunner if APIService(project=project).check_api(
-                    T.api_name) else api_not_enabled,
-            'args': {
-            'dbm_id': attributes.get('dv360_id') or attributes.get('report_id'),
-                **_base_args,
-                },
-        },
-        Type.CM: {
-            'runner': DCMReportRunner if APIService(project=project).check_api(
-                T.api_name) else api_not_enabled,
-            'args': {
-            'cm_id': attributes.get('cm_id') or attributes.get('report_id'),
-                'profile': attributes.get('profile', None),
-                **_base_args,
-            }
-        },
-        Type.SA360_RPT: {
-            'runner': SA360ReportRunner if APIService(project=project).check_api(
-                T.api_name) else api_not_enabled,
-            'args': {
-            'report_id': attributes.get('report_id'),
-                'timezone': attributes.get("timezone", None),
-                **_base_args,
-            }
-        },
-        Type.ADH: {
-            'runner': ADH if APIService(project=project).check_api(
-                T.api_name) else api_not_enabled,
-            'args': {
-            'adh_customer': attributes.get('adh_customer'),
-            'adh_query': attributes.get('adh_query'),
-            'api_key': attributes.get('api_key'),
-            'days': attributes.get('days', 60),
-            'dest_project': attributes.get('dest_project', None),
-            'dest_dataset': attributes.get('dest_dataset', None),
-            **_base_args,
-            }
-        },
-        Type.GA360_RPT: {
-            'runner':
-                GA360ReportRunner if APIService(project=project).check_api(
-                    T.api_name) else api_not_enabled,
-            'args': {
-            'report_id': attributes.get('report_id'),
-                **_base_args,
-            }
-        },
-    }.get(T):
-      _command['runner'](**_command['args']).run()
+    match T:
+      case Type.DV360:
+        (DBMReportRunner if APIService(project=project).check_api(
+            T.service.name) else api_not_enabled)(
+            dbm_id=(attributes.get('dv360_id') or attributes.get('report_id')),
+            **_base_args).run()
 
-    else:
-      logging.error('No or unknown report type specified.')
+      case Type.CM:
+        (DCMReportRunner if APIService(project=project).check_api(
+            T.service.name) else api_not_enabled)(
+            cm_id=(attributes.get('cm_id') or attributes.get('report_id')),
+            profile=attributes.get('profile', None),
+            **_base_args).run()
+
+      case Type.SA360_RPT:
+        (SA360ReportRunner if APIService(project=project).check_api(
+            T.service.name) else api_not_enabled)(
+            report_id=attributes.get('report_id'),
+            timezone=attributes.get("timezone", None),
+            **_base_args).run()
+      case Type.ADH:
+        (ADH if APIService(project=project).check_api(
+            T.service.name) else api_not_enabled)(
+            adh_customer=attributes.get('adh_customer'),
+            adh_query=attributes.get('adh_query'),
+            api_key=attributes.get('api_key'),
+            days=attributes.get('days', 60),
+            dest_project=attributes.get('dest_project', None),
+            dest_dataset=attributes.get('dest_dataset', None),
+            **_base_args).run()
+
+      case Type.GA360_RPT:
+        (GA360ReportRunner if APIService(project=project).check_api(
+            T.service.name) else api_not_enabled)(
+            report_id=attributes.get('report_id'),
+            **_base_args).run()
+
+      case _:
+        logging.error('No or unknown report type specified.')
 
 
 def post_processor(event: Dict[str, Any], context=None) -> None:
@@ -263,8 +252,8 @@ def post_processor(event: Dict[str, Any], context=None) -> None:
     if attributes := event.get('attributes'):
       _import = f'import classes.postprocessor.{name}'
       exec(_import)
-      Processor = getattr(
-          import_module(f'classes.postprocessor.{name}'), 'Processor')
+      Processor = getattr(import_module(f'classes.postprocessor.{name}'),
+                          'Processor')
       try:
         Processor().run(context=context, **attributes)
 
@@ -296,14 +285,8 @@ def report_manager(event: Dict[str, Any], context=None) -> None:
   }.get(bucket_name):
     logging.info('Processing file %s', file_name)
     try:
-      args = {
-          'report': name,
-          'project': project,
-          'file': file_name,
-          'gcs_stored': True,
-          'action': extension,
-      }
-      f().manage(**args)
+      f().manage(report=name, project=project, file=file_name, gcs_stored=True,
+                 action=extension)
       Cloud_Storage.rename(
           bucket=bucket_name,
           source=file_name, destination=f'{file_name}.processed')
@@ -324,16 +307,61 @@ def sa360_report_creator(event: Dict[str, Any], context=None) -> None:
       context ([type], optional): [description]. Defaults to None.
   """
   logging.info(event)
-  project = os.environ.get('GCP_PROJECT')
 
   if attributes := event.get('attributes'):
-    args = {
-      'project': attributes.get('project'),
-      'email': attributes.get('email'),
-      'name': 'SA360Report',
-      'action': 'install',
-    }
-    manager = SA360Manager().manage(**args)
+    manager = SA360Manager().manage(
+        project=attributes.get('project') or os.environ.get('GCP_PROJECT'),
+        email=attributes.get('email'),
+        name='SA360Report',
+        action='install')
+
+
+def job_manager(event: Dict[str, Any], context=None) -> None:
+  """Sends commmands to the job scheduler."""
+  logging.info(event)
+
+  if attributes := event.get('attributes'):
+    scheduler = Scheduler()
+    scheduler.email = attributes.get('email')
+    scheduler.project = attributes.get(
+        'project') or os.environ.get('GCP_PROJECT')
+    scheduler.process(attributes)
+  else:
+    logging.error("No attributes, so nothing to do.")
+
+
+@functions_framework.http
+def job_manager_http(req: flask.request) -> None:
+  """Sends commmands to the job scheduler."""
+  if req.method == 'GET':
+    return 'Sorry, this function must be called with a POST.'
+
+  project = os.environ.get('GCP_PROJECT')
+  request_json = req.get_json(silent=True)
+  message = request_json['message']
+
+  try:
+    scheduler = Scheduler()
+    scheduler.email = message['email']
+    scheduler.project = project
+
+    message['project'] = project
+    print(message)
+
+    result = scheduler.process(**message)
+    match message['action']:
+      case 'list':
+        ret_val = [Job.to_dict(job) for job in result]
+      case 'get' | 'create' | 'update':
+        (success, job) = result
+        ret_val = success, Job.to_dict(job)
+        print(ret_val)
+      case _:
+        ret_val = result
+    return {'response': ret_val}
+
+  except Exception as e:
+    return (gmail.error_to_trace(e), 500)
 
 
 def api_not_enabled(action: str, **unused) -> None:

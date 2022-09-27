@@ -97,7 +97,7 @@ function check_service {
 }
 
 # Constants
-PYTHON_RUNTIME=python39
+PYTHON_RUNTIME=python310
 
 # Switch definitions
 PROJECT=
@@ -350,7 +350,7 @@ if [ ${STORE_API_KEY} -eq 1 ]; then
 fi
 
 if [ ${STORE_CLIENT} -eq 1 ]; then
-  if [ -z ${CLIENT_ID} ] || [ -z ${CLIENT_SECRET }]; then
+  if [ -z ${CLIENT_ID} ] || [ -z ${CLIENT_SECRET} ]; then
     echo To store the client details you must supply CLIENT_ID and CLIENT_SECRET.
     exit
   else
@@ -482,6 +482,19 @@ if [ ${DEPLOY_TOPICS} -eq 1 ]; then
       --project=${PROJECT} \
       --quiet \
       "report2bq-bq-creator"
+  fi
+
+  if [ ${DEPLOY_JOB_MANAGER} -eq 1 ]; then
+    # Create topic
+    ${DRY_RUN} gcloud pubsub topics delete \
+      --project=${PROJECT} \
+      --quiet \
+      "report2bq-job-manager"
+
+    ${DRY_RUN} gcloud pubsub topics create \
+      --project=${PROJECT} \
+      --quiet \
+      "report2bq-job-manager"
   fi
 fi
 
@@ -682,7 +695,7 @@ if [ ${DEPLOY_SA360_MANAGER} -eq 1 ]; then
     "--email=davidharcombe@google.com",
   )
   ${DRY_RUN} gcloud beta scheduler jobs create pubsub "report2bq-bq-sa360-report-creator" \
-    --schedule="1-59/2 * * * *" \
+    --schedule="50 * * * *" \
     --topic="projects/${PROJECT}/topics/report2bq-bq-creator" \
     --time-zone="America/Toronto" \
     --message-body="RUN" \
@@ -700,6 +713,36 @@ if [ ${DEPLOY_GA360_MANAGER} -eq 1 ]; then
     --memory=4096MB \
     --trigger-resource="projects/_/buckets/${PROJECT}-report2bq-ga360-manager" \
     --trigger-event="google.storage.object.finalize" \
+    --service-account=${USER} \
+    --set-env-vars=${ENVIRONMENT} \
+    --quiet \
+    --timeout=240s \
+    --project=${PROJECT} ${_BG}
+fi
+
+if [ ${DEPLOY_JOB_MANAGER} -eq 1 ]; then
+  # Deploy cloud function
+  echo "job manager (async)"
+  ${DRY_RUN} gcloud functions deploy "report2bq-job-manager-pubsub" \
+    --entry-point=job_manager \
+    --source=${SOURCE} \
+    --runtime ${PYTHON_RUNTIME} \
+    --memory=4096MB \
+    --trigger-topic="report2bq-job-manager" \
+    --service-account=${USER} \
+    --set-env-vars=${ENVIRONMENT} \
+    --quiet \
+    --timeout=240s \
+    --project=${PROJECT} ${_BG}
+
+  echo "job manager (async)"
+  ${DRY_RUN} gcloud functions deploy "report2bq-job-manager-http" \
+    --entry-point=job_manager_http \
+    --source=${SOURCE} \
+    --runtime ${PYTHON_RUNTIME} \
+    --memory=4096MB \
+    --trigger-http \
+    --allow-unauthenticated \
     --service-account=${USER} \
     --set-env-vars=${ENVIRONMENT} \
     --quiet \
