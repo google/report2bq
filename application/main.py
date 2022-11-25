@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import base64
+import json
 import logging
 import os
 from importlib import import_module
@@ -331,13 +332,14 @@ def job_manager(event: Dict[str, Any], context=None) -> None:
 
 
 @functions_framework.http
-def job_manager_http(req: flask.request) -> None:
+def job_manager_http(req: flask.request = None) -> None:
   """Sends commmands to the job scheduler."""
   if req.method == 'GET':
     return 'Sorry, this function must be called with a POST.'
 
   project = os.environ.get('GCP_PROJECT')
   request_json = req.get_json(silent=True)
+
   message = request_json['message']
 
   try:
@@ -352,12 +354,18 @@ def job_manager_http(req: flask.request) -> None:
     match message['action']:
       case 'list':
         ret_val = [Job.to_dict(job) for job in result]
+
       case 'get' | 'create' | 'update':
         (success, job) = result
         ret_val = success, Job.to_dict(job)
-        print(ret_val)
+
       case _:
-        ret_val = result
+        (success, error) = result
+        if success:
+          ret_val = 'OK'
+        else:
+          ret_val = f'ERROR!\n{error["error"]["message"]}'
+
     return {'response': ret_val}
 
   except Exception as e:

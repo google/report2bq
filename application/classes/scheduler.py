@@ -119,7 +119,7 @@ class Scheduler(Fetcher):
         }
 
         for option in ['force', 'infer_schema', 'append', 'notify_message']:
-          if o :=kwargs.get(option):
+          if o := kwargs.get(option):
             _attrs[option] = str(o)
 
         if 'dest_dataset' in kwargs:
@@ -132,36 +132,36 @@ class Scheduler(Fetcher):
           _attrs['dest_table'] = kwargs.get('dest_table')
 
         if kwargs.get('minute'):
-          minute = kwargs.get('minute')
+          _minute = kwargs.get('minute')
         else:
           random.seed(uuid.uuid4())
-          minute = random.randrange(0, 59)
+          _minute = random.randrange(0, 59)
 
         if kwargs.get('sa360_url'):
-          product = 'sa360'
-          hour = kwargs.get('hour') if kwargs.get('hour') else '3'
-          action = 'fetch'
-          topic = 'report2bq-fetcher'
+          _product = 'sa360'
+          _hour = kwargs.get('hour') if kwargs.get('hour') else '3'
+          _action = 'fetch'
+          _topic = 'report2bq-fetcher'
           _attrs.update({
               'sa360_url': kwargs.get('sa360_url'),
               'type': Type.SA360.value,
           })
 
         elif kwargs.get('type') == Type.SA360_RPT:
-          product = Type.SA360_RPT.value
-          hour = kwargs.get('hour', '*')
-          action = 'run'
-          topic = 'report2bq-runner'
+          _product = Type.SA360_RPT.value
+          _hour = kwargs.get('hour', '*')
+          _action = 'run'
+          _topic = 'report2bq-runner'
           _attrs.update({
               'report_id': kwargs.get('report_id'),
               'type': Type.SA360_RPT.value,
           })
 
         elif kwargs.get('adh_customer'):
-          product = Type.ADH.value
-          hour = kwargs.get('hour') if kwargs.get('hour') else '2'
-          action = 'run'
-          topic = 'report2bq-runner'
+          _product = Type.ADH.value
+          _hour = kwargs.get('hour') if kwargs.get('hour') else '2'
+          _action = 'run'
+          _topic = 'report2bq-runner'
           _attrs.update({
               'adh_customer': kwargs.get('adh_customer'),
               'adh_query': kwargs.get('adh_query'),
@@ -171,10 +171,10 @@ class Scheduler(Fetcher):
           })
 
         elif kwargs.get('type') == Type.GA360_RPT:
-          product = Type.GA360_RPT.value
-          hour = kwargs.get('hour', '*')
-          action = 'run'
-          topic = 'report2bq-runner'
+          _product = Type.GA360_RPT.value
+          _hour = kwargs.get('hour', '*')
+          _action = 'run'
+          _topic = 'report2bq-runner'
           _attrs.update({
               'report_id': kwargs.get('report_id'),
               'type': Type.GA360_RPT.value,
@@ -182,23 +182,23 @@ class Scheduler(Fetcher):
 
         else:
           if kwargs.get('runner'):
-            hour = kwargs.get('hour') if kwargs.get('hour') else '1'
-            action = 'run'
-            topic = 'report2bq-runner'
+            _hour = kwargs.get('hour') if kwargs.get('hour') else '1'
+            _action = 'run'
+            _topic = 'report2bq-runner'
           else:
-            hour = '*'
-            action = 'fetch'
-            topic = 'report2bq-fetcher'
+            _hour = '*'
+            _action = 'fetch'
+            _topic = 'report2bq-fetcher'
 
           if kwargs.get('profile'):
-            product = 'cm'
+            _product = 'cm'
             _attrs.update({
                 'profile': kwargs.get('profile'),
                 'cm_id': kwargs.get('report_id'),
                 'type': Type.CM.value,
             })
           else:
-            product = 'dv360'
+            _product = 'dv360'
             _attrs.update({
                 'dv360_id': kwargs.get('report_id'),
                 'type': Type.DV360.value,
@@ -206,10 +206,10 @@ class Scheduler(Fetcher):
 
         name = self.client.job_path(
             self.project, self.location,
-            f"{action}-{product}-{kwargs.get('report_id')}")
+            f"{_action}-{_product}-{kwargs.get('report_id')}")
 
         _target = PubsubTarget(**{
-            'topic_name': f"projects/{self.project}/topics/{topic}",
+            'topic_name': f"projects/{self.project}/topics/{_topic}",
             'attributes': _attrs,
         })
 
@@ -217,16 +217,12 @@ class Scheduler(Fetcher):
             'name': name,
             'description': kwargs.get('description'),
             'pubsub_target': _target,
-            'schedule': f"{minute} {hour} * * *",
+            'schedule': f"{_minute} {_hour} * * *",
             'time_zone': kwargs.get('timezone') or 'UTC',
         })
 
-        # f = getattr(self, f'{action}_job')
-        # return f(job=job)
-        if action == 'create':
-          return self.create_job(job=job)
-        else:
-          return self.update_job(job=job)
+        f = getattr(self, f'{action}_job')
+        return f(job=job)
 
       case _:
         (success, job) = self.get_job(job_id=kwargs.get('job_id'))
@@ -244,10 +240,7 @@ class Scheduler(Fetcher):
           case 'disable':
             (success, error) = self.enable_job(job_id=job.name, enable=False)
 
-        if success:
-          return 'OK'
-        else:
-          return f'ERROR!\n{error["error"]["message"]}'
+        return (success, error)
 
   def list_locations(self) -> List[str]:
     """Lists the available scheduler locations in GCP.
@@ -308,7 +301,8 @@ class Scheduler(Fetcher):
       return (True, None)
 
     except Exception as error:
-      logging.error(self.error_to_trace(error))
+      logging.error('Error processing job %s: %s',
+                    job_id, self.error_to_trace(error))
       return (False, error)
 
   def enable_job(self, job_id: str = None,
@@ -334,7 +328,8 @@ class Scheduler(Fetcher):
       return (True, None)
 
     except Exception as error:
-      logging.error(self.error_to_trace(error))
+      logging.error('Error processing job %s: %s',
+                    job_id, self.error_to_trace(error))
       return (False, error)
 
   def create_job(self, job: Job) -> Tuple[bool, Union[Job, Exception]]:
@@ -357,7 +352,8 @@ class Scheduler(Fetcher):
       return (True, result)
 
     except Exception as error:
-      logging.error(self.error_to_trace(error))
+      logging.error('Error processing job %s: %s',
+                    job.name, self.error_to_trace(error))
       return (False, error)
 
   def update_job(self, job: Job) -> Tuple[bool, Union[Job, Exception]]:
@@ -375,7 +371,8 @@ class Scheduler(Fetcher):
       return (True, result)
 
     except Exception as error:
-      logging.error(self.error_to_trace(error))
+      logging.error('Error processing job %s: %s',
+                    job.name, self.error_to_trace(error))
       return (False, error)
 
   def get_job(self, job_id: str) -> Tuple[bool, Union[Job, Exception]]:
@@ -388,15 +385,15 @@ class Scheduler(Fetcher):
       Tuple[bool, Union[Job, Exception]]: success indicator, either Job
         definition or Exception.
     """
+    job_name = self.client.job_path(
+        location=self.location, project=self.project, job=job_id)
     try:
-      job = self.client.get_job(
-          request=GetJobRequest(name=self.client.job_path(
-              location=self.location, project=self.project, job=job_id)
-          ))
+      job = self.client.get_job(request=GetJobRequest(name=job_name))
       return (True, job)
 
     except Exception as error:
-      logging.error(self.error_to_trace(error))
+      logging.error('Error processing job %s: %s',
+                    job_name, self.error_to_trace(error))
       return (False, error)
 
   def _find(self, lst: List[Job], name: str) -> Job:
