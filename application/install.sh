@@ -319,18 +319,36 @@ if [ ${DEPLOY_BQ} -eq 1 ]; then
     bq --project_id=${PROJECT} show --dataset ${_dataset} > /dev/null 2>&1
     RETVAL=$?
     if (( $RETVAL != "0" )); then
-      ${DRY_RUN} bq --project_id=${PROJECT} mk --dataset ${_dataset}
+      # Default exipration set to 1 year
+      ${DRY_RUN} bq --project_id=${PROJECT} mk  \
+        --expiration 31536000                   \
+        --dataset ${_dataset}
     fi
   done
 fi
 
 if [ ${DEPLOY_STORAGE} -eq 1 ]; then
-  # Create buckets
-  for bucket in report2bq report2bq-tokens report2bq-upload report2bq-postprocessor report2bq-sa360-manager report2bq-ga360-manager; do
-    gsutil ls -p ${PROJECT} gs://${PROJECT}-${bucket} > /dev/null 2>&1
+  # Create buckets. Parameters here are [NAME]:[DATA RETENTION]
+  # "DATA RETENTION" is in the format [n]y[n]m[n]d[nnnnn]s
+  #   so 1y6m = 18 months
+  #      1d43200s = 1.5 days (36h)
+  for bucket in                   \
+    report2bq:1d                  \
+    report2bq-tokens:1y           \
+    report2bq-upload:43200s       \
+    report2bq-postprocessor:5y    \
+    report2bq-sa360-manager:1d    \
+    report2bq-ga360-manager:1d; do
+    IFS=":" read BUCKET_NAME BUCKET_RETENTION <<< ${bucket}
+    ${DRY_RUN} gsutil ls                        \
+      --project ${PROJECT}                      \
+      gs://${PROJECT}-${BUCKET_NAME} > /dev/null 2>&1
     RETVAL=$?
     if (( ${RETVAL} != "0" )); then
-      ${DRY_RUN} gsutil mb -p ${PROJECT} gs://${PROJECT}-${bucket}
+      ${DRY_RUN} gsutil mb                      \
+        --project=${PROJECT}                    \
+        --retention-period=${BUCKET_RETENTION}     \
+        gs://${PROJECT}-${BUCKET_NAME}
     fi
   done
 fi
