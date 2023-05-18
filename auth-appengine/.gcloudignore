@@ -20,5 +20,5 @@ __pycache__/
 node_modules/**
 .history/
 .vscode/
-python-3.9/
+python-*/
 test/

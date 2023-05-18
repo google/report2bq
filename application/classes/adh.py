@@ -20,7 +20,7 @@ from typing import Any, Dict
 
 import pytz
 from auth.credentials import Credentials
-from auth.secret_manager import SecretManager
+from auth.datastore.secret_manager import SecretManager
 from googleapiclient.discovery import Resource
 from service_framework import service_builder
 

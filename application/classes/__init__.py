@@ -24,7 +24,7 @@ from service_framework import services
 
 from classes import decorators, firestore, gmail, report_type
 from auth.credentials import Credentials
-from auth.secret_manager import SecretManager
+from auth.datastore.secret_manager import SecretManager
 
 from classes.exceptions import CredentialsError
 from classes.report_config import ReportConfig

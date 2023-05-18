@@ -21,7 +21,7 @@ from typing import Any, Dict
 import flask
 import functions_framework
 from auth.credentials import Credentials
-from auth.secret_manager import SecretManager
+from auth.datastore.secret_manager import SecretManager
 
 from classes import gmail
 from classes.adh import ADH

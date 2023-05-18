@@ -84,7 +84,7 @@ def upload(**args) -> None:
     f = Firestore()
 
   if args.get('secret_manager'):
-    from auth.secret_manager import SecretManager
+    from auth.datastore.secret_manager import SecretManager
     f = SecretManager(project=_project, email=args.get('email'))
 
   f.update_document(type=Type._ADMIN, id=key, new_data=src_data)

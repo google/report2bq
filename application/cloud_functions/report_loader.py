@@ -17,7 +17,7 @@ import os
 from typing import Any, Dict, List, Tuple
 
 from auth.credentials import Credentials as Report2BQCredentials
-from auth.secret_manager import SecretManager
+from auth.datastore.secret_manager import SecretManager
 from classes import csv_helpers, decorators, firestore, gmail
 from classes.report_type import Type
 from google.cloud import bigquery

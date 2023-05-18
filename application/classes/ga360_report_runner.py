@@ -19,7 +19,7 @@ from io import BytesIO, StringIO
 from typing import Any, Dict
 
 from auth.credentials import Credentials
-from auth.secret_manager import SecretManager
+from auth.datastore.secret_manager import SecretManager
 from service_framework import service_builder
 
 from classes import (ReportRunner, csv_helpers, decorators, ga360_report,

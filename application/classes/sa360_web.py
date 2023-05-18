@@ -24,7 +24,7 @@ from typing import Any, Generator, List, Tuple
 
 import requests as req
 from auth.credentials import Credentials
-from auth.secret_manager import SecretManager
+from auth.datastore.secret_manager import SecretManager
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import storage
 

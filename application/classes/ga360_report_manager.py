@@ -20,7 +20,7 @@ from typing import Any, Dict
 
 from classes import report_manager
 from auth.credentials import Credentials
-from auth.secret_manager import SecretManager
+from auth.datastore.secret_manager import SecretManager
 from classes.report_type import Type
 from service_framework import service_builder
 

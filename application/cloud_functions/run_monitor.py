@@ -18,7 +18,7 @@ import os
 from typing import Any, Dict
 
 from auth import credentials
-from auth.secret_manager import SecretManager
+from auth.datastore.secret_manager import SecretManager
 from classes import decorators, firestore, gmail
 from classes.dbm import DBM
 from classes.dcm import DCM

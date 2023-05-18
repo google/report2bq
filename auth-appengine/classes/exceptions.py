@@ -13,7 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
-from classes.credentials_helpers import encode_key
+from auth.credentials_helpers import encode_key
 
 
 class CredentialsError(Exception):

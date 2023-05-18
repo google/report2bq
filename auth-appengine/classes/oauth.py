@@ -12,19 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import io
-import json
 import logging
 import os
-from urllib.parse import unquote_plus as unquote
-from urllib.parse import urlparse, urlunparse
 
-from flask import Flask, Request, Response, redirect, url_for
+from auth.datastore import secret_manager
+from auth.credentials import Credentials
+from flask import Flask, Request
 from google.auth.transport.requests import Request
-from google.cloud import storage
-from google_auth_oauthlib import flow, helpers
 from oauth2client import client
-from classes.secret_manager_credentials import Credentials
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -47,10 +42,9 @@ class OAuth(object):
       'https://www.googleapis.com/auth/gmail.send',
   ]
   project = os.environ['GOOGLE_CLOUD_PROJECT']
-  bucket = f'{project}-report2bq-tokens'
 
   def oauth_complete(self, request: Request):
-    if(request.get_data()):
+    if (request.get_data()):
       app.logger.info(f'data:\n{request.get_data()}')
       auth_code = str(request.get_data(), encoding='utf-8')
 
@@ -58,8 +52,9 @@ class OAuth(object):
       app.logger.error('No code sent!')
       return 'AUTH FAIL: No authentication code received.'
 
-    project_credentials = Credentials(project=self.project,
-                                      email=None).project_credentials
+    project_credentials = Credentials(
+        project=self.project,
+        email=None, datastore=secret_manager.SecretManager).project_credentials
 
     credentials = client.credentials_from_code(
         client_id=project_credentials.client_id,
@@ -69,7 +64,8 @@ class OAuth(object):
     )
 
     email = credentials.id_token['email']
-    cm = Credentials(project=self.project, email=email)
+    cm = Credentials(project=self.project, email=email,
+                     datastore=secret_manager.SecretManager)
     cm.store_credentials(creds=credentials)
 
     return 'Authenticated!'

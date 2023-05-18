@@ -20,7 +20,7 @@ import uuid
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from auth.credentials import Credentials
-from auth.secret_manager import SecretManager
+from auth.datastore.secret_manager import SecretManager
 from google.cloud.scheduler import (CloudSchedulerClient, CreateJobRequest,
                                     DeleteJobRequest, GetJobRequest, Job,
                                     ListJobsRequest, PauseJobRequest,

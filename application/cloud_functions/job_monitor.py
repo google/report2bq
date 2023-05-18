@@ -17,7 +17,7 @@ import os
 import re
 
 from auth import credentials
-from auth.secret_manager import SecretManager
+from auth.datastore.secret_manager import SecretManager
 from classes import decorators
 from classes.firestore import Firestore
 from classes.report_type import Type

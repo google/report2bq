@@ -14,15 +14,13 @@
 
 from typing import Any, Dict, List, Optional
 
-from classes import decorators
-from classes.secret_manager_credentials import Credentials
-from classes.report_type import Type
-
-from google.cloud import firestore
-from google.cloud import bigquery
+from auth.credentials import Credentials
+from auth.datastore import secret_manager
+from google.cloud import bigquery, firestore
 from google.cloud.firestore import DocumentReference
 
-from typing import Any, Dict
+from classes import decorators
+from classes.report_type import Type
 
 
 class Firestore(object):
@@ -31,7 +29,8 @@ class Firestore(object):
   This class handles all Firestore interactions.
 
   """
-  def __init__(self, email: str=None, project: str=None, in_cloud: bool=True):
+
+  def __init__(self, email: str = None, project: str = None, in_cloud: bool = True):
     """constructor
 
     Takes email address, project and in_cloud to access the credentials needed.
@@ -52,8 +51,9 @@ class Firestore(object):
   @decorators.lazy_property
   def client(self):
     return firestore.Client() if self._in_cloud else \
-        firestore.Client(credentials=Credentials(email=self._email,
-                         project=self._project).get_credentials())
+        firestore.Client(credentials=Credentials(
+            email=self._email, datastore=secret_manager.SecretManager,
+            project=self._project).get_credentials())
 
   def get_report_config(self, type: Type, id: str) -> Dict[str, Any]:
     """Loads a config
@@ -179,7 +179,7 @@ class Firestore(object):
     self.delete_document(Type._RUNNING, runner)
 
   def get_document(self, type: Type, id: str,
-                   key: Optional[str]=None) -> Dict[str, Any]:
+                   key: Optional[str] = None) -> Dict[str, Any]:
     """Loads a document (could be anything, 'type' identifies the root.)
 
     Load a document
@@ -195,7 +195,7 @@ class Firestore(object):
     """
     document = None
 
-    if report:= self.client.document(f'{type}/{id}'):
+    if report := self.client.document(f'{type}/{id}'):
       document = report.get().to_dict()
 
     return document.get(key) if key else document
@@ -239,7 +239,7 @@ class Firestore(object):
           document_ref.create(new_data)
 
   def delete_document(self, type: Type, id: str,
-                      key: Optional[str]=None) -> None:
+                      key: Optional[str] = None) -> None:
     """Deletes a document.
 
     This removes a document or partial document from the Firestore. If a key is
@@ -254,11 +254,11 @@ class Firestore(object):
     if collection := self.client.collection(f'{type}'):
       if document_ref := collection.document(document_id=id):
         if key:
-          document_ref.update({ key: firestore.DELETE_FIELD })
+          document_ref.update({key: firestore.DELETE_FIELD})
         else:
           document_ref.delete()
 
-  def list_documents(self, report_type: Type, key: str=None) -> List[str]:
+  def list_documents(self, report_type: Type, key: str = None) -> List[str]:
     """Lists documents in a collection.
 
     List all the documents in the collection 'type'. If a key is give, list

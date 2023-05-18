@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Tuple
 import dataclasses_json
 import stringcase
 from auth.credentials import Credentials
-from auth.secret_manager import SecretManager
+from auth.datastore.secret_manager import SecretManager
 from google.cloud import bigquery
 from googleapiclient import discovery as gdiscovery
 from service_framework import service_builder

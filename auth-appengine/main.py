@@ -12,21 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# [START app]
 import logging
 import os
 from contextlib import suppress
 from typing import Dict, Literal
 
 import jinja2
+from auth.credentials import Credentials
+from auth.exceptions import CredentialsError
+from auth.datastore import secret_manager
 from flask import Flask, request
 
 from classes.auth_helper import user
-from classes.exceptions import CredentialsError
 from classes.oauth import OAuth
 from classes.report_type import Type
 from classes.scheduler import Scheduler
-from classes.secret_manager_credentials import Credentials
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -64,7 +64,8 @@ def index() -> jinja2.Template:
 
   data = {}
 
-  creds = Credentials(project=project, email=user_email)
+  creds = Credentials(project=project, email=user_email,
+                      datastore=secret_manager.SecretManager)
   try:
     template = JINJA_ENVIRONMENT.get_template('index.html')
     running_jobs = Scheduler().process(**{'action': 'list',
@@ -115,7 +116,8 @@ def authenticate() -> jinja2.Template:
 
   user_email, user_id = user()
   template = JINJA_ENVIRONMENT.get_template('authenticate.html')
-  creds = Credentials(project=project, email=None)
+  creds = Credentials(project=project, email=None,
+                      datastore=secret_manager.SecretManager)
   data = {
       'email': user_email,
       'client_id': creds.project_credentials.client_id,

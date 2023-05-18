@@ -27,7 +27,7 @@ from typing import Any, Dict
 from urllib.request import urlopen
 
 from auth.credentials import Credentials
-from auth.secret_manager import SecretManager
+from auth.datastore.secret_manager import SecretManager
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import storage
 from googleapiclient.discovery import Resource
