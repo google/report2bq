@@ -18,79 +18,20 @@ __author__ = [
     'davidharcombe@google.com (David Harcombe)'
 ]
 
-# Python logging
-import os
-import sys
+from typing import Any, Dict, Mapping
 
-from importlib import abc
-import types
-from importlib import machinery
-from typing import Any, Dict, Mapping, Optional
-
-from classes.cloud_storage import Cloud_Storage
+import dynamic
 from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 from google.cloud.bigquery import table
 
 
-class PostProcessorFinder(abc.MetaPathFinder):
-  """Check class type
-
-  This class checks to see if the class being loaded is a subclass of
-  'PostProcessor'. If it isn't, it won't be loaded.
-  """
-
-  def find_spec(self,
-                fullname: str,
-                path: str,
-                target: Optional[str] = None) -> machinery.ModuleSpec:
-    """
-    Locate the file in GCS. The "spec" should then be
-    fullname = fullname
-    path = location in GCS, should be hardwired in config
-    """
-    if 'postprocessor' not in fullname:
-      return None                     # we don't handle this this
-
-    else:
-      return machinery.ModuleSpec(fullname, PostProcessorLoader())
-
-
-class PostProcessorLoader(abc.Loader):
-  """Load a PostProcessor
-
-  Load an arbitrary PostProcessor subclass into the Python class library
-  dynamically. The location to check is hardwired here for security
-  reasons.
-  """
-
-  def create_module(self, spec: machinery.ModuleSpec):
-    return None  # use default module creation semantics
-
-  def exec_module(self, module: types.ModuleType):
-    try:
-      # Fetch the code here as string:
-      # GCS? BQ? Firestore? All good options
-      filename = module.__name__.split('.')[-1]
-      code = Cloud_Storage.fetch_file(
-          bucket=(f'{os.environ.get("GCP_PROJECT")}-report2bq-postprocessor'),
-          file=f'{filename}.py'
-      )
-      exec(code, vars(module))
-    except:
-      raise ModuleNotFoundError()
-
-
-class PostProcessor(object):
+class PostProcessor(dynamic.DynamicClass):
   """PostProcessor Abstract parent class
 
   In order to be loaded by the PostProcessor mechanism, all/any classes
   MUST extend this class and implement the 'run' method.
   """
-
-  def install_postprocessor():
-    """Inserts the finder into the import machinery"""
-    sys.meta_path.append(PostProcessorFinder())
 
   def check_table_exists(self, project: str, dataset: str, table: str) -> bool:
     """Check if a table exists in BigQuery dataset.

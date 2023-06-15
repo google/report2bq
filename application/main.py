@@ -12,16 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import base64
-import json
 import logging
 import os
-from importlib import import_module
 from typing import Any, Dict
 
+import auth
+import dynamic
 import flask
 import functions_framework
-from auth.credentials import Credentials
-from auth.datastore.secret_manager import SecretManager
+from google.cloud.scheduler import Job
 
 from classes import gmail
 from classes.adh import ADH
@@ -41,7 +40,6 @@ from classes.scheduler import Scheduler
 from cloud_functions.job_monitor import JobMonitor
 from cloud_functions.report_loader import ReportLoader
 from cloud_functions.run_monitor import RunMonitor
-from google.cloud.scheduler import Job
 
 
 @measure_memory
@@ -116,8 +114,8 @@ def report_fetch(event: Dict[str, Any], context=None) -> None:
                                            product='Report Fetcher',
                                            event=event, error=e)
         gmail.send_message(message,
-                           credentials=Credentials(
-                               datastore=SecretManager,
+                           credentials=auth.Credentials(
+                               datastore=auth.secret_manager,
                                project=os.environ['GCP_PROJECT'],
                                email=email))
 
@@ -245,18 +243,17 @@ def post_processor(event: Dict[str, Any], context=None) -> None:
   """
 
   logging.info('Postprocessor invoked')
-  if postprocessor := event.get('data'):
-    name = base64.b64decode(postprocessor).decode('utf-8')
-    logging.info('Loading and running %s', name)
-    PostProcessor.install_postprocessor()
+  if event_data := event.get('data'):
+    module_name = base64.b64decode(event_data).decode('utf-8')
+    logging.info('Loading and running %s', module_name)
 
     if attributes := event.get('attributes'):
-      _import = f'import classes.postprocessor.{name}'
-      exec(_import)
-      Processor = getattr(import_module(f'classes.postprocessor.{name}'),
-                          'Processor')
+      processor = PostProcessor.install(module_name=module_name,
+                                        class_name='Processor',
+                                        storage=dynamic.CloudStorage,
+                                        bucket='report2bq-postprocessor')
       try:
-        Processor().run(context=context, **attributes)
+        processor().run(context=context, **attributes)
 
       except Exception as e:
         logging.error('Exception in postprocessor: %s', gmail.error_to_trace(e))
