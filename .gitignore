@@ -31,4 +31,3 @@ auth-appengine/test/
 application/cli/env.sh
 **/json/
 **/keys/
-admin-chat-app/
