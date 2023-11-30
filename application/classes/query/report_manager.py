@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from google.cloud.bigquery.job.query import QueryJob
+
 from classes import report_manager
 from classes.query import query
 from google.cloud import bigquery
@@ -145,7 +147,6 @@ class ManagerUpdate(query.Query):
 
     TRUNCATE TABLE `{config.project}.{config.dataset}.{config.table}`;
     """)
-
 
 class ActiveAccounts(query.Query):
   def __init__(self,

@@ -56,7 +56,8 @@ class Report2BQ(object):
                                     datastore=secret_manager.SecretManager)
     return service_builder.build_service(
         service=services.Service.CHAT, key=creds.credentials,
-        extra_scopes=['https://www.googleapis.com/auth/chat', 'https://www.googleapis.com/auth/chat.spaces'])
+        extra_scopes=['https://www.googleapis.com/auth/chat',
+                      'https://www.googleapis.com/auth/chat.spaces'])
 
   def __init__(self) -> Report2BQ:
     pass
@@ -74,8 +75,8 @@ class Report2BQ(object):
         Mapping[str, Any]: _description_
     """
     try:
-      processor = dynamic.DynamicClass.install(module_name='command',
-                                               class_name=command,
+      processor = dynamic.DynamicClass.install(module_name=command,
+                                               class_name='Processor',
                                                storage=dynamic.CloudStorage,
                                                bucket='my-gcs-bucket')
       attributes = {

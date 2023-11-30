@@ -97,7 +97,7 @@ function check_service {
 }
 
 # Constants
-PYTHON_RUNTIME=python310
+PYTHON_RUNTIME=python311
 
 # Switch definitions
 PROJECT=
@@ -218,7 +218,7 @@ while [[ $1 == -* ]] ; do
     --no-topics)
       DEPLOY_TOPICS=0
       ;;
-    --no-code)
+    --no-code).gcloudignore
       DEPLOY_CODE=0
       ;;
     --no-adh)
@@ -341,13 +341,13 @@ if [ ${DEPLOY_STORAGE} -eq 1 ]; then
     report2bq-ga360-manager:1d; do
     IFS=":" read BUCKET_NAME BUCKET_RETENTION <<< ${bucket}
     ${DRY_RUN} gsutil ls                        \
-      --project ${PROJECT}                      \
+      -p ${PROJECT}                      \
       gs://${PROJECT}-${BUCKET_NAME} > /dev/null 2>&1
     RETVAL=$?
     if (( ${RETVAL} != "0" )); then
       ${DRY_RUN} gsutil mb                      \
-        --project=${PROJECT}                    \
-        --retention-period=${BUCKET_RETENTION}     \
+        -p=${PROJECT}                    \
+        --retention=${BUCKET_RETENTION}     \
         gs://${PROJECT}-${BUCKET_NAME}
     fi
   done
@@ -380,43 +380,7 @@ if [ ${STORE_CLIENT} -eq 1 ]; then
   fi
 fi
 
-if [ ${DEPLOY_CODE} -eq 1 ]; then
-  # Create and deploy the code
-  # Check for the code bucket
-  ${DRY_RUN} gsutil ls -p ${PROJECT} gs://${PROJECT}-report2bq > /dev/null 2>&1
-  RETVAL=$?
-  if (( ${RETVAL} != "0" )); then
-    echo Destination bucket missing. Creating.
-    ${DRY_RUN} gsutil mb -p ${PROJECT} gs://${PROJECT}-report2bq
-  fi
-
-  [ -e report2bq.zip ] && rm -f report2bq.zip >/dev/null 2>&1
-
-  # Create the zip
-  ${DRY_RUN}              \
-    zip report2bq.zip     \
-      -r main.py          \
-      requirements.txt    \
-      classes/            \
-      cloud_functions/    \
-      -x *_test.py        \
-      -x __pycache__      \
-      -x *.pyc
-
-  # Copy it up
-  ${DRY_RUN} gsutil cp report2bq.zip gs://${PROJECT}-report2bq > /dev/null 2>&1
-  RETVAL=$?
-  if (( ${RETVAL} != "0" )); then
-    echo Error deploying zip file!
-    exit
-  fi
-  SOURCE="gs://${PROJECT}-report2bq/report2bq.zip"
-  ${DRY_RUN} gsutil cp postprocessors/report2bq_unknown.py \
-    gs://${PROJECT}-report2bq-postprocessor 2>&1 > /dev/null
-
-else
-  SOURCE="."
-fi
+SOURCE=`pwd`
 
 # TOPICS & TRIGGERS
 if [ ${DEPLOY_TOPICS} -eq 1 ]; then

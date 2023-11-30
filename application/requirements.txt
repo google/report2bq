@@ -34,6 +34,7 @@ google-auth>=1.28.0
 google-cloud-bigquery>=2.13.0
 google-cloud-core>=1.6.0
 google-cloud-firestore>=2.0.2
+google-cloud-logging>=3.6.0
 google-cloud-pubsub>=2.3.0
 google-cloud-scheduler>=2.1.1
 google-cloud-secret-manager>=2.8.0

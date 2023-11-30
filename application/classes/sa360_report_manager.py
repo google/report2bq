@@ -17,11 +17,13 @@ import dataclasses
 import enum
 import io
 import json
-import logging
+import logging as log
 import os
 import random
+import stringcase
 import uuid
-from typing import Any, Dict, List, Tuple
+
+from typing import Any, Dict, List, Tuple, Union
 
 import dataclasses_json
 import stringcase
@@ -30,6 +32,7 @@ from auth.datastore.secret_manager import SecretManager
 from google.cloud import bigquery
 from googleapiclient import discovery as gdiscovery
 from service_framework import service_builder
+from classes import gmail
 
 from classes.cloud_storage import Cloud_Storage
 from classes.query.report_manager import ActiveAccounts, ManagerUpdate
@@ -38,6 +41,11 @@ from classes.report_manager import (ManagerConfiguration, ManagerType,
 from classes.report_type import Type
 from classes.sa360_job import SA360Job, SA360ReportMetric
 from classes.sa360_report_validation import sa360_validator_factory
+
+from google.cloud import logging
+
+logging_client = logging.Client()
+logging_client.setup_logging()
 
 
 class Validity(enum.Enum):
@@ -81,6 +89,8 @@ class SA360Manager(ReportManager):
       'delete',
       'validate',
       'install',
+      'maddie',
+      'pcrawf'
   }
 
   def manage(self, **kwargs) -> Any:
@@ -111,7 +121,7 @@ class SA360Manager(ReportManager):
         project=project,
         email=email,
         file=kwargs.get('file'),
-        table='updated_sa_inputs'
+        table='sa360_definition'
     )
 
     args = {
@@ -121,6 +131,116 @@ class SA360Manager(ReportManager):
     }
 
     return self._get_action(kwargs.get('action'))(**args)
+
+  def pcrawf(self, config: ManagerConfiguration, **unused) -> None:
+    def create_service():
+      creds = Credentials(datastore=SecretManager,
+                          project=config.project, email=config.email)
+      return service_builder.build_service(service=self.report_type.service,
+                                            key=creds.credentials)
+
+    reader = []
+    sa360_service = create_service()
+
+    results = []
+    if config.type == ManagerType.FILE_LOCAL:
+      action = results.append
+      gcs_stored = False
+      filename = config.file
+      with open(config.file, 'r') as csv_file:
+        reader = [row for row in csv.DictReader(csv_file)]
+
+    else:
+      query = ActiveAccounts(config)
+      # action = query.insert
+      gcs_stored = True
+      filename = 'custom_columns'
+      action = results.append
+      job = query.fetch()
+      reader = [dict(row) for row in job]
+      trunc = query.truncate()
+
+    blocks = self._chunk(reader, 250)
+    block_number = 1
+    for block in blocks:
+      sa360_service = create_service()
+
+      for row in block:
+        validator = \
+            sa360_validator_factory.SA360ValidatorFactory().get_validator(
+                report_type='campaign',
+                sa360_service=sa360_service,
+                agency=row['ds_agency_id'], advertiser=row['ds_advertiser_id'])
+        custom_columns = validator.list_custom_columns()
+        result = {
+            'agency': row['ds_agency_id'],
+            'advertiser': row['ds_advertiser_id'],
+            'columns': custom_columns}
+        action(result)
+
+      if results:
+        self._output_results(results=results, project=config.project,
+                             email=config.email, gcs_stored=gcs_stored,
+                             file=f'{filename}-{block_number:04d}')
+        block_number += 1
+        results = []
+
+  def maddie(self, config: ManagerConfiguration, **unused) -> None:
+    def _decode_metric(metric: Union[str, SA360ReportMetric]):
+      if not metric or metric == '':
+        return 'None'
+
+      if isinstance(metric, str):
+        return f'{metric}'
+      elif isinstance(metric, dict):
+        return f"{metric['value']}"
+      else:
+        return f'{metric.value}'
+
+    sa360_reports = self.firestore.get_all_documents(type=Type.SA360_RPT)
+    results = []
+    for sa360_report in sa360_reports:
+      if sa360_report.id == '_reports':
+        continue
+
+      if r := self.firestore.get_document(
+              type=Type.SA360_RPT, id=sa360_report.id):
+        try:
+          report: SA360Job = SA360Job.from_dict(r)
+
+          row = {
+              'job name': f'{report.report}_{report.AgencyId}_{report.AdvertiserId}',
+              'report name': report.report,
+              'agency_id': report.AgencyId,
+              'advertiser_id': report.AdvertiserId,
+              'dataset': report.dest_dataset,
+              'conversion metric': _decode_metric(report.ConversionMetric),
+              'revenue metric': _decode_metric(report.RevenueMetric)
+          }
+          results.append(row)
+
+        except KeyError:
+          print(f'Error: {r}')
+
+    if results:
+      csv_output = f'{config.email}-maddie.csv'
+      if config.gcs_stored:
+        csv_bytes = io.StringIO()
+        writer = csv.DictWriter(
+            csv_bytes, fieldnames=Validation.keys(), quoting=csv.QUOTE_ALL)
+        writer.writeheader()
+        writer.writerows([r.to_dict() for r in results])
+        Cloud_Storage(project=config.project, email=config.email).write_file(
+            bucket=self.bucket,
+            file=csv_output,
+            data=csv_bytes.getvalue())
+
+      else:
+        with open(csv_output, 'w') as csv_file:
+          writer = csv.DictWriter(
+              csv_file, fieldnames=results[0].keys(), quoting=csv.QUOTE_ALL)
+          writer.writeheader()
+          writer.writerows(results)
 
   def validate(self, config: ManagerConfiguration, **unused) -> None:
     sa360_report_definitions = \
@@ -180,7 +300,7 @@ class SA360Manager(ReportManager):
                          report: Dict[str, Any],
                          sa360_service: gdiscovery.Resource) -> \
           Tuple[bool, Dict[str, Any]]:
-    logging.info(
+    log.info(
         'Validating %s (%s/%s) on report %s', report.get("agencyName", "-"),
         report["AgencyId"], report["AdvertiserId"], report["report"])
 
@@ -211,12 +331,12 @@ class SA360Manager(ReportManager):
         setattr(
             validation, stringcase.camelcase(report_custom_column), validity)
         if not valid_column and name:
-          logging.info(
+          log.info(
               f'  Field {report_custom_column} - '
               f'{report[report_custom_column]}: '
               f'{valid_column}, did you mean "{name}"')
         else:
-          logging.info(
+          log.info(
               f'  Field {report_custom_column} - '
               f'{report[report_custom_column]}: '
               f'{valid_column}')
@@ -228,11 +348,11 @@ class SA360Manager(ReportManager):
 
   def install(self, config: ManagerConfiguration, **unused) -> None:
     if not self.scheduler:
-      logging.warn(
+      log.warn(
           'No scheduler is available: jobs will be stored but not scheduled.')
 
     results = []
-    random.seed(uuid.uuid4())
+    random.seed(uuid.uuid4().bytes)
 
     runners = self._read_json(config)
     sa360_report_definitions = \
@@ -264,23 +384,28 @@ class SA360Manager(ReportManager):
                                           key=creds.credentials)
         services[runner['email']] = sa360_service
 
-      (valid, validity) = self._report_validation(
-          sa360_report_definitions=sa360_report_definitions,
-          report=runner, sa360_service=sa360_service)
+      try:
+        (valid, validity) = self._report_validation(
+            sa360_report_definitions=sa360_report_definitions,
+            report=runner, sa360_service=sa360_service)
 
-      if valid:
-        logging.info('Valid report: %s', id)
-        sa360_job = SA360Job.from_dict(runner)
-        self.firestore.update_document(type=self.report_type,
-                                       id=id, new_data=sa360_job.to_dict())
+        if valid:
+          log.info('Valid report: %s', id)
+          sa360_job = SA360Job.from_dict(runner)
+          self.firestore.update_document(type=self.report_type,
+                                        id=id, new_data=sa360_job.to_dict())
 
-        if self.scheduler:
-          results.append(self._schedule_job(project=config.project,
-                                            runner=runner, id=id))
+          if self.scheduler:
+            results.append(self._schedule_job(project=config.project,
+                                              runner=runner, id=id))
 
-      else:
-        logging.info('Invalid report: %s', id)
-        results.append(f'{id} - Validation failed: {validity}')
+        else:
+          log.info('Invalid report: %s', id)
+          results.append(f'{id} - Validation failed: {validity}')
+
+      except Exception as e:
+        log.info('Validation failed: %s', gmail.error_to_trace(e))
+        results.append(f'{id} - Validation failed: {gmail.error_to_trace(e)}')
 
     if results:
       if config.type == ManagerType.BIG_QUERY:

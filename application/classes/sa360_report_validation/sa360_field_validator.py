@@ -21,6 +21,12 @@ from typing import Any, Dict, List, Tuple
 from classes.decorators import lazy_property
 from googleapiclient.discovery import Resource
 from typing import List
+import logging as log
+from google.cloud import logging
+from classes import gmail
+
+logging_client = logging.Client()
+logging_client.setup_logging()
 
 
 class SA360Validator(object):
@@ -81,17 +87,18 @@ class SA360Validator(object):
 
   def list_custom_columns(self) -> List[str]:
     saved_column_names = []
-    if self.sa360_service:
-      request = self.sa360_service.savedColumns().list(
-          agencyId=self.agency, advertiserId=self.advertiser)
-      response = request.execute()
+    try:
+      if self.sa360_service:
+        request = self.sa360_service.savedColumns().list(
+            agencyId=self.agency, advertiserId=self.advertiser)
+        response = request.execute()
 
-      if 'items' in response:
-        saved_column_names = [
-            item['savedColumnName'] for item in response['items']
-        ]
-      else:
-        saved_column_names = []
+        if 'items' in response:
+          saved_column_names = [
+              item['savedColumnName'] for item in response['items']
+          ]
+    except Exception as e:
+      log.info(gmail.error_to_trace(e))
 
     return saved_column_names
 

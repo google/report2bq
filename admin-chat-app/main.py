@@ -66,20 +66,21 @@ SCOPES = [
     'https://www.googleapis.com/auth/userinfo.profile',
     'openid',
 ]
-REDIRECT_URI = 'https://us-central1-chats-zz9-plural-z-alpha.cloudfunctions.net/report2bq-oauth-complete'
+REDIRECT_URI = os.environ.get('REDIRECT_URI')
 
 
 def start_oauth(request: Union[Mapping[str, Any], flask.Request]) -> flask.Response:
   """Begins the oauth flow to authorize access to profile data."""
   client_secrets = SecretManager(
-    project=os.environ.get('GCP_PROJECT')).get_document('client_secrets')
+      project=os.environ.get('GCP_PROJECT')).get_document('client_secrets')
   oauth2_flow = flow.Flow.from_client_config(client_config=client_secrets,
                                              scopes=SCOPES,
                                              redirect_uri=REDIRECT_URI)
 
   oauth2_url, state = oauth2_flow.authorization_url(
       access_type='offline',
-      include_granted_scopes='true')
+      include_granted_scopes='true',
+      prompt='consent')
 
   return flask.redirect(oauth2_url)
 

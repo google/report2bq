@@ -24,6 +24,8 @@ from classes.dbm import DBM
 from classes.dcm import DCM
 from classes.report_type import Type
 from classes.scheduler import Scheduler
+from concurrent import futures
+
 from google.cloud import pubsub
 from google.cloud.scheduler import Job
 
@@ -179,11 +181,10 @@ class RunMonitor(object):
     if status == 'DONE':
       # Send pubsub to trigger report2bq now
       topic = f'projects/{self.project}/topics/report2bq-fetcher'
-      self.pubsub_client.publish(
+      futures.wait([self.pubsub_client.publish(
           topic=topic,
           data=b'RUN',
-          **job_attributes
-      )
+          **job_attributes)], return_when=futures.ALL_COMPLETED)
 
       # Remove job from running
       self.remove_report_runner(run_config['report_id'])
@@ -218,7 +219,10 @@ class RunMonitor(object):
     if status == 'REPORT_AVAILABLE':
       # Send pubsub to trigger report2bq now
       topic = f'projects/{self.project}/topics/report2bq-fetcher'
-      self.pubsub_client.publish(topic=topic, data=b'RUN', **job_attributes)
+      futures.wait([self.pubsub_client.publish(
+          topic=topic,
+          data=b'RUN',
+          **job_attributes)], return_when=futures.ALL_COMPLETED)
 
       # Remove job from running
       self.remove_report_runner(run_config['report_id'])
@@ -246,9 +250,10 @@ class RunMonitor(object):
 
     # Send pubsub to trigger report2bq now
     topic = f'projects/{self.project}/topics/report2bq-fetcher'
-    self.pubsub_client.publish(
-        topic=topic, data=b'RUN',
-        **config)
+    futures.wait([self.pubsub_client.publish(
+        topic=topic,
+        data=b'RUN',
+        **config)], return_when=futures.ALL_COMPLETED)
 
   def _email_error(self,
                    message: str,
